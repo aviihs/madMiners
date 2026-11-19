@@ -85,14 +85,25 @@ class MapGenerator {
     _scatter(map, rng, TileType.lava, def.lavaPockets, fromY: lavaTop - (lavaTop - surfaceRows) ~/ 4, toY: lavaTop - 2, radius: 1);
 
     // 5. The treasure: random column, a few rows above the lava sea.
-    final tx = 2 + rng.nextInt(width - 4);
-    final ty = lavaTop - 3 - rng.nextInt(5);
+    final tx = 4 + rng.nextInt(width - 8);
+    final ty = lavaTop - 2 - rng.nextInt(3);
     for (var dy = -1; dy <= 1; dy++) {
       for (var dx = -1; dx <= 1; dx++) {
         if (map.tileAt(tx + dx, ty + dy) != TileType.bedrock) map.setTile(tx + dx, ty + dy, TileType.hardRock);
       }
     }
     map.setTile(tx, ty, TileType.treasure);
+
+    // 6. Hidden volcanoes, only in the hard-rock half (they look identical).
+    var placed = 0, tries = 0;
+    while (placed < def.volcanoes && tries++ < 2000) {
+      final x = 1 + rng.nextInt(width - 2);
+      final y = surfaceRows + ((lavaTop - surfaceRows) * (0.5 + rng.nextDouble() * 0.48)).floor();
+      if (map.tileAt(x, y) != TileType.hardRock) continue;
+      if ((x - tx).abs() <= 2 && (y - ty).abs() <= 2) continue; // keep the treasure fair
+      map.setTile(x, y, TileType.volcano);
+      placed++;
+    }
     return map;
   }
 

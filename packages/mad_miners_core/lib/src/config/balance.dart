@@ -37,8 +37,8 @@ const Map<OreType, OreDef> oreDefs = {
   OreType.moneyBag: OreDef(type: OreType.moneyBag, name: 'Money Bag', rarity: Rarity.epic, value: 120, hardness: 2),
 };
 
-/// Purchasable at the surface depot (SRS §3.6).
-enum UpgradeKind { pickaxe, helmet }
+/// Equipment bought with match coins at the surface shop (SRS §3.6).
+enum UpgradeKind { pickaxe, helmet, boots, armor }
 
 class UpgradeLevel {
   const UpgradeLevel(this.name, this.cost, this.stat, [this.cooldown = 0]);
@@ -49,6 +49,7 @@ class UpgradeLevel {
   final int cost;
 
   /// Pickaxe: damage per hit. Helmet: light radius in tiles.
+  /// Boots: speed multiplier. Armor: share of bomb/gas/volcano damage blocked.
   final double stat;
 
   /// Pickaxe only: seconds between hits.
@@ -68,6 +69,39 @@ const Map<UpgradeKind, List<UpgradeLevel>> upgradeTracks = {
     UpgradeLevel('Mining Helmet', 60, 7),
     UpgradeLevel('Floodlight Helmet', 200, 9.5),
   ],
+  UpgradeKind.boots: [
+    UpgradeLevel('Sneakers', 0, 1.0),
+    UpgradeLevel('Work Boots', 70, 1.15),
+    UpgradeLevel('Rocket Boots', 260, 1.32),
+  ],
+  UpgradeKind.armor: [
+    UpgradeLevel('T-Shirt', 0, 0),
+    UpgradeLevel('Leather Vest', 90, 0.25),
+    UpgradeLevel('Blast Armor', 300, 0.5),
+  ],
+};
+
+/// Consumables, bought at the shop and used anywhere.
+enum ItemKind { bomb, dynamite }
+
+class ItemDef {
+  const ItemDef(this.name, this.cost, this.radius, this.damage, this.fuse);
+  final String name;
+  final int cost;
+
+  /// Blast radius in tiles.
+  final double radius;
+
+  /// Damage to miners caught in the blast (before armor).
+  final double damage;
+
+  /// Seconds before it goes off.
+  final double fuse;
+}
+
+const Map<ItemKind, ItemDef> itemDefs = {
+  ItemKind.bomb: ItemDef('Bomb', 25, 1.5, 55, 2.0),
+  ItemKind.dynamite: ItemDef('Dynamite', 70, 2.5, 90, 2.6),
 };
 
 extension UpgradeKindX on UpgradeKind {
@@ -76,6 +110,8 @@ extension UpgradeKindX on UpgradeKind {
   String get label => switch (this) {
     UpgradeKind.pickaxe => 'Pickaxe',
     UpgradeKind.helmet => 'Helmet',
+    UpgradeKind.boots => 'Boots',
+    UpgradeKind.armor => 'Armor',
   };
 }
 
@@ -112,6 +148,25 @@ abstract final class Balance {
   static const int treasureHardness = 6;
   static const int treasureBonus = 500;
   static const String treasureName = 'Lost Treasure';
+
+  /// Lobby phase before digging starts: miners gather at the surface and
+  /// the room fills up.
+  static const double warmupSeconds = 7;
+
+  /// Max bombs/dynamite a miner can carry of each kind.
+  static const int maxItemStack = 5;
+
+  /// Hidden volcanoes: break one and you're toast.
+  static const double volcanoSplashDamage = 45;
+  static const double volcanoSplashRadius = 2.2;
+
+  /// Erupted lava hardens into rock after this long.
+  static const double lavaCoolSeconds = 25;
+
+  /// Treasure "sense" ranges in tiles (scaled up by better helmets).
+  static const double hintFaint = 15;
+  static const double hintWarm = 9;
+  static const double hintHot = 4.5;
 
   static const int reconnectWindowSeconds = 60;
   static const int defaultMatchSeconds = 360;

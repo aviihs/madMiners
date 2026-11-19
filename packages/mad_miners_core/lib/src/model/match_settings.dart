@@ -22,6 +22,7 @@ class MapDef {
     required this.lavaPockets,
     required this.gasPockets,
     required this.lootBoost,
+    required this.volcanoes,
   });
 
   final MapId id;
@@ -38,6 +39,9 @@ class MapDef {
   final int lavaPockets;
   final int gasPockets;
   final double lootBoost;
+
+  /// Hidden volcano tiles in the deep half.
+  final int volcanoes;
 }
 
 enum MapId {
@@ -55,6 +59,7 @@ enum MapId {
       lavaPockets: 2,
       gasPockets: 2,
       lootBoost: 1.0,
+      volcanoes: 8,
     ),
     MapId.crystalCave => const MapDef(
       id: MapId.crystalCave,
@@ -65,6 +70,7 @@ enum MapId {
       lavaPockets: 5,
       gasPockets: 5,
       lootBoost: 1.8,
+      volcanoes: 16,
     ),
     MapId.lavaMine => const MapDef(
       id: MapId.lavaMine,
@@ -75,6 +81,7 @@ enum MapId {
       lavaPockets: 12,
       gasPockets: 4,
       lootBoost: 1.4,
+      volcanoes: 28,
     ),
   };
 

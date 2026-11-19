@@ -11,4 +11,7 @@ abstract interface class AccountRepository {
   /// Saves several accounts atomically (end-of-match rewards).
   Future<void> saveAll(Iterable<PlayerAccount> accounts);
   Future<List<PlayerAccount>> topByCoins(int limit);
+
+  /// Today's ranking: most treasure finds, then most coins.
+  Future<List<PlayerAccount>> topToday(int limit);
 }

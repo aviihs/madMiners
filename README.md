@@ -2,6 +2,7 @@
 
 Real-time multiplayer mining game: **Flutter + Flame** client (Android, iOS, Windows, macOS, Web),
 **authoritative Dart server**, and a **shared pure-Dart game core**.
+Dig down through rock, avoid the lava at the bottom, and be the **first to break the hidden treasure**.
 Rooms hold **8–12 miners**, and **bots fill the empty seats** when there aren't enough people.
 
 ```
@@ -27,25 +28,83 @@ cd app && flutter run            # -d macos / chrome / windows / <device id>
 
 Tests: `dart test` in `packages/mad_miners_core` and `server`, `flutter test` in `app`.
 
-## How it plays
+Screenshots without a device (renders login, lobby and an in-game frame to PNG):
+```bash
+cd app && flutter test test/screenshots --dart-define=SHOTS=/tmp/shots \
+  --dart-define=FONTS=$HOME/flutter/bin/cache/artifacts/material_fonts \
+  --dart-define=CI_FONT=$(ls -d ~/.pub-cache/hosted/pub.dev/cupertino_icons-*/ | tail -1)assets/CupertinoIcons.ttf
+```
 
-Dig down from the surface camp, mine ore (Copper → Iron → Gold → Diamond → Mystic Crystal, rarer the
-deeper you go), and carry it back to the **depot** to sell it automatically. Spend coins at the depot on
-pickaxes (up to the Laser Drill), backpacks, oxygen tanks and helmets. Below the oxygen line your air
-drains. Lava, toxic gas and darkness can all knock you out, and you lose whatever ore you're carrying.
+## How it plays: Treasure Hunt
 
-Modes: **Mining Competition** (most coins wins), **Team Mining** (2 crews), **Free Mining**.
-Maps: **Starter Mine**, **Crystal Cave**, **Lava Mine**.
+```
+ surface camp + SHOP           ← everyone spawns here (and respawns after dying)
+ ── soil / rock ───────────────  dig down, grab copper / iron / gold (coins right away)
+ ── hard rock ─────────────────  diamonds, money bags, toxic gas,
+                                  HIDDEN VOLCANOES (look like normal rock!)
+ ── 💎 hidden treasure ────────  random spot, 1–3 rows above the lava
+ ── LAVA SEA ──────────────────  instant death, back to the top
+```
 
-Controls: WASD/arrows to move, Space/J to mine. Touch devices get a joystick and a mine button.
+- **Break rock to go down.** Loot pays coins instantly.
+- **Hidden volcanoes:** some deep rocks are volcanoes and look exactly like normal rock, even to a
+  hacked client. Break one and it erupts: you die and respawn at the top, and anyone nearby gets
+  burned. The lava hardens back into rock after 25 seconds.
+- **Treasure sense (hints):** deeper down your helmet "senses" the treasure. You'll see
+  *Faint glimmer…*, then *Warmer · somewhere left/right*, then *HOT!*, and the screen edge glows gold.
+  It never shows the exact tile. Better helmets sense from farther away. Hints are sent only to you.
+- **The first to break the treasure wins and the match ends.** If time runs out, the most coins wins.
+- **Shop (on the surface)**, paid with match coins:
+  Pickaxe (dig speed) · Helmet (light + sense range) · Boots (run speed) · Armor (less blast/gas damage)
+  · **Bomb** (blows up 3×3, 25¢) · **Dynamite** (5×5, 70¢). Bombs collect any loot they blow up,
+  set off volcanoes, chain-react, and hurt miners nearby, including you.
+- Controls: WASD/arrows move · Space dig · **B** bomb · **N** dynamite. Touch: joystick, dig button, bomb buttons.
 
-## Bots
+## Money, gems & cosmetics
 
-- `botsNeeded(settings, humans)` tops the room up to `minPlayers` (8) and never goes past `maxPlayers` (12).
-- When a human joins, the lowest-scoring bot leaves. When a human leaves, a bot comes back. A room with no humans shuts down.
-- Bots only send `PlayerInput`s, so the server validates them exactly like humans (no cheating).
-  They use Dijkstra "dig-paths" to pick the most valuable ore for the effort, go home when they're full,
-  low on air or hurt, and buy upgrades. They're labelled **[BOT]** in game.
+| Currency | How you get it | What it buys |
+|---|---|---|
+| Match coins | Loot during a match | Equipment and bombs (that match only) |
+| Wallet coins | Everything you earned in a match is added after it ends | Outfits, helmets, pickaxe skins |
+| 💎 Gems (premium) | +10 for finding the treasure, +2 for a top-3 finish (real-money packs can come later) | Premium cosmetics |
+
+**Locker** (Lobby → Locker): try items on a live preview of your miner, then buy or wear them.
+There are 8 outfits, 6 helmets (hard hat, crown, viking, prospector…) and 5 pickaxe skins.
+Everyone sees what you wear in the match. Cosmetics never change gameplay. Purchases are checked and
+applied on the server, and a retried purchase (same `requestId`) is never charged twice.
+
+**Leaderboard:** the **Today** tab ranks by treasures found today, then coins (resets every day).
+The **All Time** tab ranks by lifetime coins.
+
+## Bots (they look like real players)
+
+- Each room fills up to 8 miners and never goes past 12. When a real person joins, the shallowest bot leaves.
+- Bots have ordinary Nepali-style usernames (`Sagar_07`, `Bikash.np`, `Aayush99`…) and no BOT tag.
+  The server never sends who's a bot: `isBot` is always `false` on the wire, including in results.
+  Only the server knows (it's kept for persistence, analytics and moderation, and bots are never
+  saved as accounts or put on the leaderboard).
+- Matches open with a **7-second lobby**: "Finding miners… 4/8" while bots join one by one, then 3‑2‑1.
+  Bots walk around the camp during the lobby, sometimes hesitate while digging, and have different
+  skill levels.
+- Bots don't know where the treasure is. They dig down along their own lane, never walk into lava,
+  grab loot they can see, and only go for the treasure once it's revealed and close.
+- If you'd rather tell players about bots (some stores and regions expect it), set
+  `disguiseBots: false` in `GameSimulation`.
+
+## Troubleshooting: "server didn't connect"
+
+- **The app finds the server by itself:** it tries localhost, the Android emulator address, and listens
+  for the server's Wi‑Fi broadcast (UDP 41234). If the dot stays red, tap **Search again**.
+- The server must be running: `curl localhost:8080/health` → `{"success":true,...}`.
+  **Restart it after pulling new code** (Ctrl+C, then `dart run bin/server.dart`).
+- `Address already in use`: an old server is still running. Stop it, or kill it with
+  `kill $(lsof -t -i:8080)`, or run on another port with `PORT=8081`.
+- At startup the server prints a **Network** address. Use that on a real phone (same Wi-Fi).
+  The login screen shows a green "Online" dot once it can reach the server.
+- macOS app: needs the `com.apple.security.network.client` entitlement (already added).
+- Android: emulator → `http://10.0.2.2:8080`; real phone → `http://<your-PC-LAN-IP>:8080` (same Wi-Fi).
+  Cleartext HTTP and the INTERNET permission are enabled for dev builds.
+- iOS: `NSAllowsArbitraryLoads` is on for dev. Use HTTPS/WSS in production.
 
 ## Architecture
 
@@ -80,7 +139,11 @@ DI lives in `app/lib/app/di.dart` (get_it).
 | GET | `/rooms/{id}` | Room info |
 | POST | `/rooms/{id}/join`, `/rooms/join-by-code` | Get a ticket (`wsPath`) |
 | POST | `/matchmaking/quick` | Best open public room, or a new one filled with bots |
-| GET | `/leaderboards/global` | Top 50 |
+| GET | `/leaderboards/global` | Top 50 all-time |
+| GET | `/leaderboards/daily` | Today's top 50 (most treasure finds) |
+| GET | `/store/catalog` | Cosmetics with prices |
+| POST | `/store/purchase` | `{itemId, requestId}` → idempotent purchase |
+| POST | `/players/me/equip` | `{itemId}` → wear an owned item |
 | GET | `/catalog` | Ores, upgrades, maps, modes |
 
 WebSocket: `GET /ws/game?room=<id>&token=<accessToken>`. JSON frames are defined in `core/lib/src/protocol/messages.dart`.

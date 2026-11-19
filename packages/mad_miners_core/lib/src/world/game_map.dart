@@ -88,9 +88,13 @@ class GameMap {
 
   // ---- serialisation -----------------------------------------------------
 
-  /// What clients may see at [i]: an unrevealed treasure looks like rock.
-  TileType publicTypeAt(int i, {required bool hideTreasure}) =>
-      hideTreasure && _tiles[i] == TileType.treasure ? TileType.hardRock : _tiles[i];
+  /// What clients may see at [i]: volcanoes always, and the treasure until
+  /// revealed, look like hard rock.
+  TileType publicTypeAt(int i, {required bool hideTreasure}) => switch (_tiles[i]) {
+    TileType.volcano => TileType.hardRock,
+    TileType.treasure when hideTreasure => TileType.hardRock,
+    final t => t,
+  };
 
   int publicHpAt(int i, {required bool hideTreasure}) {
     final t = publicTypeAt(i, hideTreasure: hideTreasure);

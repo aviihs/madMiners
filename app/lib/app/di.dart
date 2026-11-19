@@ -22,6 +22,11 @@ import '../features/lobby/data/repositories/lobby_repository_impl.dart';
 import '../features/lobby/domain/repositories/lobby_repository.dart';
 import '../features/lobby/domain/usecases/lobby_usecases.dart';
 import '../features/lobby/presentation/cubit/lobby_cubit.dart';
+import '../features/store/data/datasources/store_remote_data_source.dart';
+import '../features/store/data/repositories/store_repository_impl.dart';
+import '../features/store/domain/repositories/store_repository.dart';
+import '../features/store/domain/usecases/store_usecases.dart';
+import '../features/store/presentation/cubit/store_cubit.dart';
 
 /// Service locator. The only place that knows concrete implementations.
 final sl = GetIt.instance;
@@ -40,6 +45,8 @@ Future<void> configureDependencies() async {
     ..registerFactory(() => RestoreSession(sl()))
     ..registerFactory(() => RefreshProfile(sl()))
     ..registerFactory(() => SignOut(sl()))
+    ..registerFactory(() => CheckServer(sl()))
+    ..registerFactory(() => FindServer(sl()))
     ..registerFactory(() => AuthCubit(signIn: sl(), restore: sl(), refresh: sl(), signOut: sl(), repo: sl()))
     // Lobby
     ..registerLazySingleton(() => LobbyRemoteDataSource(sl()))
@@ -56,7 +63,14 @@ Future<void> configureDependencies() async {
     ..registerLazySingleton(() => LeaderboardRemoteDataSource(sl()))
     ..registerLazySingleton<LeaderboardRepository>(() => LeaderboardRepositoryImpl(sl()))
     ..registerFactory(() => GetGlobalLeaderboard(sl()))
-    ..registerFactory(() => LeaderboardCubit(sl()))
+    ..registerFactory(() => GetTodayLeaderboard(sl()))
+    ..registerFactory(() => LeaderboardCubit(sl(), sl()))
+    // Store
+    ..registerLazySingleton(() => StoreRemoteDataSource(sl()))
+    ..registerLazySingleton<StoreRepository>(() => StoreRepositoryImpl(sl()))
+    ..registerFactory(() => PurchaseCosmetic(sl()))
+    ..registerFactory(() => EquipCosmetic(sl()))
+    ..registerFactory(() => StoreCubit(sl(), sl()))
     // Game
     ..registerLazySingleton<GameSessionRepository>(() => GameSessionRepositoryImpl(sl()))
     ..registerFactory(() => OpenGameSession(sl()));

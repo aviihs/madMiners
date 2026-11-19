@@ -66,6 +66,8 @@ class RemoteGameSession implements GameSession {
       case MatchEndMessage m:
         _ended = true;
         _emit(SessionEnded(m.result));
+      case HintMessage m:
+        _emit(SessionHint(m.hint));
       case PongMessage m:
         _emit(SessionLink(LinkStatus.connected, rttMs: DateTime.now().millisecondsSinceEpoch - m.clientTime));
       case ErrorMessage m:
@@ -101,6 +103,12 @@ class RemoteGameSession implements GameSession {
 
   @override
   void buyUpgrade(UpgradeKind kind) => _send(UpgradeMessage(kind));
+
+  @override
+  void buyItem(ItemKind kind) => _send(ItemMessage(kind, use: false));
+
+  @override
+  void useItem(ItemKind kind) => _send(ItemMessage(kind, use: true));
 
   @override
   void chat(String text) => _send(ChatMessage(text));

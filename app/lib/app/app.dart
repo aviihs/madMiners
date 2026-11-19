@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -20,7 +21,7 @@ class MadMinersApp extends StatelessWidget {
       home: BlocBuilder<AuthCubit, AuthState>(
         buildWhen: (a, b) => a.runtimeType != b.runtimeType || b is AuthSignedOut || b is AuthSignedIn,
         builder: (context, state) => switch (state) {
-          AuthRestoring() => const Scaffold(body: Center(child: CircularProgressIndicator())),
+          AuthRestoring() => const Scaffold(body: Center(child: CupertinoActivityIndicator(radius: 14))),
           AuthSignedOut() => LoginPage(key: const ValueKey('login'), state: state),
           AuthSignedIn(:final session) => LobbyPage(key: ValueKey(session.profile.id), session: session),
         },

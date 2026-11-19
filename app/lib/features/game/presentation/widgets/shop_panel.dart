@@ -1,84 +1,169 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:mad_miners_core/mad_miners_core.dart';
 
 import '../../../../app/theme.dart';
+import '../../../../app/ui/ui.dart';
 
-/// Depot shop. Purchases are only requests — the server validates them.
+/// Surface shop: equipment upgrades + bombs, paid with match coins.
+/// Purchases are only requests — the server validates them.
 class ShopPanel extends StatelessWidget {
-  const ShopPanel({super.key, required this.me, required this.onBuy});
+  const ShopPanel({super.key, required this.me, required this.onUpgrade, required this.onBuyItem});
   final PlayerSnapshot me;
-  final ValueChanged<UpgradeKind> onBuy;
+  final ValueChanged<UpgradeKind> onUpgrade;
+  final ValueChanged<ItemKind> onBuyItem;
 
-  static IconData _icon(UpgradeKind k) => switch (k) {
-    UpgradeKind.pickaxe => Icons.hardware,
-    UpgradeKind.backpack => Icons.backpack,
-    UpgradeKind.oxygenTank => Icons.air,
-    UpgradeKind.helmet => Icons.light_mode,
+  static IconData upgradeIcon(UpgradeKind k) => switch (k) {
+    UpgradeKind.pickaxe => CupertinoIcons.hammer_fill,
+    UpgradeKind.helmet => CupertinoIcons.lightbulb_fill,
+    UpgradeKind.boots => CupertinoIcons.hare_fill,
+    UpgradeKind.armor => CupertinoIcons.shield_fill,
+  };
+
+  static String _hint(UpgradeKind k) => switch (k) {
+    UpgradeKind.pickaxe => 'Dig faster',
+    UpgradeKind.helmet => 'See & sense farther',
+    UpgradeKind.boots => 'Run faster',
+    UpgradeKind.armor => 'Less blast damage',
   };
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 260,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: MMColors.surface.withValues(alpha: 0.94),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: MMColors.amber.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+    final maxH = MediaQuery.sizeOf(context).height - 140;
+    return GlassCard(
+      radius: 20,
+      color: const Color(0xA6000000),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 316, maxHeight: maxH.clamp(160, 520)),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(Icons.storefront, color: MMColors.amber, size: 18),
-              const SizedBox(width: 6),
-              const Text('DEPOT SHOP', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1)),
-              const Spacer(),
-              Text('${me.coins} ¢', style: const TextStyle(color: MMColors.amber, fontWeight: FontWeight.w700)),
+              Row(
+                children: [
+                  const IconTile(CupertinoIcons.bag_fill, size: 26),
+                  const SizedBox(width: 8),
+                  const Text('Shop', style: MMText.headline),
+                  const Spacer(),
+                  Pill('${me.coins}', icon: CupertinoIcons.money_dollar_circle_fill, color: MMColors.gold),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final k in UpgradeKind.values) _upgradeTile(k),
+                  for (final k in ItemKind.values) _itemTile(k),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          for (final k in UpgradeKind.values) _row(k),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _row(UpgradeKind k) {
+  Widget _upgradeTile(UpgradeKind k) {
     final lvl = me.level(k);
     final maxed = lvl >= k.maxLevel;
     final next = maxed ? null : k.levels[lvl + 1];
-    final affordable = next != null && me.coins >= next.cost;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
+    return _Tile(
+      icon: upgradeIcon(k),
+      color: MMColors.blue,
+      title: maxed ? k.levels[lvl].name : next!.name,
+      subtitle: maxed ? 'Maxed' : _hint(k),
+      level: '${lvl + 1}/${k.maxLevel + 1}',
+      price: maxed ? null : next!.cost,
+      enabled: !maxed && me.coins >= next!.cost,
+      onTap: () => onUpgrade(k),
+    );
+  }
+
+  Widget _itemTile(ItemKind k) {
+    final def = itemDefs[k]!;
+    final have = me.itemCount(k);
+    final full = have >= Balance.maxItemStack;
+    return _Tile(
+      icon: k == ItemKind.bomb ? CupertinoIcons.burst_fill : CupertinoIcons.flame_fill,
+      color: MMColors.ember,
+      title: def.name,
+      subtitle: k == ItemKind.bomb ? 'Blasts 3×3' : 'Blasts 5×5',
+      level: '×$have',
+      price: full ? null : def.cost,
+      enabled: !full && me.coins >= def.cost,
+      onTap: () => onBuyItem(k),
+    );
+  }
+}
+
+class _Tile extends StatelessWidget {
+  const _Tile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.level,
+    required this.price,
+    required this.enabled,
+    required this.onTap,
+  });
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final String level;
+  final int? price;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 142,
+    child: Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(color: MMColors.glass, borderRadius: BorderRadius.circular(14), border: Border.all(color: MMColors.hairline, width: 0.5)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(_icon(k), size: 18, color: MMColors.muted),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(k.levels[lvl].name, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                Text(
-                  maxed ? 'Max level' : 'Next: ${next!.name}',
-                  style: const TextStyle(fontSize: 10, color: MMColors.muted),
-                ),
-              ],
-            ),
+          Row(
+            children: [
+              IconTile(icon, color: color, size: 26),
+              const Spacer(),
+              Text(level, style: MMText.caption),
+            ],
           ),
+          const SizedBox(height: 6),
+          Text(title, style: MMText.headline.copyWith(fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(subtitle, style: MMText.caption.copyWith(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 6),
           SizedBox(
-            height: 30,
-            child: FilledButton(
-              style: FilledButton.styleFrom(minimumSize: const Size(64, 30), padding: const EdgeInsets.symmetric(horizontal: 8)),
-              onPressed: affordable ? () => onBuy(k) : null,
-              child: Text(maxed ? 'MAX' : '${next!.cost}', style: const TextStyle(fontSize: 12)),
+            width: double.infinity,
+            child: CupertinoButton(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 28),
+              borderRadius: BorderRadius.circular(99),
+              color: enabled ? MMColors.amber : MMColors.glassStrong,
+              disabledColor: MMColors.glassStrong,
+              onPressed: enabled ? onTap : null,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (price != null) ...[
+                    Icon(CupertinoIcons.money_dollar_circle_fill, size: 13, color: enabled ? CupertinoColors.white : MMColors.muted),
+                    const SizedBox(width: 3),
+                  ],
+                  Text(
+                    price == null ? 'Max' : '$price',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: enabled ? CupertinoColors.white : MMColors.muted),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
 }

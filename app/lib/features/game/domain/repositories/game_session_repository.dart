@@ -10,6 +10,8 @@ abstract interface class GameSession {
   Future<void> start();
   void sendInput(PlayerInput input);
   void buyUpgrade(UpgradeKind kind);
+  void buyItem(ItemKind kind);
+  void useItem(ItemKind kind);
   void chat(String text);
   Future<void> leave();
 }

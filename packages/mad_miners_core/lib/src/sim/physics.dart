@@ -32,11 +32,31 @@ abstract final class Physics {
       ny = vy > 0 ? (ny + _r).floor() - _r - _eps : (ny - _r).floor() + 1 + _r + _eps;
       if (collides(map, nx, ny)) ny = y;
     }
+
+    // Corner assist: pushing into a 1-tile-wide opening that you're slightly
+    // misaligned with slides you toward its centre, so shafts and tunnels
+    // are easy to enter with a joystick.
+    const blockedEps = 0.0005;
+    if (vy.abs() > vx.abs() && (ny - y).abs() < blockedEps) {
+      final ahead = (y + vy.sign * (_r + 0.1)).floor();
+      final col = nx.floor();
+      if (!map.isSolid(col, ahead)) {
+        final step = ((col + 0.5) - nx).clamp(-vy.abs() * dt, vy.abs() * dt);
+        if (!collides(map, nx + step, ny)) nx += step;
+      }
+    } else if (vx.abs() > vy.abs() && (nx - x).abs() < blockedEps) {
+      final ahead = (x + vx.sign * (_r + 0.1)).floor();
+      final row = ny.floor();
+      if (!map.isSolid(ahead, row)) {
+        final step = ((row + 0.5) - ny).clamp(-vx.abs() * dt, vx.abs() * dt);
+        if (!collides(map, nx, ny + step)) ny += step;
+      }
+    }
     return (nx, ny);
   }
 
-  static double speedFor(double stamina) =>
-      Balance.moveSpeed * (stamina < Balance.staminaPerHit ? Balance.tiredSpeedFactor : 1);
+  static double speedFor(double stamina, {double boots = 1}) =>
+      Balance.moveSpeed * boots * (stamina < Balance.staminaPerHit ? Balance.tiredSpeedFactor : 1);
 
   /// The minable tile a miner at (x,y) facing (fx,fy) would hit, if any.
   static TilePos? mineTarget(GameMap map, double x, double y, double fx, double fy) {

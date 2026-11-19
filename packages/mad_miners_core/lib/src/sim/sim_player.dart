@@ -1,4 +1,5 @@
 import '../config/balance.dart';
+import '../config/cosmetics.dart';
 import '../model/snapshot.dart';
 
 /// Authoritative, mutable miner state. Lives only inside [GameSimulation].
@@ -27,12 +28,17 @@ class SimPlayer {
   double stamina = Balance.maxStamina;
 
   final List<int> upgrades = List.filled(UpgradeKind.values.length, 0);
+  final List<int> items = List.filled(ItemKind.values.length, 0);
+  Look look = Look.standard;
 
   int coins = 0;
   int score = 0;
   int xp = 0;
   int oresMined = 0;
   int maxDepth = 0;
+
+  /// Deepest point this match (survives respawns).
+  int bestDepth = 0;
 
   double mineCooldown = 0;
   double respawnIn = 0;
@@ -43,11 +49,14 @@ class SimPlayer {
   bool get alive => respawnIn <= 0;
   UpgradeLevel gear(UpgradeKind k) => k.levels[upgrades[k.index]];
   double get vision => gear(UpgradeKind.helmet).stat;
+  double get boots => gear(UpgradeKind.boots).stat;
+  double get armor => gear(UpgradeKind.armor).stat;
 
-  PlayerSnapshot snapshot() => PlayerSnapshot(
+  /// With [disguise], bots look exactly like human players on the wire.
+  PlayerSnapshot snapshot({bool disguise = false}) => PlayerSnapshot(
     id: id,
     name: name,
-    isBot: isBot,
+    isBot: isBot && !disguise,
     team: team,
     x: x,
     y: y,
@@ -64,5 +73,7 @@ class SimPlayer {
     upgrades: List.of(upgrades),
     respawnIn: respawnIn,
     inDepot: inDepot,
+    items: List.of(items),
+    look: look,
   );
 }

@@ -25,6 +25,7 @@ sealed class ClientMessage {
       return switch (j['t']) {
         'in' => InputMessage(PlayerInput.fromJson(j)),
         'up' => UpgradeMessage(UpgradeKind.values.byName(j['k'] as String)),
+        'it' => ItemMessage(ItemKind.values.byName(j['k'] as String), use: j['use'] == true),
         'chat' => ChatMessage((j['text'] as String?) ?? ''),
         'ping' => PingMessage((j['c'] as num).toInt()),
         'leave' => const LeaveMessage(),
@@ -48,6 +49,15 @@ class UpgradeMessage extends ClientMessage {
   final UpgradeKind kind;
   @override
   Map<String, dynamic> toJson() => {'t': 'up', 'k': kind.name};
+}
+
+/// Buy (at the shop) or use (anywhere) a bomb / dynamite.
+class ItemMessage extends ClientMessage {
+  const ItemMessage(this.kind, {required this.use});
+  final ItemKind kind;
+  final bool use;
+  @override
+  Map<String, dynamic> toJson() => {'t': 'it', 'k': kind.name, 'use': use};
 }
 
 class ChatMessage extends ClientMessage {
@@ -95,6 +105,7 @@ sealed class ServerMessage {
         'snap' => SnapshotMessage(WorldSnapshot.fromJson(j['s'] as Map<String, dynamic>)),
         'end' => MatchEndMessage(MatchResult.fromJson(j['r'] as Map<String, dynamic>)),
         'pong' => PongMessage((j['c'] as num).toInt()),
+        'hint' => HintMessage(TreasureHint((j['l'] as num).toInt(), (j['s'] as num).toInt())),
         'err' => ErrorMessage(j['code'] as String, j['message'] as String),
         _ => null,
       };
@@ -145,6 +156,14 @@ class MatchEndMessage extends ServerMessage {
   final MatchResult result;
   @override
   Map<String, dynamic> toJson() => {'t': 'end', 'r': result.toJson()};
+}
+
+/// Sent only to the miner it belongs to.
+class HintMessage extends ServerMessage {
+  const HintMessage(this.hint);
+  final TreasureHint hint;
+  @override
+  Map<String, dynamic> toJson() => {'t': 'hint', 'l': hint.level, 's': hint.side};
 }
 
 class PongMessage extends ServerMessage {

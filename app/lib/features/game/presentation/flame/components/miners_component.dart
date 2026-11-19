@@ -8,45 +8,43 @@ import 'package:flutter/painting.dart' show TextStyle, FontWeight, HSLColor;
 import '../../../../../app/theme.dart';
 import '../../controller/game_controller.dart';
 import '../mad_miners_game.dart';
+import '../miner_art.dart';
 
-/// Draws every miner: body, helmet lamp, pickaxe swing, name tag, HP bar.
+/// Draws every miner as a little side-view character: boots, overalls,
+/// face, helmet with lamp, swinging pickaxe, plus a name tag.
 class MinersComponent extends Component with HasGameReference<MadMinersGame> {
   MinersComponent(this.controller) : super(priority: 10);
 
   final GameController controller;
   static const double ts = MadMinersGame.tileSize;
 
-  final _body = Paint();
-  final _outline = Paint()
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 2
-    ..color = const Color(0xFF14110F);
-  final _helmet = Paint()..color = const Color(0xFFF2C14E);
-  final _lamp = Paint()..color = const Color(0xFFFFF4C2);
-  final _handle = Paint()
-    ..color = const Color(0xFF8B5A2B)
-    ..strokeWidth = 3
-    ..strokeCap = StrokeCap.round;
-  final _head = Paint()
-    ..color = const Color(0xFFB8C2CC)
-    ..strokeWidth = 4
-    ..strokeCap = StrokeCap.round;
-  final _barBg = Paint()..color = const Color(0xAA000000);
-  final _barFg = Paint()..color = MMColors.health;
-  final _youRing = Paint()
-    ..style = PaintingStyle.stroke
-    ..strokeWidth = 2
-    ..color = MMColors.amber;
+  final _p = Paint();
+  final _nameText = TextPaint(style: const TextStyle(fontSize: 11, color: Color(0xFFFFFFFF), fontWeight: FontWeight.w600));
+  final _youText = TextPaint(style: const TextStyle(fontSize: 11, color: Color(0xFFFFB340), fontWeight: FontWeight.w800));
 
-  final _nameText = TextPaint(
-    style: const TextStyle(fontSize: 11, color: Color(0xFFF3E9DC), fontWeight: FontWeight.w600),
-  );
-  final _botText = TextPaint(style: const TextStyle(fontSize: 11, color: Color(0xFFA89A8A)));
+  final Map<String, _Anim> _anim = {};
 
   static Color colorFor(String id, int team) {
     if (team >= 0) return MMColors.teams[team % MMColors.teams.length];
     final h = id.codeUnits.fold<int>(7, (a, c) => (a * 31 + c) & 0xffffff);
-    return HSLColor.fromAHSL(1, (h % 360).toDouble(), 0.55, 0.55).toColor();
+    return HSLColor.fromAHSL(1, (h % 360).toDouble(), 0.62, 0.52).toColor();
+  }
+
+
+  @override
+  void update(double dt) {
+    for (final m in controller.miners.values) {
+      final a = _anim.putIfAbsent(m.snap.id, () => _Anim(m.rx, m.ry));
+      final dx = m.rx - a.lastX, dy = m.ry - a.lastY;
+      final speed = sqrt(dx * dx + dy * dy) / max(dt, 1e-4);
+      a.walk += speed * dt * 9;
+      a.moving = speed > 0.4;
+      if (m.snap.fx.abs() > 0.3) a.left = m.snap.fx < 0;
+      a
+        ..lastX = m.rx
+        ..lastY = m.ry;
+    }
+    _anim.removeWhere((id, _) => !controller.miners.containsKey(id));
   }
 
   @override
@@ -56,40 +54,58 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
     for (final m in miners) {
       final s = m.snap;
       if (!s.alive) continue;
-      final c = Offset(m.rx * ts, m.ry * ts);
-      final r = ts * 0.34;
+      final a = _anim[s.id];
       final isYou = s.id == you;
-
-      if (isYou) canvas.drawCircle(c, r + 4, _youRing);
-
-      // Pickaxe (behind the body when facing up).
-      final facing = atan2(s.fy, s.fx);
-      final swing = s.mining ? sin(m.swing) * 0.9 : 0.35;
-      final a = facing + swing;
-      final hand = c + Offset(cos(a), sin(a)) * (r * 0.9);
-      final tip = c + Offset(cos(a), sin(a)) * (r * 1.9);
-      canvas.drawLine(hand, tip, _handle);
-      final perp = Offset(-sin(a), cos(a)) * 6;
-      canvas.drawLine(tip - perp, tip + perp, _head);
-
-      // Body.
-      _body.color = colorFor(s.id, s.team).withValues(alpha: s.connected ? 1 : 0.4);
-      canvas.drawCircle(c, r, _body);
-      canvas.drawCircle(c, r, _outline);
-
-      // Helmet + lamp facing direction.
-      canvas.drawArc(Rect.fromCircle(center: c, radius: r * 0.8), facing - pi * 0.75, pi * 1.5, true, _helmet);
-      canvas.drawCircle(c + Offset(cos(facing), sin(facing)) * r * 0.55, 3.5, _lamp);
-
-      // Name + HP.
-      final label = s.isBot ? '${s.name} [BOT]' : s.name;
-      (s.isBot ? _botText : _nameText).render(canvas, label, Vector2(c.dx, c.dy - r - 16), anchor: Anchor.center);
-      if (s.hp < 100) {
-        final w = ts * 0.9;
-        final bar = Rect.fromLTWH(c.dx - w / 2, c.dy - r - 8, w, 4);
-        canvas.drawRect(bar, _barBg);
-        canvas.drawRect(Rect.fromLTWH(bar.left, bar.top, w * s.hp / 100, 4), _barFg);
-      }
+      final c = Offset(m.rx * ts, m.ry * ts);
+      canvas.save();
+      canvas.translate(c.dx, c.dy);
+      _drawMiner(canvas, m, a, isYou);
+      canvas.restore();
+      _drawTag(canvas, c, s.name, isYou, s.hp);
     }
   }
+
+  void _drawMiner(Canvas canvas, RenderMiner m, _Anim? a, bool isYou) {
+    final s = m.snap;
+    MinerArt.draw(
+      canvas,
+      look: s.look,
+      seed: s.id,
+      left: a?.left ?? false,
+      walk: a?.walk ?? 0,
+      moving: a?.moving ?? false,
+      mining: s.mining,
+      swing: m.swing,
+      aim: atan2(s.fy, s.fx),
+      opacity: s.connected ? 1 : 0.45,
+      teamColor: s.team >= 0 ? MMColors.teams[s.team % MMColors.teams.length] : null,
+      you: isYou,
+    );
+  }
+
+  void _drawTag(Canvas canvas, Offset c, String name, bool isYou, double hp) {
+    final label = isYou ? 'You' : name;
+    final w = label.length * 6.2 + 12;
+    final tag = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(c.dx, c.dy - 34), width: w, height: 16), const Radius.circular(8));
+    _p.color = const Color(0x80000000);
+    canvas.drawRRect(tag, _p);
+    (isYou ? _youText : _nameText).render(canvas, label, Vector2(c.dx, c.dy - 34), anchor: Anchor.center);
+    if (hp < 100) {
+      const bw = 26.0;
+      final bar = Rect.fromLTWH(c.dx - bw / 2, c.dy - 25, bw, 3);
+      _p.color = const Color(0x99000000);
+      canvas.drawRRect(RRect.fromRectAndRadius(bar, const Radius.circular(2)), _p);
+      _p.color = MMColors.health;
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(bar.left, bar.top, bw * hp / 100, 3), const Radius.circular(2)), _p);
+    }
+  }
+}
+
+class _Anim {
+  _Anim(this.lastX, this.lastY);
+  double lastX;
+  double lastY;
+  double walk = 0;
+  bool moving = false;
+  bool left = false;
 }

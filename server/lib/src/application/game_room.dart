@@ -54,6 +54,7 @@ class GameRoom {
   final Map<String, PlayerConnection> _conns = {};
   final Map<String, DateTime> _disconnectedAt = {};
   final Map<String, _RateLimiter> _limits = {};
+  final Map<String, TreasureHint> _hints = {};
   DateTime? _emptySince;
   Timer? _timer;
 
@@ -87,13 +88,14 @@ class GameRoom {
     // A newer connection replaces an older one for the same player.
     _conns.remove(account.id)?.close(4000, 'replaced');
     _conns[account.id] = conn;
+    _hints.remove(account.id);
     _disconnectedAt.remove(account.id);
     _emptySince = null;
 
     if (reconnecting) {
       sim.setConnected(account.id, connected: true);
     } else {
-      sim.addHuman(account.id, account.username);
+      sim.addHuman(account.id, account.username, look: account.look);
     }
     conn.send(
       JoinedMessage(
@@ -101,7 +103,7 @@ class GameRoom {
         roomId: id,
         roomCode: code,
         settings: settings,
-        map: sim.map,
+        map: sim.publicMap(),
         reconnected: reconnecting,
       ).encode(),
     );
@@ -117,6 +119,8 @@ class GameRoom {
         sim.setInput(playerId, input);
       case UpgradeMessage(:final kind):
         sim.requestUpgrade(playerId, kind);
+      case ItemMessage(:final kind, :final use):
+        use ? sim.useItem(playerId, kind) : sim.buyItem(playerId, kind);
       case ChatMessage(:final text):
         if (limiter.allowChat(_now())) sim.chat(playerId, text);
       case PingMessage(:final clientTime):
@@ -165,6 +169,14 @@ class GameRoom {
       for (final c in _conns.values.toList()) {
         c.send(data);
       }
+      // Each miner's treasure sense goes only to that miner.
+      _conns.forEach((pid, c) {
+        final h = sim.hintFor(pid);
+        if (_hints[pid] != h) {
+          _hints[pid] = h;
+          c.send(HintMessage(h).encode());
+        }
+      });
     }
     if (sim.ended) _finish(notify: true);
   }
@@ -175,7 +187,7 @@ class GameRoom {
     _timer?.cancel();
     final result = sim.results();
     if (notify) {
-      final data = MatchEndMessage(result).encode();
+      final data = MatchEndMessage(sim.results(forClients: true)).encode();
       for (final c in _conns.values.toList()) {
         c.send(data);
       }

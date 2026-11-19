@@ -9,4 +9,11 @@ abstract interface class AuthRepository {
   Future<Result<Session>> refreshProfile(Session session);
   Future<void> signOut();
   String get lastServerUrl;
+
+  /// Quick reachability probe for the login screen.
+  Future<bool> isServerReachable(String serverUrl);
+
+  /// Tries the given URL, common local addresses and LAN discovery.
+  /// Returns a reachable server URL, or null.
+  Future<String?> findServer(String preferred);
 }

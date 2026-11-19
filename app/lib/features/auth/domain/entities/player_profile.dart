@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:mad_miners_core/mad_miners_core.dart';
 
 class PlayerProfile extends Equatable {
   const PlayerProfile({
@@ -7,9 +8,14 @@ class PlayerProfile extends Equatable {
     this.level = 1,
     this.xp = 0,
     this.totalCoins = 0,
+    this.wallet = 0,
+    this.gems = 0,
     this.gamesPlayed = 0,
     this.wins = 0,
     this.bestScore = 0,
+    this.todayWins = 0,
+    this.owned = const {},
+    this.look = Look.standard,
   });
 
   final String id;
@@ -17,10 +23,21 @@ class PlayerProfile extends Equatable {
   final int level;
   final int xp;
   final int totalCoins;
+
+  /// Spendable coins for cosmetics.
+  final int wallet;
+
+  /// Premium currency.
+  final int gems;
   final int gamesPlayed;
   final int wins;
   final int bestScore;
+  final int todayWins;
+  final Set<String> owned;
+  final Look look;
+
+  bool owns(CosmeticDef c) => c.isFree || owned.contains(c.id);
 
   @override
-  List<Object?> get props => [id, username, level, xp, totalCoins, gamesPlayed, wins, bestScore];
+  List<Object?> get props => [id, username, level, xp, totalCoins, wallet, gems, gamesPlayed, wins, bestScore, todayWins, owned, look];
 }

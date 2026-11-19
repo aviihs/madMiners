@@ -13,6 +13,7 @@ dependencies:
   mad_miners_core:
     path: ../packages/mad_miners_core
   path: ^1.9.0
+  postgres: ^3.6.0
   shelf: ^1.4.3
   shelf_router: ^1.1.5
   shelf_web_socket: ^3.0.0

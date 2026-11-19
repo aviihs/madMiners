@@ -6,20 +6,23 @@ import '../../application/app_exception.dart';
 import '../../application/auth_service.dart';
 import '../../application/game_room.dart';
 import '../../application/room_service.dart';
+import '../../application/store_service.dart';
 import '../../domain/entities/player_account.dart';
 import '../../domain/repositories/account_repository.dart';
 import 'middleware.dart';
 
 /// REST API under /api/v1 (SRS §8). Real-time play goes over /ws/game.
 class ApiRouter {
-  ApiRouter(this._auth, this._rooms, this._accounts);
+  ApiRouter(this._auth, this._rooms, this._accounts, this._store);
 
   final AuthService _auth;
+  final StoreService _store;
   final RoomService _rooms;
   final AccountRepository _accounts;
 
   Router get router {
     final r = Router()
+      ..get('/', _home)
       ..get('/health', (Request _) => ok({'status': 'ok', 'rooms': _rooms.rooms.length}))
       ..post('/api/v1/auth/guest', _guest)
       ..get('/api/v1/players/me', _me)
@@ -30,8 +33,41 @@ class ApiRouter {
       ..post('/api/v1/rooms/<id>/join', _joinRoom)
       ..post('/api/v1/matchmaking/quick', _quickPlay)
       ..get('/api/v1/leaderboards/global', _leaderboard)
+      ..get('/api/v1/leaderboards/daily', _daily)
+      ..get('/api/v1/store/catalog', (Request _) => ok(_store.catalog()))
+      ..post('/api/v1/store/purchase', _purchase)
+      ..post('/api/v1/players/me/equip', _equip)
       ..get('/api/v1/catalog', _catalog);
     return r;
+  }
+
+  /// Friendly status page for people who open the server URL in a browser.
+  Response _home(Request _) {
+    final rooms = _rooms.rooms.toList();
+    final players = rooms.fold<int>(0, (a, r) => a + r.humanCount);
+    final rows = rooms.isEmpty
+        ? '<p class="muted">No matches running right now.</p>'
+        : rooms
+              .map(
+                (r) =>
+                    '<li><b>${r.settings.mapId.def.name}</b> · ${r.settings.mode.label} · '
+                    '${r.humanCount + r.botCount}/${r.settings.maxPlayers} miners · ${r.sim.timeLeft.round()}s left</li>',
+              )
+              .join();
+    return Response.ok(
+      '''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mad Miners Server</title><style>
+body{margin:0;font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif;background:#0c0a09;color:#f5f5f7;display:flex;justify-content:center;padding:48px 16px}
+.card{max-width:440px;width:100%;background:#1c1917;border:1px solid #2b2623;border-radius:20px;padding:28px}
+h1{margin:0 0 4px;font-size:26px}.ok{color:#30d158;font-weight:600}.muted{color:#98989f}
+ul{padding-left:18px;line-height:1.7}code{background:#2b2623;padding:2px 6px;border-radius:6px}
+</style></head><body><div class="card">
+<h1>⛏ Mad Miners</h1><p class="ok">● Server is running</p>
+<p class="muted">${rooms.length} match(es) · $players player(s) online</p>${rooms.isEmpty ? rows : '<ul>$rows</ul>'}
+<p class="muted">Open the Mad Miners app and use this address as the server. API lives under <code>/api/v1</code>, health check at <code>/health</code>.</p>
+</div></body></html>''',
+      headers: {'content-type': 'text/html; charset=utf-8'},
+    );
   }
 
   Future<PlayerAccount> _user(Request req) => _auth.authenticate(bearerToken(req));
@@ -94,6 +130,27 @@ class ApiRouter {
       mode: b['gameMode'] == null ? null : GameMode.parse(b['gameMode'] as String),
     );
     return ok(_joinPayload(room));
+  }
+
+  Future<Response> _daily(Request req) async {
+    await _user(req);
+    final top = await _accounts.topToday(50);
+    return ok([
+      for (var i = 0; i < top.length; i++) {'rank': i + 1, ...top[i].toPublicJson()},
+    ]);
+  }
+
+  Future<Response> _purchase(Request req) async {
+    final user = await _user(req);
+    final b = await readJson(req);
+    final acc = await _store.purchase(user, b['itemId'] as String? ?? '', b['requestId'] as String? ?? '');
+    return ok(acc.toPublicJson());
+  }
+
+  Future<Response> _equip(Request req) async {
+    final user = await _user(req);
+    final b = await readJson(req);
+    return ok((await _store.equip(user, b['itemId'] as String? ?? '')).toPublicJson());
   }
 
   Future<Response> _leaderboard(Request req) async {

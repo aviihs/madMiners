@@ -15,7 +15,10 @@ enum TileType {
   lava,
   gas,
   depot,
-  treasure;
+  treasure,
+
+  /// Looks like hard rock. Break it and it erupts.
+  volcano;
 
   bool get isSolid => switch (this) {
     empty || lava || gas || depot => false,
@@ -37,6 +40,7 @@ enum TileType {
     rock => Balance.rockHardness,
     hardRock => Balance.hardRockHardness,
     treasure => Balance.treasureHardness,
+    volcano => Balance.hardRockHardness,
     _ => ore != null ? oreDefs[ore]!.hardness : 0,
   };
 

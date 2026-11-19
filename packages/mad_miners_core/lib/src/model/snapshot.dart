@@ -1,4 +1,5 @@
 import '../config/balance.dart';
+import '../config/cosmetics.dart';
 
 double _r2(double v) => (v * 100).roundToDouble() / 100;
 
@@ -60,6 +61,8 @@ class PlayerSnapshot {
     required this.upgrades,
     required this.respawnIn,
     required this.inDepot,
+    this.items = const [0, 0],
+    this.look = Look.standard,
   });
 
   final String id;
@@ -92,6 +95,14 @@ class PlayerSnapshot {
   final double respawnIn;
   final bool inDepot;
 
+  /// Carried consumables indexed by [ItemKind.index].
+  final List<int> items;
+
+  /// Cosmetics (purely visual).
+  final Look look;
+
+  int itemCount(ItemKind k) => k.index < items.length ? items[k.index] : 0;
+
   int level(UpgradeKind k) => upgrades[k.index];
   UpgradeLevel gear(UpgradeKind k) => k.levels[level(k)];
   double get vision => gear(UpgradeKind.helmet).stat;
@@ -116,6 +127,8 @@ class PlayerSnapshot {
     'up': upgrades,
     'rs': _r2(respawnIn),
     'dp': inDepot,
+    'it': items,
+    'lk': look.toJson(),
   };
 
   factory PlayerSnapshot.fromJson(Map<String, dynamic> j) => PlayerSnapshot(
@@ -138,6 +151,8 @@ class PlayerSnapshot {
     upgrades: (j['up'] as List).cast<num>().map((e) => e.toInt()).toList(),
     respawnIn: (j['rs'] as num).toDouble(),
     inDepot: j['dp'] as bool,
+    items: (j['it'] as List? ?? const [0, 0]).cast<num>().map((e) => e.toInt()).toList(),
+    look: Look.fromJson(j['lk']),
   );
 }
 
@@ -152,10 +167,10 @@ class TileChange {
       TileChange((l[0] as num).toInt(), (l[1] as num).toInt(), (l[2] as num).toInt());
 }
 
-enum GameEventKind { oreMined, treasureFound, treasureRevealed, died, respawned, upgraded, joined, left, botJoined, botLeft, chat }
+enum GameEventKind { oreMined, treasureFound, treasureRevealed, died, respawned, upgraded, joined, left, botJoined, botLeft, chat, explosion, volcano, itemBought }
 
 class GameEvent {
-  const GameEvent(this.kind, {this.playerId, this.value = 0, this.text});
+  const GameEvent(this.kind, {this.playerId, this.value = 0, this.text, this.x, this.y});
 
   final GameEventKind kind;
   final String? playerId;
@@ -164,11 +179,17 @@ class GameEvent {
   final int value;
   final String? text;
 
+  /// World position for explosions / eruptions.
+  final double? x;
+  final double? y;
+
   Map<String, dynamic> toJson() => {
     'k': kind.index,
     'p': ?playerId,
     if (value != 0) 'v': value,
     't': ?text,
+    if (x != null) 'x': _r2(x!),
+    if (y != null) 'y': _r2(y!),
   };
 
   factory GameEvent.fromJson(Map<String, dynamic> j) => GameEvent(
@@ -176,6 +197,8 @@ class GameEvent {
     playerId: j['p'] as String?,
     value: (j['v'] as num?)?.toInt() ?? 0,
     text: j['t'] as String?,
+    x: (j['x'] as num?)?.toDouble(),
+    y: (j['y'] as num?)?.toDouble(),
   );
 }
 
@@ -187,9 +210,17 @@ class WorldSnapshot {
     required this.tiles,
     required this.events,
     required this.teamScores,
+    this.warmup = 0,
+    this.bombs = const [],
   });
 
   final int tick;
+
+  /// Lit bombs on the ground.
+  final List<BombSnapshot> bombs;
+
+  /// Seconds until digging starts (0 once the match is live).
+  final double warmup;
   final double timeLeft;
   final List<PlayerSnapshot> players;
   final List<TileChange> tiles;
@@ -203,6 +234,8 @@ class WorldSnapshot {
     if (tiles.isNotEmpty) 'ti': tiles.map((t) => t.toJson()).toList(),
     if (events.isNotEmpty) 'ev': events.map((e) => e.toJson()).toList(),
     if (teamScores.isNotEmpty) 'ts': teamScores,
+    if (warmup > 0) 'wu': _r2(warmup),
+    if (bombs.isNotEmpty) 'bm': bombs.map((b) => b.toJson()).toList(),
   };
 
   factory WorldSnapshot.fromJson(Map<String, dynamic> j) => WorldSnapshot(
@@ -212,6 +245,8 @@ class WorldSnapshot {
     tiles: (j['ti'] as List? ?? const []).map((e) => TileChange.fromJson(e as List)).toList(),
     events: (j['ev'] as List? ?? const []).map((e) => GameEvent.fromJson(e as Map<String, dynamic>)).toList(),
     teamScores: (j['ts'] as List? ?? const []).cast<num>().map((e) => e.toInt()).toList(),
+    warmup: (j['wu'] as num?)?.toDouble() ?? 0,
+    bombs: (j['bm'] as List? ?? const []).map((e) => BombSnapshot.fromJson(e as List)).toList(),
   );
 }
 
@@ -225,6 +260,7 @@ class PlayerResult {
     required this.score,
     required this.oresMined,
     required this.xp,
+    this.maxDepth = 0,
   });
 
   final String playerId;
@@ -236,7 +272,11 @@ class PlayerResult {
   final int oresMined;
   final int xp;
 
+  /// Deepest point reached during the match.
+  final int maxDepth;
+
   Map<String, dynamic> toJson() => {
+    'md': maxDepth,
     'id': playerId,
     'n': name,
     'b': isBot,
@@ -256,6 +296,7 @@ class PlayerResult {
     score: (j['sc'] as num).toInt(),
     oresMined: (j['om'] as num).toInt(),
     xp: (j['xp'] as num).toInt(),
+    maxDepth: (j['md'] as num?)?.toInt() ?? 0,
   );
 }
 
@@ -284,4 +325,33 @@ class MatchResult {
     winningTeam: (j['wt'] as num?)?.toInt() ?? -1,
     winnerId: j['w'] as String?,
   );
+}
+
+class BombSnapshot {
+  const BombSnapshot(this.x, this.y, this.kind, this.fuse);
+  final double x;
+  final double y;
+  final ItemKind kind;
+  final double fuse;
+
+  List<Object> toJson() => [_r2(x), _r2(y), kind.index, _r2(fuse)];
+  factory BombSnapshot.fromJson(List<dynamic> l) =>
+      BombSnapshot((l[0] as num).toDouble(), (l[1] as num).toDouble(), ItemKind.values[(l[2] as num).toInt()], (l[3] as num).toDouble());
+}
+
+/// Private "treasure sense" for one miner. Never broadcast to others.
+class TreasureHint {
+  const TreasureHint(this.level, this.side);
+  static const none = TreasureHint(0, 0);
+
+  /// 0 nothing, 1 faint, 2 warm, 3 hot.
+  final int level;
+
+  /// Rough horizontal direction at level 2: -1 left, 1 right, 0 straight down/up.
+  final int side;
+
+  @override
+  bool operator ==(Object other) => other is TreasureHint && other.level == level && other.side == side;
+  @override
+  int get hashCode => level * 3 + side;
 }

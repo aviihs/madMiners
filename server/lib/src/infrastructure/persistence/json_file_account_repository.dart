@@ -75,6 +75,16 @@ class JsonFileAccountRepository implements AccountRepository {
   }
 
   @override
+  Future<List<PlayerAccount>> topToday(int limit) async {
+    final list = _byId.values.where((a) => a.todayWins > 0 || a.todayCoins > 0).toList()
+      ..sort((a, b) {
+        final w = b.todayWins.compareTo(a.todayWins);
+        return w != 0 ? w : b.todayCoins.compareTo(a.todayCoins);
+      });
+    return list.take(limit).toList();
+  }
+
+  @override
   Future<List<PlayerAccount>> topByCoins(int limit) async =>
       (_byId.values.toList()..sort((a, b) => b.totalCoins.compareTo(a.totalCoins))).take(limit).toList();
 }

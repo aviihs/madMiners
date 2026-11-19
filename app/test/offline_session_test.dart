@@ -13,12 +13,13 @@ void main() {
     );
     final controller = GameController(session);
     await controller.start();
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    await Future<void>.delayed(const Duration(milliseconds: 2500));
 
     expect(controller.ready, isTrue);
-    expect(controller.miners.length, 8);
-    expect(controller.miners.values.where((m) => m.snap.isBot).length, 7);
+    expect(controller.miners.length, greaterThan(2), reason: 'miners trickle into the lobby');
+    expect(controller.miners.values.any((m) => m.snap.isBot), isFalse, reason: 'everyone looks like a player');
     expect(controller.hud.value.me?.name, 'Tester');
+    expect(controller.hud.value.warmup, greaterThan(0));
 
     controller.joyX = 1;
     for (var i = 0; i < 30; i++) {

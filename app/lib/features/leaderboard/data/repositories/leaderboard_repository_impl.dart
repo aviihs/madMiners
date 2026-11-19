@@ -10,4 +10,7 @@ class LeaderboardRepositoryImpl implements LeaderboardRepository {
 
   @override
   Future<Result<List<LeaderboardEntry>>> global(String token) => guard(() => _remote.global(token));
+
+  @override
+  Future<Result<List<LeaderboardEntry>>> today(String token) => guard(() => _remote.today(token));
 }

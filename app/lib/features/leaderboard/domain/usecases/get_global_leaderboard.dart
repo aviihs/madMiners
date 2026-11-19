@@ -7,3 +7,9 @@ class GetGlobalLeaderboard {
   final LeaderboardRepository _repo;
   Future<Result<List<LeaderboardEntry>>> call(String token) => _repo.global(token);
 }
+
+class GetTodayLeaderboard {
+  const GetTodayLeaderboard(this._repo);
+  final LeaderboardRepository _repo;
+  Future<Result<List<LeaderboardEntry>>> call(String token) => _repo.today(token);
+}

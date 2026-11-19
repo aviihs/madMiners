@@ -3,6 +3,7 @@
 library;
 
 export 'src/config/balance.dart';
+export 'src/config/cosmetics.dart';
 export 'src/model/match_settings.dart';
 export 'src/model/snapshot.dart';
 export 'src/protocol/messages.dart';

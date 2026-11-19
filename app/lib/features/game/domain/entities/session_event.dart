@@ -37,3 +37,9 @@ class SessionLink extends SessionEvent {
   final String? message;
   final int? rttMs;
 }
+
+/// Private treasure sense for this player.
+class SessionHint extends SessionEvent {
+  const SessionHint(this.hint);
+  final TreasureHint hint;
+}

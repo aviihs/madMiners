@@ -27,3 +27,15 @@ class SignOut {
   final AuthRepository _repo;
   Future<void> call() => _repo.signOut();
 }
+
+class CheckServer {
+  const CheckServer(this._repo);
+  final AuthRepository _repo;
+  Future<bool> call(String serverUrl) => _repo.isServerReachable(serverUrl.trim());
+}
+
+class FindServer {
+  const FindServer(this._repo);
+  final AuthRepository _repo;
+  Future<String?> call(String preferred) => _repo.findServer(preferred.trim());
+}

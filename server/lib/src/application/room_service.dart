@@ -87,7 +87,7 @@ class RoomService {
       player,
       MatchSettings(
         mapId: mapId ?? MapId.values[_rng.nextInt(MapId.values.length)],
-        mode: mode ?? GameMode.competition,
+        mode: mode ?? GameMode.treasureHunt,
       ),
       isPrivate: false,
     );
@@ -98,7 +98,7 @@ class RoomService {
     for (final r in result.players.where((p) => !p.isBot)) {
       final acc = await _accounts.findById(r.playerId);
       if (acc == null) continue;
-      acc.applyResult(r);
+      acc.applyResult(r, foundTreasure: r.playerId == result.winnerId);
       updated.add(acc);
     }
     await _accounts.saveAll(updated);

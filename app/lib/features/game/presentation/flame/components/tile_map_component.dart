@@ -2,62 +2,41 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flame/components.dart';
+import 'package:flame/text.dart';
+import 'package:flutter/painting.dart' show TextStyle, FontWeight;
 import 'package:mad_miners_core/mad_miners_core.dart';
 
 import '../../controller/game_controller.dart';
 import '../mad_miners_game.dart';
+import '../palette.dart';
 
-/// Draws only the tiles inside the camera view, every frame.
+/// Draws the visible part of the mine every frame: sky + camp, layered rock
+/// with edge shading, ores, hazards and the shop hut.
 class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
   TileMapComponent(this.controller) : super(priority: 0);
 
   final GameController controller;
   double _t = 0;
-
   static const double ts = MadMinersGame.tileSize;
 
-  static final _paints = <TileType, Paint>{
-    TileType.empty: Paint()..color = const Color(0xFF2A211B),
-    TileType.depot: Paint()..color = const Color(0xFF6B4A2B),
-    TileType.rock: Paint()..color = const Color(0xFF6E5F52),
-    TileType.hardRock: Paint()..color = const Color(0xFF4D443D),
-    TileType.bedrock: Paint()..color = const Color(0xFF151210),
-    TileType.copper: Paint()..color = const Color(0xFF6E5F52),
-    TileType.iron: Paint()..color = const Color(0xFF6E5F52),
-    TileType.gold: Paint()..color = const Color(0xFF5E5148),
-    TileType.diamond: Paint()..color = const Color(0xFF4D443D),
-    TileType.crystal: Paint()..color = const Color(0xFF4D443D),
-    TileType.lava: Paint()..color = const Color(0xFFD9481C),
-    TileType.gas: Paint()..color = const Color(0xFF2A211B),
-  };
-
-  static const _oreColors = <TileType, Color>{
-    TileType.copper: Color(0xFFD27D45),
-    TileType.iron: Color(0xFFC9C3BA),
-    TileType.gold: Color(0xFFFFCF3F),
-    TileType.diamond: Color(0xFF7FE7FF),
-    TileType.crystal: Color(0xFFD27BFF),
-  };
-
-  final _shade = Paint()..color = const Color(0x33000000);
-  final _light = Paint()..color = const Color(0x22FFFFFF);
-  final _gem = Paint();
+  final _p = Paint();
+  final _shadow = Paint()..color = const Color(0x59000000);
+  final _light = Paint()..color = const Color(0x1FFFFFFF);
   final _crack = Paint()
-    ..color = const Color(0xCC1A1410)
+    ..color = const Color(0xCC140E0B)
     ..strokeWidth = 2
+    ..strokeCap = StrokeCap.round
     ..style = PaintingStyle.stroke;
   final _aim = Paint()
-    ..color = const Color(0xCCF2A93B)
-    ..strokeWidth = 2.5
+    ..color = const Color(0xE6FFFFFF)
+    ..strokeWidth = 2
     ..style = PaintingStyle.stroke;
-  final _gas = Paint();
-  final _lavaGlow = Paint();
-  final _sky = Paint()..color = const Color(0xFF3B2F27);
+  final _signText = TextPaint(style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF3A2414), letterSpacing: 1));
 
   @override
   void update(double dt) => _t += dt;
 
-  static int _hash(int x, int y) => ((x * 73856093) ^ (y * 19349663)) & 0x7fffffff;
+  static int _hash(int x, int y) => ((x * 73856093) ^ (y * 19349663) ^ 0x5bd1e995) & 0x7fffffff;
 
   @override
   void render(Canvas canvas) {
@@ -66,83 +45,277 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     final view = game.camera.visibleWorldRect;
     final x0 = max(0, (view.left / ts).floor() - 1), x1 = min(map.width - 1, (view.right / ts).ceil() + 1);
     final y0 = max(0, (view.top / ts).floor() - 1), y1 = min(map.height - 1, (view.bottom / ts).ceil() + 1);
+    final lavaTop = map.height - 1 - controller.settings.mapId.def.lavaRows;
+    const surface = MapGenerator.surfaceRows;
 
-    for (var y = y0; y <= y1; y++) {
+    if (y0 < surface) _drawSky(canvas, map, view);
+
+    for (var y = max(y0, surface - 1); y <= y1; y++) {
+      final d = ((y - surface) / max(1, lavaTop - surface)).clamp(0.0, 1.0);
       for (var x = x0; x <= x1; x++) {
         final t = map.tileAt(x, y);
+        if (y < surface && t != TileType.depot) continue;
         final r = Rect.fromLTWH(x * ts, y * ts, ts, ts);
         final h = _hash(x, y);
-        if (y < MapGenerator.surfaceRows && t == TileType.empty) {
-          canvas.drawRect(r, _sky);
-          continue;
-        }
-        canvas.drawRect(r, _paints[t]!);
-
         switch (t) {
           case TileType.empty:
-            if (h % 7 == 0) canvas.drawCircle(Offset(r.left + (h % 23) + 4, r.top + (h % 17) + 6), 1.5, _shade);
+            _p.color = MinePalette.shade(MinePalette.tunnel(d), ((h % 9) - 4) / 120);
+            canvas.drawRect(r, _p);
+            // Soft shadow under the ceiling.
+            if (map.isSolid(x, y - 1)) canvas.drawRect(Rect.fromLTWH(r.left, r.top, ts, 7), _shadow);
           case TileType.depot:
-            for (var i = 1; i < 4; i++) {
-              canvas.drawLine(Offset(r.left, r.top + i * ts / 4), Offset(r.right, r.top + i * ts / 4), _shade);
-            }
+            _drawDepotFloor(canvas, r, h);
           case TileType.lava:
-            final pulse = 0.5 + 0.5 * sin(_t * 3 + h % 10);
-            _lavaGlow.color = Color.lerp(const Color(0xFFFF9B3D), const Color(0xFFFFE07A), pulse)!.withValues(alpha: 0.6);
-            canvas.drawCircle(Offset(r.left + (h % 20) + 6, r.top + (h % 14) + 9), 5 + pulse * 3, _lavaGlow);
+            _drawLava(canvas, r, h, map.tileAt(x, y - 1) != TileType.lava);
           case TileType.gas:
-            final drift = sin(_t * 1.5 + h % 13);
-            _gas.color = const Color(0xFF7BD34A).withValues(alpha: 0.25 + drift * 0.08);
-            canvas.drawRect(r, _gas);
-            canvas.drawCircle(Offset(r.center.dx + drift * 6, r.center.dy - drift * 4), 6, _gas);
+            _p.color = MinePalette.tunnel(d);
+            canvas.drawRect(r, _p);
+            _drawGas(canvas, r, h);
+          case TileType.bedrock:
+            _p.color = const Color(0xFF0F0C0B);
+            canvas.drawRect(r, _p);
           default:
-            if (t.isSolid) _drawRock(canvas, r, t, h, map.hpAt(x, y));
+            _drawSolid(canvas, map, r, x, y, t, h, d);
         }
       }
     }
+
+    if (y0 <= surface) _drawShopHut(canvas, map);
 
     final aim = controller.aimTile;
     if (aim != null) {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(aim.x * ts + 2, aim.y * ts + 2, ts - 4, ts - 4), const Radius.circular(4)),
-        _aim,
-      );
+      final pulse = 0.6 + 0.4 * sin(_t * 8);
+      _aim.color = Color.fromRGBO(255, 255, 255, 0.5 + 0.4 * pulse);
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(aim.x * ts + 1.5, aim.y * ts + 1.5, ts - 3, ts - 3), const Radius.circular(6)), _aim);
     }
   }
 
-  void _drawRock(Canvas canvas, Rect r, TileType t, int h, int hp) {
-    // Bevel.
-    canvas.drawRect(Rect.fromLTWH(r.left, r.top, ts, 3), _light);
-    canvas.drawRect(Rect.fromLTWH(r.left, r.bottom - 3, ts, 3), _shade);
+  // ---- pieces ---------------------------------------------------------------
 
-    final oreColor = _oreColors[t];
-    if (oreColor != null) {
-      final glint = t == TileType.crystal || t == TileType.diamond ? 0.75 + 0.25 * sin(_t * 4 + h % 7) : 1.0;
-      _gem.color = oreColor.withValues(alpha: glint);
-      for (var i = 0; i < 3; i++) {
-        final ox = r.left + 6 + ((h >> (i * 4)) % 18);
-        final oy = r.top + 6 + ((h >> (i * 4 + 2)) % 18);
-        final s = 3.0 + (h >> i) % 3;
-        canvas.drawPath(
-          Path()
-            ..moveTo(ox, oy - s)
-            ..lineTo(ox + s, oy)
-            ..lineTo(ox, oy + s)
-            ..lineTo(ox - s, oy)
-            ..close(),
-          _gem,
-        );
+  void _drawSky(Canvas canvas, GameMap map, Rect view) {
+    final top = min(0.0, view.top - ts);
+    final sky = Rect.fromLTRB(view.left - ts, top, view.right + ts, MapGenerator.surfaceRows * ts);
+    _p.shader = Gradient.linear(
+      Offset(0, -6 * ts),
+      Offset(0, MapGenerator.surfaceRows * ts),
+      const [Color(0xFF1E2A4F), Color(0xFF2B3A67), Color(0xFFB8664A), Color(0xFFF2A65A)],
+      const [0, 0.35, 0.78, 1],
+    );
+    canvas.drawRect(sky, _p);
+    _p.shader = null;
+    // Sun.
+    _p.color = const Color(0x55FFE3A3);
+    canvas.drawCircle(Offset(map.width * ts * 0.78, ts * 3.2), ts * 1.6, _p);
+    _p.color = const Color(0xFFFFE3A3);
+    canvas.drawCircle(Offset(map.width * ts * 0.78, ts * 3.2), ts * 0.9, _p);
+    // Distant hills.
+    final hills = Path()..moveTo(0, MapGenerator.surfaceRows * ts);
+    for (var x = 0.0; x <= map.width * ts; x += ts * 2) {
+      hills.lineTo(x, MapGenerator.surfaceRows * ts - ts * (1.2 + 0.9 * sin(x / (ts * 5)) + 0.4 * sin(x / (ts * 1.7))));
+    }
+    hills
+      ..lineTo(map.width * ts, MapGenerator.surfaceRows * ts)
+      ..close();
+    _p.color = const Color(0xFF5B3A2E);
+    canvas.drawPath(hills, _p);
+  }
+
+  void _drawSolid(Canvas canvas, GameMap map, Rect r, int x, int y, TileType t, int h, double d) {
+    final hard = t == TileType.hardRock || t == TileType.diamond || t == TileType.treasure || (d > 0.5 && t.ore != null);
+    final base = MinePalette.shade(MinePalette.rock(d, hard: hard), ((h % 11) - 5) / 90);
+    _p.color = base;
+    canvas.drawRect(r, _p);
+
+    // Pebbles for texture.
+    _p.color = MinePalette.shade(base, 0.08);
+    canvas.drawOval(Rect.fromLTWH(r.left + (h % 13) + 3, r.top + (h >> 4) % 12 + 4, 9, 6), _p);
+    _p.color = MinePalette.shade(base, -0.12);
+    canvas.drawOval(Rect.fromLTWH(r.left + (h >> 7) % 14 + 12, r.top + (h >> 3) % 10 + 16, 7, 5), _p);
+
+    // Edge lighting against open space.
+    final openAbove = !map.isSolid(x, y - 1) && map.tileAt(x, y - 1) != TileType.bedrock;
+    final openBelow = !map.isSolid(x, y + 1);
+    if (openAbove) {
+      if (y == MapGenerator.surfaceRows) {
+        _p.color = const Color(0xFF5E8F3A); // grass at the surface
+        canvas.drawRect(Rect.fromLTWH(r.left, r.top, ts, 5), _p);
+        _p.color = const Color(0xFF7CB24C);
+        canvas.drawRect(Rect.fromLTWH(r.left, r.top, ts, 2), _p);
+      } else {
+        canvas.drawRect(Rect.fromLTWH(r.left, r.top, ts, 3), _light);
       }
     }
+    if (openBelow) canvas.drawRect(Rect.fromLTWH(r.left, r.bottom - 4, ts, 4), _shadow);
+    if (!map.isSolid(x - 1, y)) canvas.drawRect(Rect.fromLTWH(r.left, r.top, 2, ts), _light);
+    if (!map.isSolid(x + 1, y)) canvas.drawRect(Rect.fromLTWH(r.right - 3, r.top, 3, ts), _shadow);
 
-    // Damage cracks.
-    final maxHp = t.maxHp;
-    if (maxHp > 0 && hp < maxHp) {
-      final dmg = 1 - hp / maxHp;
-      final c = r.center;
-      canvas.drawLine(c, c + Offset(-10 * dmg - 3, -9 * dmg), _crack);
-      canvas.drawLine(c, c + Offset(11 * dmg + 2, -4 * dmg), _crack);
-      if (dmg > 0.4) canvas.drawLine(c, c + Offset(4 * dmg, 12 * dmg), _crack);
-      if (dmg > 0.7) canvas.drawLine(c, c + Offset(-12 * dmg, 8 * dmg), _crack);
+    switch (t) {
+      case TileType.copper || TileType.iron || TileType.gold:
+        _drawNuggets(canvas, r, h, MinePalette.ore[t]!, sparkle: t == TileType.gold);
+      case TileType.diamond:
+        _drawGems(canvas, r, h);
+      case TileType.moneyBag:
+        _drawCoins(canvas, r);
+      case TileType.treasure:
+        _drawChest(canvas, r);
+      default:
+        break;
     }
+
+    final maxHp = t.maxHp;
+    final hp = map.hpAt(x, y);
+    if (maxHp > 0 && hp < maxHp) _drawCracks(canvas, r, 1 - hp / maxHp, h);
+  }
+
+  void _drawNuggets(Canvas canvas, Rect r, int h, Color c, {bool sparkle = false}) {
+    for (var i = 0; i < 4; i++) {
+      final ox = r.left + 5 + ((h >> (i * 3)) % 20);
+      final oy = r.top + 5 + ((h >> (i * 3 + 5)) % 20);
+      final s = 3.0 + (h >> i) % 3;
+      _p.color = MinePalette.shade(c, -0.35);
+      canvas.drawCircle(Offset(ox + 1, oy + 1.2), s, _p);
+      _p.color = c;
+      canvas.drawCircle(Offset(ox, oy), s, _p);
+      _p.color = MinePalette.shade(c, 0.5);
+      canvas.drawCircle(Offset(ox - s * 0.35, oy - s * 0.35), s * 0.35, _p);
+    }
+    if (sparkle) _twinkle(canvas, r, h, const Color(0xFFFFF6C8));
+  }
+
+  void _drawGems(Canvas canvas, Rect r, int h) {
+    const c = Color(0xFF8AF0FF);
+    for (var i = 0; i < 3; i++) {
+      final ox = r.left + 7 + ((h >> (i * 4)) % 17);
+      final oy = r.top + 7 + ((h >> (i * 4 + 2)) % 17);
+      final s = 4.5 + (h >> i) % 2;
+      final gem = Path()
+        ..moveTo(ox, oy - s)
+        ..lineTo(ox + s, oy)
+        ..lineTo(ox, oy + s * 1.2)
+        ..lineTo(ox - s, oy)
+        ..close();
+      _p.color = MinePalette.shade(c, -0.3);
+      canvas.drawPath(gem, _p);
+      _p.color = c;
+      canvas.drawPath(Path()..moveTo(ox, oy - s)..lineTo(ox + s, oy)..lineTo(ox, oy)..close(), _p);
+    }
+    _twinkle(canvas, r, h, const Color(0xFFFFFFFF));
+  }
+
+  void _twinkle(Canvas canvas, Rect r, int h, Color c) {
+    final phase = (sin(_t * 3 + h % 17) + 1) / 2;
+    if (phase < 0.75) return;
+    final a = (phase - 0.75) * 4;
+    final o = Offset(r.left + 6 + h % 20, r.top + 6 + (h >> 5) % 20);
+    final s = 5 * a;
+    _p.color = c.withValues(alpha: a);
+    canvas.drawPath(
+      Path()
+        ..moveTo(o.dx, o.dy - s)
+        ..lineTo(o.dx + s * 0.25, o.dy - s * 0.25)
+        ..lineTo(o.dx + s, o.dy)
+        ..lineTo(o.dx + s * 0.25, o.dy + s * 0.25)
+        ..lineTo(o.dx, o.dy + s)
+        ..lineTo(o.dx - s * 0.25, o.dy + s * 0.25)
+        ..lineTo(o.dx - s, o.dy)
+        ..lineTo(o.dx - s * 0.25, o.dy - s * 0.25)
+        ..close(),
+      _p,
+    );
+  }
+
+  void _drawCoins(Canvas canvas, Rect r) {
+    for (final (dx, dy) in const [(10.0, 21.0), (21.0, 22.0), (15.5, 14.0), (9.0, 11.0)]) {
+      _p.color = const Color(0xFF8C5E10);
+      canvas.drawCircle(Offset(r.left + dx, r.top + dy + 1), 5.5, _p);
+      _p.color = const Color(0xFFFFCF3F);
+      canvas.drawCircle(Offset(r.left + dx, r.top + dy), 5, _p);
+      _p.color = const Color(0xFFFFF1A8);
+      canvas.drawCircle(Offset(r.left + dx - 1.5, r.top + dy - 1.5), 1.6, _p);
+    }
+  }
+
+  void _drawChest(Canvas canvas, Rect r) {
+    final pulse = 0.5 + 0.5 * sin(_t * 4);
+    _p.color = Color.fromRGBO(255, 211, 77, 0.18 + 0.22 * pulse);
+    canvas.drawCircle(r.center, ts * (0.85 + 0.15 * pulse), _p);
+    final body = Rect.fromCenter(center: r.center + const Offset(0, 3), width: ts * 0.8, height: ts * 0.5);
+    final lid = Rect.fromLTWH(body.left, body.top - ts * 0.2, body.width, ts * 0.24);
+    _p.color = const Color(0xFF7A4A1E);
+    canvas.drawRRect(RRect.fromRectAndRadius(body, const Radius.circular(3)), _p);
+    _p.color = const Color(0xFF9C6230);
+    canvas.drawRRect(RRect.fromRectAndCorners(lid, topLeft: const Radius.circular(8), topRight: const Radius.circular(8)), _p);
+    _p.color = const Color(0xFFFFCF3F);
+    canvas.drawRect(Rect.fromLTWH(body.left, body.top - 1, body.width, 3), _p);
+    canvas.drawRect(Rect.fromLTWH(body.center.dx - 2, lid.top, 4, body.bottom - lid.top), _p);
+    canvas.drawCircle(body.center + const Offset(0, -2), 3.2, _p);
+    _twinkle(canvas, r, 7, const Color(0xFFFFFFFF));
+  }
+
+  void _drawCracks(Canvas canvas, Rect r, double dmg, int h) {
+    final c = r.center + Offset(((h % 7) - 3).toDouble(), ((h >> 3) % 7 - 3).toDouble());
+    canvas.drawLine(c, c + Offset(-11 * dmg - 2, -9 * dmg), _crack);
+    canvas.drawLine(c, c + Offset(12 * dmg + 2, -5 * dmg), _crack);
+    if (dmg > 0.35) canvas.drawLine(c, c + Offset(5 * dmg, 13 * dmg), _crack);
+    if (dmg > 0.65) {
+      canvas.drawLine(c, c + Offset(-13 * dmg, 9 * dmg), _crack);
+      canvas.drawLine(c + Offset(-6 * dmg, -5 * dmg), c + Offset(-6 * dmg, -14 * dmg), _crack);
+    }
+  }
+
+  void _drawLava(Canvas canvas, Rect r, int h, bool surfaceRow) {
+    final flow = sin(_t * 1.6 + (h % 31) * 0.3);
+    _p.color = Color.lerp(const Color(0xFFD9381E), const Color(0xFFFF7A1F), 0.5 + 0.5 * flow)!;
+    canvas.drawRect(r, _p);
+    _p.color = Color.lerp(const Color(0xFFFFB13B), const Color(0xFFFFE680), 0.5 + 0.5 * sin(_t * 2.3 + h % 13))!.withValues(alpha: 0.75);
+    canvas.drawOval(Rect.fromLTWH(r.left + (h % 16) + 2, r.top + (h >> 4) % 18 + 4, 12, 6), _p);
+    if (surfaceRow) {
+      // Bubbling top edge.
+      final bubble = (_t * 0.8 + (h % 100) / 100) % 1;
+      _p.color = const Color(0xFFFFE07A).withValues(alpha: 1 - bubble);
+      canvas.drawCircle(Offset(r.left + (h % 22) + 5, r.top + 4 - bubble * 8), 2 + bubble * 3, _p);
+      _p.color = const Color(0x66FFE07A);
+      canvas.drawRect(Rect.fromLTWH(r.left, r.top, ts, 3), _p);
+    }
+  }
+
+  void _drawGas(Canvas canvas, Rect r, int h) {
+    for (var i = 0; i < 3; i++) {
+      final ph = _t * 0.9 + i * 2.1 + (h % 10);
+      _p.color = Color.fromRGBO(140, 220, 90, 0.16 + 0.06 * sin(ph));
+      canvas.drawCircle(Offset(r.left + ts * (0.3 + 0.2 * i) + 4 * sin(ph), r.top + ts * 0.5 + 5 * cos(ph * 0.8)), ts * 0.42, _p);
+    }
+  }
+
+  void _drawDepotFloor(Canvas canvas, Rect r, int h) {
+    _p.color = MinePalette.shade(const Color(0xFF8A5A33), ((h % 7) - 3) / 60);
+    canvas.drawRect(r, _p);
+    _p.color = const Color(0x40000000);
+    canvas.drawRect(Rect.fromLTWH(r.left, r.top, 1.5, ts), _p);
+    canvas.drawRect(Rect.fromLTWH(r.left, r.bottom - 3, ts, 3), _p);
+  }
+
+  void _drawShopHut(Canvas canvas, GameMap map) {
+    final depots = controller.depotXs;
+    if (depots.isEmpty) return;
+    const y = MapGenerator.surfaceRows - 1;
+    final left = depots.first * ts, right = (depots.last + 1) * ts;
+    final cx = (left + right) / 2;
+    // Posts + awning.
+    _p.color = const Color(0xFF5A3A22);
+    canvas.drawRect(Rect.fromLTWH(left + 4, (y - 2.2) * ts, 6, ts * 2.2), _p);
+    canvas.drawRect(Rect.fromLTWH(right - 10, (y - 2.2) * ts, 6, ts * 2.2), _p);
+    final awning = Rect.fromLTWH(left - 6, (y - 2.6) * ts, right - left + 12, ts * 0.6);
+    for (var i = 0; i * 18.0 < awning.width; i++) {
+      _p.color = i.isEven ? const Color(0xFFE5482E) : const Color(0xFFF7EBD9);
+      canvas.drawRect(Rect.fromLTWH(awning.left + i * 18, awning.top, min(18, awning.right - (awning.left + i * 18)), awning.height), _p);
+    }
+    _p.color = const Color(0x33000000);
+    canvas.drawRect(Rect.fromLTWH(awning.left, awning.bottom, awning.width, 4), _p);
+    // Sign.
+    final sign = Rect.fromCenter(center: Offset(cx, (y - 3.2) * ts), width: 74, height: 22);
+    _p.color = const Color(0xFFF2D49B);
+    canvas.drawRRect(RRect.fromRectAndRadius(sign, const Radius.circular(5)), _p);
+    _signText.render(canvas, 'SHOP', Vector2(sign.center.dx, sign.center.dy), anchor: Anchor.center);
   }
 }

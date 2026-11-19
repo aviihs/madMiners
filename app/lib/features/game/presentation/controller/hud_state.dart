@@ -11,6 +11,7 @@ class ScoreLine {
     required this.isYou,
     required this.team,
     required this.connected,
+    required this.depth,
   });
   final String id;
   final String name;
@@ -19,6 +20,7 @@ class ScoreLine {
   final bool isYou;
   final int team;
   final bool connected;
+  final int depth;
 }
 
 /// Everything the Flutter HUD overlay renders. Rebuilt on each snapshot.
@@ -33,9 +35,12 @@ class HudState {
     this.linkMessage,
     this.rttMs,
     this.roomCode = '',
-    this.mode = GameMode.competition,
+    this.mode = GameMode.treasureHunt,
     this.mapName = '',
-    this.oxygenDepth = 0,
+    this.lavaDepth = 0,
+    this.warmup = 0,
+    this.lobbyTarget = 8,
+    this.hint = TreasureHint.none,
   });
 
   final PlayerSnapshot? me;
@@ -49,10 +54,20 @@ class HudState {
   final String roomCode;
   final GameMode mode;
   final String mapName;
-  final int oxygenDepth;
+  final int lavaDepth;
+
+  /// Seconds until digging starts.
+  final double warmup;
+
+  /// How many miners the room fills up to.
+  final int lobbyTarget;
+
+  /// Your private treasure sense.
+  final TreasureHint hint;
 
   bool get ready => me != null;
-  bool get deep => me != null && me!.y > oxygenDepth;
+  /// Your current depth in tiles below the surface.
+  int get depth => me == null ? 0 : (me!.y.floor() - MapGenerator.surfaceRows + 1).clamp(0, 9999);
 
   HudState copyWith({
     PlayerSnapshot? me,
@@ -66,7 +81,10 @@ class HudState {
     String? roomCode,
     GameMode? mode,
     String? mapName,
-    int? oxygenDepth,
+    int? lavaDepth,
+    double? warmup,
+    int? lobbyTarget,
+    TreasureHint? hint,
   }) => HudState(
     me: me ?? this.me,
     timeLeft: timeLeft ?? this.timeLeft,
@@ -79,6 +97,9 @@ class HudState {
     roomCode: roomCode ?? this.roomCode,
     mode: mode ?? this.mode,
     mapName: mapName ?? this.mapName,
-    oxygenDepth: oxygenDepth ?? this.oxygenDepth,
+    lavaDepth: lavaDepth ?? this.lavaDepth,
+    warmup: warmup ?? this.warmup,
+    lobbyTarget: lobbyTarget ?? this.lobbyTarget,
+    hint: hint ?? this.hint,
   );
 }

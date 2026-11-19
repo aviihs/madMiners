@@ -14,8 +14,8 @@ class DigPathfinder {
   /// Cost of entering a tile, given the bot's pickaxe [damage].
   double enterCost(TileType t, int hp, int damage) => switch (t) {
     TileType.bedrock => double.infinity,
-    TileType.lava => 60,
-    TileType.gas => 12,
+    TileType.lava => double.infinity,
+    TileType.gas => 25,
     TileType.empty || TileType.depot => 1,
     _ => 1 + (hp / damage).ceil() * 0.9,
   };

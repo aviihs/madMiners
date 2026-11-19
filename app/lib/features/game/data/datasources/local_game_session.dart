@@ -18,6 +18,7 @@ class LocalGameSession implements GameSession {
   final _events = StreamController<SessionEvent>.broadcast();
   late final GameSimulation _sim;
   Timer? _timer;
+  TreasureHint _hint = TreasureHint.none;
 
   @override
   Stream<SessionEvent> get events => _events.stream;
@@ -30,7 +31,7 @@ class LocalGameSession implements GameSession {
     await Future<void>.delayed(Duration.zero);
     _events
       ..add(const SessionLink(LinkStatus.connected, rttMs: 0))
-      ..add(SessionJoined(youId: _you, roomCode: 'OFFLINE', settings: target.settings, map: _sim.map.clone(), reconnected: false));
+      ..add(SessionJoined(youId: _you, roomCode: 'OFFLINE', settings: target.settings, map: _sim.publicMap(), reconnected: false));
     _timer = Timer.periodic(Duration(microseconds: 1000000 ~/ Balance.tickRate), (_) => _tick());
   }
 
@@ -38,6 +39,11 @@ class LocalGameSession implements GameSession {
     _sim.update(1 / Balance.tickRate);
     if (_sim.tick % Balance.snapshotEvery == 0 || _sim.ended) {
       _events.add(SessionSnapshot(_sim.takeSnapshot()));
+      final h = _sim.hintFor(_you);
+      if (h != _hint) {
+        _hint = h;
+        _events.add(SessionHint(h));
+      }
     }
     if (_sim.ended) {
       _timer?.cancel();
@@ -50,6 +56,12 @@ class LocalGameSession implements GameSession {
 
   @override
   void buyUpgrade(UpgradeKind kind) => _sim.requestUpgrade(_you, kind);
+
+  @override
+  void buyItem(ItemKind kind) => _sim.buyItem(_you, kind);
+
+  @override
+  void useItem(ItemKind kind) => _sim.useItem(_you, kind);
 
   @override
   void chat(String text) => _sim.chat(_you, text);

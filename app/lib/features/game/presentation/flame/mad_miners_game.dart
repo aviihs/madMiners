@@ -18,15 +18,21 @@ class MadMinersGame extends FlameGame {
   static const double tileSize = 32;
 
   /// Roughly how many tiles fit across the shorter screen edge.
-  static const double tilesAcross = 15;
+  static const double tilesAcross = 13;
+
+  final _particles = ParticlesComponent();
+  final _rng = Random();
+  double _shake = 0;
 
   @override
-  Color backgroundColor() => const Color(0xFF0B0908);
+  Color backgroundColor() => const Color(0xFF0C0A09);
 
   @override
   Future<void> onLoad() async {
     world.addAll([
       TileMapComponent(controller),
+      _particles,
+      BombsComponent(controller),
       MinersComponent(controller),
       DarknessComponent(controller),
     ]);
@@ -43,14 +49,30 @@ class MadMinersGame extends FlameGame {
   void update(double dt) {
     final step = min(dt, 0.1); // avoid tunnelling after a hitch
     controller.update(step);
+
+    for (final fx in controller.drainFx()) {
+      switch (fx.kind) {
+        case FxKind.text:
+          world.add(FloatingText(fx));
+        case FxKind.chips:
+          _particles.chips(fx.x, fx.y, Color(fx.color), fx.amount.round());
+        case FxKind.burst:
+          _particles.burst(fx.x, fx.y, Color(fx.color));
+        case FxKind.shake:
+          _shake = max(_shake, fx.amount);
+      }
+    }
+
     final me = controller.me;
     if (me != null) {
       final target = Vector2(me.rx * tileSize, me.ry * tileSize);
       final pos = camera.viewfinder.position;
-      camera.viewfinder.position = pos + (target - pos) * min(1, step * 10);
-    }
-    for (final fx in controller.drainFx()) {
-      world.add(FloatingText(fx));
+      var next = pos + (target - pos) * min(1, step * 9);
+      if (_shake > 0.2) {
+        next += Vector2((_rng.nextDouble() - 0.5) * _shake, (_rng.nextDouble() - 0.5) * _shake);
+        _shake *= pow(0.02, step).toDouble();
+      }
+      camera.viewfinder.position = next;
     }
     super.update(step);
   }

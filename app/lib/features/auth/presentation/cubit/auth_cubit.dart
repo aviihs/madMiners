@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/result.dart';
+import '../../domain/entities/player_profile.dart';
 import '../../domain/entities/session.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/auth_usecases.dart';
@@ -79,6 +80,12 @@ class AuthCubit extends Cubit<AuthState> {
     final s = state;
     if (s is! AuthSignedIn || !s.session.isOnline) return;
     if (await _refresh(s.session) case Ok(:final value)) emit(AuthSignedIn(value));
+  }
+
+  /// After a store purchase / equip, the server returns the fresh profile.
+  void profileUpdated(PlayerProfile profile) {
+    final s = state;
+    if (s is AuthSignedIn) emit(AuthSignedIn(s.session.copyWith(profile: profile)));
   }
 
   Future<void> signOut() async {
