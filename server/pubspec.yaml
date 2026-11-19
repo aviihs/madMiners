@@ -1,0 +1,23 @@
+name: mad_miners_server
+description: Authoritative Mad Miners game + API server.
+version: 1.0.0
+publish_to: none
+# repository: https://github.com/my_org/my_repo
+
+environment:
+  sdk: ^3.11.5
+
+# Add regular dependencies here.
+dependencies:
+  crypto: ^3.0.8
+  mad_miners_core:
+    path: ../packages/mad_miners_core
+  path: ^1.9.0
+  shelf: ^1.4.3
+  shelf_router: ^1.1.5
+  shelf_web_socket: ^3.0.0
+  web_socket_channel: ^3.0.3
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6

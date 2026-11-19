@@ -1,0 +1,14 @@
+import 'package:equatable/equatable.dart';
+
+class LeaderboardEntry extends Equatable {
+  const LeaderboardEntry({required this.rank, required this.playerId, required this.username, required this.level, required this.totalCoins, required this.wins});
+  final int rank;
+  final String playerId;
+  final String username;
+  final int level;
+  final int totalCoins;
+  final int wins;
+
+  @override
+  List<Object?> get props => [rank, playerId, username, level, totalCoins, wins];
+}

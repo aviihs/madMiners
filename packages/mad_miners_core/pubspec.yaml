@@ -1,0 +1,16 @@
+name: mad_miners_core
+description: Shared game domain for Mad Miners — rules, world, simulation, bots and network protocol.
+version: 0.1.0
+publish_to: none
+# repository: https://github.com/my_org/my_repo
+
+environment:
+  sdk: ^3.11.5
+
+# Add regular dependencies here.
+dependencies: {}
+
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6
