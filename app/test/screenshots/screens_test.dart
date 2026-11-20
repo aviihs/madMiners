@@ -17,6 +17,7 @@ import 'package:mad_miners/features/game/domain/entities/game_target.dart';
 import 'package:mad_miners/features/game/presentation/pages/game_page.dart';
 import 'package:mad_miners/features/auth/domain/entities/player_profile.dart';
 import 'package:mad_miners/features/lobby/presentation/pages/lobby_page.dart';
+import 'package:mad_miners/features/profile/presentation/pages/profile_page.dart';
 import 'package:mad_miners/features/store/presentation/pages/store_page.dart';
 import 'package:mad_miners_core/mad_miners_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -59,6 +60,10 @@ void main() {
       await _loadFont(fam, '$fonts/Roboto-Bold.ttf');
     }
     await _loadFont('MaterialIcons', '$fonts/MaterialIcons-Regular.otf');
+    await _loadFont('Lilita', 'assets/fonts/LilitaOne-Regular.ttf');
+    for (final w in ['Medium', 'SemiBold', 'Bold', 'ExtraBold', 'Black']) {
+      await _loadFont('Nunito', 'assets/fonts/Nunito-$w.ttf');
+    }
     await _loadFont('packages/cupertino_icons/CupertinoIcons', cupertinoIcons);
   });
 
@@ -73,23 +78,38 @@ void main() {
     await tester.pump(const Duration(seconds: 4));
     await _snap(tester, '1_login');
 
-    await tester.pumpWidget(_host(LobbyPage(session: Session.offline('Shiva')), cubit));
+    const me = PlayerProfile(
+      id: 'u1',
+      username: 'Shiva',
+      level: 7,
+      xp: 900,
+      wallet: 1820,
+      gems: 75,
+      wins: 12,
+      bestScore: 1430,
+      bestDepth: 84,
+      gamesPlayed: 41,
+      oresMined: 388,
+      totalCoins: 9640,
+      providers: ['guest'],
+      owned: {'outfit_forest', 'helmet_viking', 'char_bahadur'},
+      look: Look(character: 'char_bahadur', outfit: 'outfit_forest', helmet: 'helmet_viking'),
+    );
+    await tester.pumpWidget(_host(LobbyPage(session: const Session(profile: me, token: 't', serverUrl: 'http://x')), cubit));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
     await tester.pump(const Duration(milliseconds: 500));
-    await _snap(tester, '2_lobby_offline');
+    await _snap(tester, '2_lobby');
 
     cubit
       ..playOffline('Shiva')
-      ..profileUpdated(const PlayerProfile(
-        id: 'u1',
-        username: 'Shiva',
-        wallet: 820,
-        gems: 75,
-        owned: {'outfit_forest', 'helmet_viking'},
-        look: Look(outfit: 'outfit_forest', helmet: 'helmet_viking', pickaxe: 'pick_wood'),
-      ));
+      ..profileUpdated(me);
     await tester.pumpWidget(_host(const StorePage(token: 't'), cubit));
     await tester.pump(const Duration(milliseconds: 600));
     await _snap(tester, '2b_locker');
+    await tester.pumpWidget(_host(const ProfilePage(token: 't'), cubit));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await tester.pump(const Duration(milliseconds: 600));
+    await _snap(tester, '2c_profile');
 
     // Phone landscape, in a match.
     tester.view.physicalSize = const Size(844, 390);

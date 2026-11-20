@@ -19,6 +19,8 @@ void main() {
     await tester.pumpWidget(const MadMinersApp());
     await tester.pump(const Duration(seconds: 1));
 
+    await tester.tap(find.text('PLAY AS GUEST'));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.enterText(find.byType(EditableText).first, 'avihs');
     await tester.pump();
     // In widget tests HTTP returns 400, so sign-in fails -> error toast path.
@@ -35,10 +37,12 @@ void main() {
     expect((state as AuthSignedOut).error, isNotNull);
 
     // Offline path works too.
-    await tester.tap(find.text('Practice Offline'));
+    await tester.tap(find.text('Back'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('PRACTICE OFFLINE'));
     await tester.pump(const Duration(milliseconds: 500));
     expect(tester.takeException(), isNull);
-    expect(find.text('Start Digging'), findsOneWidget);
+    expect(find.text('TREASURE\nHUNT'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
 }

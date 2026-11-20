@@ -44,28 +44,18 @@ class _CreateRoomSheetState extends State<CreateRoomSheet> {
               child: _MapOption(map: m, selected: m == _map, onTap: () => setState(() => _map = m)),
             ),
           const SectionHeader('Mode'),
-          CupertinoSlidingSegmentedControl<GameMode>(
-            groupValue: _mode,
-            thumbColor: MMColors.surfaceHi,
-            backgroundColor: MMColors.glass,
-            children: {
-              for (final m in GameMode.values)
-                m: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(m.label, style: MMText.headline.copyWith(fontSize: 15))),
-            },
-            onValueChanged: (v) => setState(() => _mode = v ?? _mode),
+          AppSegmented<GameMode>(
+            value: _mode,
+            items: {for (final m in GameMode.values) m: m.label},
+            onChanged: (v) => setState(() => _mode = v),
           ),
           Padding(padding: const EdgeInsets.fromLTRB(4, 8, 4, 0), child: Text(_mode.description, style: MMText.caption)),
           if (!widget.offline) ...[
             const SectionHeader('Players'),
-            CupertinoSlidingSegmentedControl<int>(
-              groupValue: _max,
-              thumbColor: MMColors.surfaceHi,
-              backgroundColor: MMColors.glass,
-              children: {
-                for (var n = 8; n <= 12; n++)
-                  n: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text('$n', style: MMText.headline.copyWith(fontSize: 15))),
-              },
-              onValueChanged: (v) => setState(() => _max = v ?? _max),
+            AppSegmented<int>(
+              value: _max,
+              items: {for (var n = 8; n <= 12; n++) n: '$n'},
+              onChanged: (v) => setState(() => _max = v),
             ),
             const SizedBox(height: 16),
             GroupedList(
@@ -74,14 +64,14 @@ class _CreateRoomSheetState extends State<CreateRoomSheet> {
                   leading: const IconTile(CupertinoIcons.lock_fill, color: MMColors.blue, size: 30),
                   title: 'Private room',
                   subtitle: 'Only people with the code can join',
-                  trailing: CupertinoSwitch(value: _private, activeTrackColor: MMColors.amber, onChanged: (v) => setState(() => _private = v)),
+                  trailing: CupertinoSwitch(value: _private, activeTrackColor: MMColors.gold, onChanged: (v) => setState(() => _private = v)),
                 ),
               ],
             ),
           ],
           const SizedBox(height: 24),
-          PrimaryButton(
-            label: widget.offline ? 'Start Practice' : 'Create & Enter',
+          GameButton(
+            label: widget.offline ? 'Start Practice' : 'Create Room',
             onPressed: () => Navigator.pop(context, CreateRoomParams(mapId: _map, mode: _mode, maxPlayers: _max, isPrivate: _private)),
           ),
         ],
@@ -103,9 +93,9 @@ class _MapOption extends StatelessWidget {
       duration: const Duration(milliseconds: 180),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: selected ? MMColors.amber.withValues(alpha: 0.12) : MMColors.glass,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: selected ? MMColors.amber : MMColors.hairline, width: selected ? 1.5 : 0.5),
+        color: selected ? MMColors.gold.withValues(alpha: 0.1) : MMColors.surfaceLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: selected ? MMColors.gold : MMColors.hairline, width: selected ? 2 : 1),
       ),
       child: Row(
         children: [
@@ -125,7 +115,7 @@ class _MapOption extends StatelessWidget {
           const SizedBox(width: 8),
           Icon(
             selected ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
-            color: selected ? MMColors.amber : MMColors.faint,
+            color: selected ? MMColors.gold : MMColors.faint,
             size: 22,
           ),
         ],

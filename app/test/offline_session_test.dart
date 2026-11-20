@@ -21,11 +21,12 @@ void main() {
     expect(controller.hud.value.me?.name, 'Tester');
     expect(controller.hud.value.warmup, greaterThan(0));
 
+    final startX = controller.predX;
     controller.joyX = 1;
     for (var i = 0; i < 30; i++) {
       controller.update(1 / 60);
     }
-    expect(controller.predX, greaterThan(controller.map!.spawn.x.toDouble() - 3));
+    expect(controller.predX, greaterThan(startX + 0.5), reason: 'local prediction moves you right away');
     await controller.dispose();
   });
 }

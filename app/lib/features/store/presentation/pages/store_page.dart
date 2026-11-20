@@ -45,14 +45,14 @@ class _StoreView extends StatelessWidget {
                       CupertinoSliverNavigationBar(
                         largeTitle: const Text('Locker'),
                         previousPageTitle: 'Lobby',
-                        backgroundColor: const Color(0xB30C0A09),
+                        backgroundColor: const Color(0xE6120E1F),
                         border: null,
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Pill('${profile.wallet}', icon: CupertinoIcons.money_dollar_circle_fill, color: MMColors.gold),
+                            CurrencyPill(profile.wallet),
                             const SizedBox(width: 6),
-                            Pill('${profile.gems}', icon: CupertinoIcons.suit_diamond_fill, color: const Color(0xFF64D2FF)),
+                            CurrencyPill(profile.gems, kind: CurrencyKind.gems),
                           ],
                         ),
                       ),
@@ -63,35 +63,41 @@ class _StoreView extends StatelessWidget {
                           sliver: SliverList.list(
                             children: [
                               GlassCard(
-                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [Color(0xFF3B2580), Color(0xFF1E1832)],
+                                ),
                                 child: Column(
                                   children: [
                                     Container(
-                                      decoration: const BoxDecoration(
+                                      decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        gradient: RadialGradient(colors: [Color(0x40FFB340), Color(0x00FFB340)]),
+                                        gradient: RadialGradient(colors: [MMColors.gold.withValues(alpha: 0.3), MMColors.gold.withValues(alpha: 0)]),
                                       ),
-                                      child: AvatarPreview(look: look, seed: profile.id, size: 190),
+                                      child: AvatarPreview(look: look, seed: profile.id, size: 200),
                                     ),
-                                    Text(profile.username, style: MMText.title),
+                                    Text(
+                                      st.preview?.name ?? look.def(CosmeticSlot.character).name,
+                                      style: MMText.title,
+                                    ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      st.preview == null ? 'Tap an item to try it on' : 'Trying on: ${st.preview!.name}',
+                                      st.preview == null
+                                          ? look.def(CosmeticSlot.character).description
+                                          : (profile.owns(st.preview!) ? 'Owned. Tap Wear to put it on.' : 'Trying it on. Buy to keep it.'),
                                       style: MMText.footnote,
+                                      textAlign: TextAlign.center,
                                     ),
                                   ],
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              CupertinoSlidingSegmentedControl<CosmeticSlot>(
-                                groupValue: st.slot,
-                                thumbColor: MMColors.surfaceHi,
-                                backgroundColor: MMColors.glass,
-                                children: {
-                                  for (final s in CosmeticSlot.values)
-                                    s: Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text(s.label, style: MMText.headline.copyWith(fontSize: 15))),
-                                },
-                                onValueChanged: (v) => context.read<StoreCubit>().selectSlot(v ?? st.slot),
+                              AppSegmented<CosmeticSlot>(
+                                value: st.slot,
+                                items: {for (final s in CosmeticSlot.values) s: s.label},
+                                onChanged: context.read<StoreCubit>().selectSlot,
                               ),
                               const SizedBox(height: 14),
                               GridView.builder(
@@ -102,7 +108,7 @@ class _StoreView extends StatelessWidget {
                                   maxCrossAxisExtent: 180,
                                   mainAxisSpacing: 12,
                                   crossAxisSpacing: 12,
-                                  childAspectRatio: 0.78,
+                                  childAspectRatio: 0.72,
                                 ),
                                 itemBuilder: (context, i) => _ItemCard(
                                   item: items[i],
@@ -115,7 +121,7 @@ class _StoreView extends StatelessWidget {
                               ),
                               const SizedBox(height: 16),
                               const Text(
-                                'Earn coins by playing. Find the treasure to earn 💎 gems.\nCosmetics never change gameplay.',
+                                'Earn coins in every match. Find the treasure to earn gems.\nLooks never change how the game plays.',
                                 textAlign: TextAlign.center,
                                 style: MMText.caption,
                               ),
@@ -184,61 +190,50 @@ class _ItemCard extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: selected ? MMColors.amber.withValues(alpha: 0.12) : MMColors.glass,
-          borderRadius: BorderRadius.circular(18),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: item.isPremium ? const [Color(0xFF173F45), Color(0xFF1C1630)] : const [Color(0xFF2A2246), Color(0xFF1C1630)],
+          ),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? MMColors.amber : (item.isPremium ? const Color(0x8064D2FF) : MMColors.hairline),
-            width: selected ? 1.5 : 0.8,
+            color: selected ? MMColors.gold : (item.isPremium ? MMColors.gem.withValues(alpha: 0.55) : MMColors.hairline),
+            width: selected ? 2 : 1,
           ),
         ),
         child: Column(
           children: [
             Row(
               children: [
-                if (item.isPremium) const Pill('PREMIUM', color: Color(0xFF64D2FF)),
+                if (item.isPremium) const Pill('PREMIUM', color: MMColors.gem) else if (!item.isFree && !owned) const Pill('NEW', color: MMColors.gold),
                 const Spacer(),
-                if (equipped) const Icon(CupertinoIcons.checkmark_seal_fill, size: 18, color: MMColors.stamina),
+                if (equipped) const Icon(CupertinoIcons.checkmark_seal_fill, size: 18, color: MMColors.leaf),
               ],
             ),
             Expanded(
               child: AvatarPreview(look: profile.look.withItem(item), seed: profile.id, size: 110, animate: false),
             ),
-            Text(item.name, style: MMText.headline.copyWith(fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(item.name, style: MMText.title.copyWith(fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: CupertinoButton(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 32),
-                borderRadius: BorderRadius.circular(99),
-                color: equipped ? MMColors.glassStrong : (owned ? MMColors.blue : (affordable ? MMColors.amber : MMColors.glassStrong)),
-                onPressed: equipped || busy ? null : onAction,
-                disabledColor: MMColors.glassStrong,
-                child: busy
-                    ? const CupertinoActivityIndicator(radius: 8)
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!owned) ...[
-                            Icon(
-                              gems ? CupertinoIcons.suit_diamond_fill : CupertinoIcons.money_dollar_circle_fill,
-                              size: 14,
-                              color: affordable ? CupertinoColors.white : MMColors.muted,
-                            ),
-                            const SizedBox(width: 4),
-                          ],
-                          Text(
-                            equipped ? 'Wearing' : (owned ? 'Wear' : '${item.price}'),
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: equipped ? MMColors.muted : (owned || affordable ? CupertinoColors.white : MMColors.muted),
-                            ),
-                          ),
-                        ],
-                      ),
+            if (equipped)
+              Container(
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: MMColors.leaf.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14)),
+                child: Text('EQUIPPED', style: MMText.button.copyWith(fontSize: 14, color: MMColors.leaf)),
+              )
+            else if (owned)
+              GameButton(label: 'Wear', tone: ButtonTone.dark, height: 40, fontSize: 15, loading: busy, onPressed: onAction)
+            else
+              GameButton(
+                label: formatAmount(item.price),
+                tone: gems ? ButtonTone.gem : ButtonTone.gold,
+                leading: gems ? const GemIcon(size: 16) : const CoinIcon(size: 16),
+                height: 40,
+                fontSize: 15,
+                loading: busy,
+                onPressed: affordable ? onAction : null,
               ),
-            ),
           ],
         ),
       ),

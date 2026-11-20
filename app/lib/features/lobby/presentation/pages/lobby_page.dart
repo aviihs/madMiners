@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Icons, Scaffold;
+import 'package:flutter/material.dart' show Scaffold;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mad_miners_core/mad_miners_core.dart';
 
@@ -10,7 +10,9 @@ import '../../../auth/domain/entities/session.dart';
 import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../../../game/domain/entities/game_target.dart';
 import '../../../game/presentation/pages/game_page.dart';
+import '../../../leaderboard/presentation/cubit/leaderboard_cubit.dart';
 import '../../../leaderboard/presentation/pages/leaderboard_page.dart';
+import '../../../profile/presentation/pages/profile_page.dart';
 import '../../../store/presentation/pages/store_page.dart';
 import '../../../store/presentation/widgets/avatar_preview.dart';
 import '../../domain/entities/room.dart';
@@ -23,12 +25,23 @@ class LobbyPage extends StatelessWidget {
   final Session session;
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-    create: (_) {
-      final c = sl<LobbyCubit>();
-      if (session.isOnline) c.refresh(session.token!);
-      return c;
-    },
+  Widget build(BuildContext context) => MultiBlocProvider(
+    providers: [
+      BlocProvider(
+        create: (_) {
+          final c = sl<LobbyCubit>();
+          if (session.isOnline) c.refresh(session.token!);
+          return c;
+        },
+      ),
+      BlocProvider(
+        create: (_) {
+          final c = sl<LeaderboardCubit>();
+          if (session.isOnline) c.load(session.token!, Board.today);
+          return c;
+        },
+      ),
+    ],
     child: _LobbyView(session: session),
   );
 }
@@ -46,23 +59,30 @@ class _LobbyViewState extends State<_LobbyView> {
   String get token => s.token!;
   LobbyCubit get lobby => context.read<LobbyCubit>();
 
+  Future<void> _refresh() async {
+    if (!s.isOnline) return;
+    await Future.wait([
+      lobby.refresh(token),
+      context.read<LeaderboardCubit>().load(token, Board.today),
+      context.read<AuthCubit>().refreshProfile(),
+    ]);
+  }
+
   Future<void> _enter(RoomTicket t) async {
     lobby.ticketConsumed();
     final again = await Navigator.of(context).push<bool>(
       GamePage.route(OnlineTarget(token: token, wsPath: t.wsPath, roomCode: t.roomCode)),
     );
     if (!mounted) return;
-    context.read<AuthCubit>().refreshProfile();
-    if (again == true) {
-      lobby.quickPlay(token);
-    } else {
-      lobby.refresh(token);
-    }
+    await _refresh();
+    if (again == true) lobby.quickPlay(token);
   }
 
   Future<void> _practice({MapId map = MapId.starterMine, GameMode mode = GameMode.treasureHunt}) async {
     final again = await Navigator.of(context).push<bool>(
-      GamePage.route(OfflineTarget(playerName: s.profile.username, settings: MatchSettings(mapId: map, mode: mode))),
+      GamePage.route(
+        OfflineTarget(playerName: s.profile.username, settings: MatchSettings(mapId: map, mode: mode)),
+      ),
     );
     if (again == true && mounted) await _practice(map: map, mode: mode);
   }
@@ -83,7 +103,7 @@ class _LobbyViewState extends State<_LobbyView> {
       context: context,
       barrierDismissible: true,
       builder: (ctx) => CupertinoAlertDialog(
-        title: const Text('Join private room'),
+        title: const Text('Join a private room', style: TextStyle(fontFamily: MMFonts.display, fontSize: 20)),
         content: Padding(
           padding: const EdgeInsets.only(top: 12),
           child: CupertinoTextField(
@@ -92,7 +112,7 @@ class _LobbyViewState extends State<_LobbyView> {
             placeholder: 'MMAB12',
             textAlign: TextAlign.center,
             textCapitalization: TextCapitalization.characters,
-            style: const TextStyle(fontSize: 20, letterSpacing: 3, fontWeight: FontWeight.w600, color: MMColors.text),
+            style: const TextStyle(fontFamily: MMFonts.display, fontSize: 24, letterSpacing: 4, color: MMColors.text),
             onSubmitted: (_) => Navigator.pop(ctx, true),
           ),
         ),
@@ -106,10 +126,7 @@ class _LobbyViewState extends State<_LobbyView> {
     code.dispose();
   }
 
-  Future<void> _signOut() async {
-    final yes = await showConfirm(context, title: 'Sign out?', message: 'You can sign back in any time.', confirm: 'Sign Out', destructive: true);
-    if (yes && mounted) await context.read<AuthCubit>().signOut();
-  }
+  void _open(Widget page) => Navigator.of(context).push(CupertinoPageRoute<void>(builder: (_) => page));
 
   @override
   Widget build(BuildContext context) {
@@ -124,67 +141,47 @@ class _LobbyViewState extends State<_LobbyView> {
       },
       builder: (context, st) => Scaffold(
         body: AppBackground(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-            slivers: [
-              CupertinoSliverNavigationBar(
-                largeTitle: const Text('Mad Miners'),
-                backgroundColor: const Color(0xB30C0A09),
-                border: null,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (s.isOnline)
-                      CupertinoButton(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        onPressed: () => Navigator.of(context).push(
-                          CupertinoPageRoute<void>(builder: (_) => LeaderboardPage(token: token, youId: s.profile.id)),
-                        ),
-                        child: const Icon(CupertinoIcons.chart_bar_alt_fill, size: 22),
-                      ),
-                    CupertinoButton(
-                      padding: const EdgeInsets.only(left: 8),
-                      onPressed: _signOut,
-                      child: const Icon(CupertinoIcons.person_crop_circle, size: 24),
-                    ),
-                  ],
-                ),
-              ),
-              if (s.isOnline) CupertinoSliverRefreshControl(onRefresh: () => lobby.refresh(token)),
-              SliverSafeArea(
-                top: false,
-                sliver: SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          child: SafeArea(
+            bottom: false,
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+              slivers: [
+                if (s.isOnline) CupertinoSliverRefreshControl(onRefresh: _refresh),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
                   sliver: SliverList.list(
                     children: [
-                      _ProfileCard(session: s),
-                      const SizedBox(height: 16),
+                      _TopBar(
+                        session: s,
+                        onProfile: () => s.isOnline ? _open(ProfilePage(token: token)) : context.read<AuthCubit>().signOut(),
+                      ),
+                      const SizedBox(height: 18),
                       _PlayCard(
                         online: s.isOnline,
                         busy: st.busy,
                         onPlay: s.isOnline ? () => lobby.quickPlay(token) : () => _practice(),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                       if (s.isOnline) ...[
                         Row(
                           children: [
                             Expanded(
-                              child: _ActionTile(
-                                icon: CupertinoIcons.add,
-                                color: MMColors.amber,
-                                title: 'Create Room',
-                                subtitle: 'Pick mine & rules',
-                                onTap: st.busy ? null : () => _create(offline: false),
+                              child: _Tile(
+                                icon: CupertinoIcons.person_crop_square_fill,
+                                color: MMColors.violet,
+                                title: 'Locker',
+                                subtitle: 'Miners & outfits',
+                                onTap: () => _open(StorePage(token: token)),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: _ActionTile(
-                                icon: CupertinoIcons.number,
-                                color: MMColors.blue,
-                                title: 'Join Code',
-                                subtitle: 'Play with friends',
-                                onTap: st.busy ? null : _joinCode,
+                              child: _Tile(
+                                icon: CupertinoIcons.chart_bar_alt_fill,
+                                color: MMColors.gold,
+                                title: 'Rankings',
+                                subtitle: 'Today and all time',
+                                onTap: () => _open(LeaderboardPage(token: token, youId: s.profile.id)),
                               ),
                             ),
                           ],
@@ -193,39 +190,54 @@ class _LobbyViewState extends State<_LobbyView> {
                         Row(
                           children: [
                             Expanded(
-                              child: _ActionTile(
-                                icon: CupertinoIcons.person_crop_square_fill,
-                                color: const Color(0xFFBF5AF2),
-                                title: 'Locker',
-                                subtitle: 'Outfits & skins',
-                                onTap: () => Navigator.of(context).push(CupertinoPageRoute<void>(builder: (_) => StorePage(token: token))),
+                              child: _Tile(
+                                icon: CupertinoIcons.add_circled_solid,
+                                color: MMColors.sky,
+                                title: 'Create',
+                                subtitle: 'Your own room',
+                                onTap: st.busy ? null : () => _create(offline: false),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: _ActionTile(
-                                icon: CupertinoIcons.game_controller_solid,
-                                color: MMColors.stamina,
-                                title: 'Practice',
-                                subtitle: 'Offline match',
-                                onTap: () => _create(offline: true),
+                              child: _Tile(
+                                icon: CupertinoIcons.number_circle_fill,
+                                color: MMColors.gem,
+                                title: 'Join Code',
+                                subtitle: 'Play with friends',
+                                onTap: st.busy ? null : _joinCode,
                               ),
                             ),
                           ],
                         ),
+                        _TodayLeaders(youId: s.profile.id, onMore: () => _open(LeaderboardPage(token: token, youId: s.profile.id))),
                         SectionHeader(
                           'Live mines',
-                          trailing: st.loading ? const CupertinoActivityIndicator(radius: 8) : Text('${st.rooms.length}', style: MMText.section),
+                          trailing: st.loading
+                              ? const CupertinoActivityIndicator(radius: 8)
+                              : CupertinoButton(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: const Size(28, 28),
+                                  onPressed: () => lobby.refresh(token),
+                                  child: const Icon(CupertinoIcons.arrow_clockwise, size: 18, color: MMColors.muted),
+                                ),
                         ),
                         if (st.rooms.isEmpty && !st.loading)
                           const GlassCard(
-                            child: Column(
+                            child: Row(
                               children: [
-                                Icon(CupertinoIcons.moon_zzz, color: MMColors.faint, size: 30),
-                                SizedBox(height: 8),
-                                Text('No live mines right now', style: MMText.headline),
-                                SizedBox(height: 4),
-                                Text('Tap Play — you\'ll be matched in seconds.', style: MMText.footnote, textAlign: TextAlign.center),
+                                IconTile(CupertinoIcons.moon_stars_fill, color: MMColors.violet),
+                                SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('No live mines right now', style: MMText.headline),
+                                      SizedBox(height: 2),
+                                      Text('Tap Play. You will be matched in seconds.', style: MMText.footnote),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           )
@@ -234,39 +246,50 @@ class _LobbyViewState extends State<_LobbyView> {
                             children: [
                               for (final r in st.rooms)
                                 ListRow(
-                                  leading: MapThumb(r.mapId, size: 38),
+                                  leading: MapThumb(r.mapId, size: 40),
                                   title: r.mapId.def.name,
-                                  subtitle: '${r.mode.label} · ${_fmt(r.timeLeft)} left',
+                                  subtitle: '${r.mode.label}  ·  ${_fmt(r.timeLeft)} left',
                                   trailing: Pill(
                                     '${r.humans + r.bots}/${r.maxPlayers}',
                                     icon: CupertinoIcons.person_2_fill,
-                                    color: r.isFull ? MMColors.health : MMColors.stamina,
+                                    color: r.isFull ? MMColors.lava : MMColors.leaf,
                                   ),
                                   onTap: r.isFull || st.busy ? null : () => lobby.join(token, r.roomId),
                                 ),
                             ],
                           ),
+                        const SizedBox(height: 14),
+                        _Tile(
+                          icon: CupertinoIcons.game_controller_solid,
+                          color: MMColors.leaf,
+                          title: 'Practice offline',
+                          subtitle: 'No internet needed',
+                          onTap: () => _create(offline: true),
+                          wide: true,
+                        ),
                       ] else ...[
-                        _ActionTile(
+                        _Tile(
                           icon: CupertinoIcons.slider_horizontal_3,
-                          color: MMColors.blue,
+                          color: MMColors.sky,
                           title: 'Custom practice',
                           subtitle: 'Choose mine and mode',
                           onTap: () => _create(offline: true),
                           wide: true,
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'You\'re offline. Sign out and connect to a server to play online.',
-                          style: MMText.footnote,
-                          textAlign: TextAlign.center,
+                        GameButton(
+                          label: 'Sign in to play online',
+                          tone: ButtonTone.dark,
+                          height: 50,
+                          fontSize: 16,
+                          onPressed: () => context.read<AuthCubit>().signOut(),
                         ),
                       ],
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -276,77 +299,88 @@ class _LobbyViewState extends State<_LobbyView> {
   static String _fmt(int t) => '${t ~/ 60}:${(t % 60).toString().padLeft(2, '0')}';
 }
 
-class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.session});
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.session, required this.onProfile});
   final Session session;
+  final VoidCallback onProfile;
 
   @override
   Widget build(BuildContext context) {
     final p = session.profile;
-    // XP progress inside the current level.
     var need = 100, rem = p.xp;
     for (var l = 1; l < p.level; l++) {
       rem -= need;
       need = (need * 1.25).round();
     }
-    final progress = need == 0 ? 0.0 : (rem / need).clamp(0.0, 1.0);
-    return GlassCard(
-      child: Row(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: const BoxDecoration(shape: BoxShape.circle, color: MMColors.glassStrong),
-            child: ClipOval(child: OverflowBox(maxWidth: 90, maxHeight: 90, child: AvatarPreview(look: p.look, seed: p.id, size: 90, animate: false))),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(p.username, style: MMText.title.copyWith(fontSize: 20)),
-                const SizedBox(height: 6),
-                if (session.isOnline) ...[
-                  Row(
-                    children: [
-                      Text('Level ${p.level}', style: MMText.footnote.copyWith(color: MMColors.amber, fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: SizedBox(
-                            height: 5,
-                            child: Stack(
-                              children: [
-                                Container(color: MMColors.glassStrong),
-                                FractionallySizedBox(widthFactor: progress, child: Container(decoration: const BoxDecoration(gradient: MMColors.accentGradient))),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+    final progress = (rem / need).clamp(0.0, 1.0);
+    return Row(
+      children: [
+        PressableScale(
+          onTap: onProfile,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(colors: [Color(0xFF3A2F5C), MMColors.surface], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                  border: Border.all(color: MMColors.gold, width: 2),
+                ),
+                child: ClipOval(
+                  child: OverflowBox(maxWidth: 96, maxHeight: 96, child: AvatarPreview(look: p.look, seed: p.id, size: 96, animate: false)),
+                ),
+              ),
+              if (session.isOnline)
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(color: MMColors.gold, borderRadius: BorderRadius.circular(8), border: Border.all(color: MMColors.bg, width: 2)),
+                    child: Text('${p.level}', style: const TextStyle(fontFamily: MMFonts.display, fontSize: 13, color: MMColors.onGold)),
                   ),
-                  const SizedBox(height: 6),
-                  Text('${p.wins} treasures · ${p.todayWins} today', style: MMText.caption),
-                ] else
-                  const Text('Offline profile', style: MMText.footnote),
-              ],
-            ),
+                ),
+            ],
           ),
-          if (session.isOnline) ...[
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Pill('${p.wallet}', icon: CupertinoIcons.money_dollar_circle_fill, color: MMColors.gold),
-                const SizedBox(height: 6),
-                Pill('${p.gems}', icon: CupertinoIcons.suit_diamond_fill, color: const Color(0xFF64D2FF)),
-              ],
-            ),
-          ],
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(p.username, style: MMText.title.copyWith(fontSize: 21), maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 5),
+              if (session.isOnline)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: SizedBox(
+                    height: 7,
+                    width: 120,
+                    child: Stack(
+                      children: [
+                        Container(color: MMColors.surfaceHi),
+                        FractionallySizedBox(widthFactor: progress, child: Container(decoration: const BoxDecoration(gradient: MMColors.accentGradient))),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                const Text('Offline', style: MMText.caption),
+            ],
+          ),
+        ),
+        if (session.isOnline)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              CurrencyPill(p.wallet),
+              const SizedBox(height: 6),
+              CurrencyPill(p.gems, kind: CurrencyKind.gems),
+            ],
+          ),
+      ],
     );
   }
 }
@@ -358,72 +392,75 @@ class _PlayCard extends StatelessWidget {
   final VoidCallback onPlay;
 
   @override
-  Widget build(BuildContext context) => PressableScale(
-    onTap: busy ? () {} : onPlay,
-    child: Container(
-      constraints: const BoxConstraints(minHeight: 172),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFFB340), Color(0xFFFF6B2C), Color(0xFF8A2A0C)],
-          stops: [0, 0.55, 1],
-        ),
-        boxShadow: const [BoxShadow(color: Color(0x55FF6B2C), blurRadius: 28, offset: Offset(0, 12))],
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(28),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF6A3FD9), Color(0xFF3B2580), Color(0xFF221548)],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          const Positioned(right: -18, bottom: -26, child: Icon(Icons.hardware_rounded, size: 170, color: Color(0x26FFFFFF))),
-          const Positioned(right: 70, top: 20, child: Icon(CupertinoIcons.sparkles, size: 28, color: Color(0x55FFFFFF))),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(online ? 'TREASURE HUNT' : 'PRACTICE',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: Color(0xCCFFFFFF))),
-                const SizedBox(height: 4),
-                Text(online ? 'Play Now' : 'Start Digging',
-                    style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: -0.6, color: CupertinoColors.white)),
-                const SizedBox(height: 2),
-                const Text('First to break the treasure wins.', style: TextStyle(fontSize: 14, color: Color(0xDDFFFFFF))),
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  decoration: BoxDecoration(color: CupertinoColors.white, borderRadius: BorderRadius.circular(99)),
-                  child: busy
-                      ? const CupertinoActivityIndicator(color: Color(0xFFFF6B2C))
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(CupertinoIcons.play_fill, size: 16, color: Color(0xFFE2551F)),
-                            const SizedBox(width: 6),
-                            Text(online ? 'Find a match' : 'Play now',
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFFE2551F))),
-                          ],
-                        ),
-                ),
-              ],
+      border: Border.all(color: const Color(0x40FFFFFF)),
+      boxShadow: const [
+        BoxShadow(color: Color(0x806A3FD9), blurRadius: 30, offset: Offset(0, 14)),
+        BoxShadow(color: Color(0xFF1A0F3A), offset: Offset(0, 6)),
+      ],
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Stack(
+      children: [
+        Positioned(
+          right: -30,
+          top: -30,
+          child: Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(colors: [MMColors.gold.withValues(alpha: 0.45), MMColors.gold.withValues(alpha: 0)]),
             ),
           ),
-        ],
-      ),
+        ),
+        const Positioned(
+          right: 4,
+          bottom: 60,
+          child: AvatarPreview(
+            look: Look(character: 'char_tinker', outfit: 'outfit_purple', helmet: 'helmet_yellow', pickaxe: 'pick_gold'),
+            seed: 'p',
+            size: 150,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Pill(online ? 'ONLINE  ·  8-12 MINERS' : 'PRACTICE', color: MMColors.goldLight),
+              const SizedBox(height: 10),
+              const Text(
+                'TREASURE\nHUNT',
+                style: TextStyle(fontFamily: MMFonts.display, fontSize: 38, height: 0.95, color: CupertinoColors.white, letterSpacing: 0.5),
+              ),
+              const SizedBox(height: 8),
+              const SizedBox(
+                width: 190,
+                child: Text(
+                  'Break the rock, dodge the lava, and grab the hidden treasure first.',
+                  style: TextStyle(fontFamily: MMFonts.body, fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xCCFFFFFF)),
+                ),
+              ),
+              const SizedBox(height: 18),
+              GameButton(label: online ? 'Play' : 'Play now', icon: CupertinoIcons.play_fill, loading: busy, onPressed: onPlay, height: 58, fontSize: 22),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 }
 
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-    this.wide = false,
-  });
+class _Tile extends StatelessWidget {
+  const _Tile({required this.icon, required this.color, required this.title, required this.subtitle, required this.onTap, this.wide = false});
   final IconData icon;
   final Color color;
   final String title;
@@ -437,7 +474,7 @@ class _ActionTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(title, style: MMText.headline),
+        Text(title, style: MMText.title.copyWith(fontSize: 18)),
         const SizedBox(height: 2),
         Text(subtitle, style: MMText.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
       ],
@@ -447,10 +484,104 @@ class _ActionTile extends StatelessWidget {
       child: GlassCard(
         onTap: onTap ?? () {},
         padding: const EdgeInsets.all(14),
+        radius: 20,
         child: wide
-            ? Row(children: [IconTile(icon, color: color), const SizedBox(width: 12), Expanded(child: text), const Icon(CupertinoIcons.chevron_forward, size: 16, color: MMColors.faint)])
-            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [IconTile(icon, color: color), const SizedBox(height: 12), text]),
+            ? Row(
+                children: [
+                  IconTile(icon, color: color, size: 42),
+                  const SizedBox(width: 12),
+                  Expanded(child: text),
+                  const Icon(CupertinoIcons.chevron_forward, size: 16, color: MMColors.faint),
+                ],
+              )
+            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [IconTile(icon, color: color, size: 42), const SizedBox(height: 12), text]),
       ),
     );
   }
+}
+
+/// Today's top three, straight from the daily leaderboard.
+class _TodayLeaders extends StatelessWidget {
+  const _TodayLeaders({required this.youId, required this.onMore});
+  final String youId;
+  final VoidCallback onMore;
+
+  static const _medals = [MMColors.gold, Color(0xFFC9D1E0), Color(0xFFE09A5B)];
+
+  @override
+  Widget build(BuildContext context) => BlocBuilder<LeaderboardCubit, LeaderboardState>(
+    builder: (context, st) {
+      final top = st.entries.take(3).toList();
+      return Column(
+        children: [
+          SectionHeader(
+            "Today's top miners",
+            trailing: CupertinoButton(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(28, 28),
+              onPressed: onMore,
+              child: const Text('See all', style: TextStyle(fontFamily: MMFonts.body, fontWeight: FontWeight.w800, fontSize: 13, color: MMColors.gold)),
+            ),
+          ),
+          GlassCard(
+            padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+            child: st.loading
+                ? const SizedBox(height: 90, child: Center(child: CupertinoActivityIndicator()))
+                : top.isEmpty
+                ? const SizedBox(
+                    height: 70,
+                    child: Center(
+                      child: Text('No treasure found yet today.\nWin a match to take the top spot.', textAlign: TextAlign.center, style: MMText.footnote),
+                    ),
+                  )
+                : Row(
+                    children: [
+                      for (final (i, e) in top.indexed)
+                        Expanded(
+                          child: Column(
+                            children: [
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  SizedBox.square(
+                                    dimension: 64,
+                                    child: e.look == null
+                                        ? Avatar(e.username, size: 56)
+                                        : AvatarPreview(look: e.look!, seed: e.playerId, size: 64, animate: i == 0),
+                                  ),
+                                  Positioned(
+                                    left: -2,
+                                    top: -2,
+                                    child: Container(
+                                      width: 22,
+                                      height: 22,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: _medals[i],
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: MMColors.surface, width: 2),
+                                      ),
+                                      child: Text('${i + 1}', style: const TextStyle(fontFamily: MMFonts.display, fontSize: 12, color: MMColors.onGold)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                e.playerId == youId ? 'You' : e.username,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: MMText.headline.copyWith(fontSize: 14, color: e.playerId == youId ? MMColors.gold : null),
+                              ),
+                              Text('${e.todayWins} ${e.todayWins == 1 ? 'win' : 'wins'}', style: MMText.caption),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+        ],
+      );
+    },
+  );
 }

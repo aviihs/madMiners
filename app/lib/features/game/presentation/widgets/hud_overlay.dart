@@ -169,7 +169,7 @@ class _Vitals extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Pill('${me.coins}', icon: CupertinoIcons.money_dollar_circle_fill, color: MMColors.gold),
+                CurrencyPill(me.coins),
               ],
             ),
             const SizedBox(height: 8),

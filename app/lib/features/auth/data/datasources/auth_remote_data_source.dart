@@ -12,6 +12,17 @@ class AuthRemoteDataSource {
     return (data['accessToken'] as String, PlayerProfileModel.fromJson(data));
   }
 
+  Future<(String token, PlayerProfileModel profile)> google(String idToken, {String? linkToken}) async {
+    final data = await _api.post<Map<String, dynamic>>('/api/v1/auth/google', body: {'idToken': idToken}, token: linkToken);
+    return (data['accessToken'] as String, PlayerProfileModel.fromJson(data));
+  }
+
+  Future<void> logout(String token) async {
+    try {
+      await _api.post<Map<String, dynamic>>('/api/v1/auth/logout', token: token);
+    } catch (_) {}
+  }
+
   Future<bool> health(String baseUrl) async {
     try {
       final b = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;

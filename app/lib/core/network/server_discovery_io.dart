@@ -6,6 +6,8 @@ const _discoveryPort = 41234;
 
 /// Listens for the server's LAN broadcast and returns `http://ip:port`.
 Future<String?> listenForLanServer({Duration timeout = const Duration(seconds: 3)}) async {
+  // Widget tests run in fake time; a real socket there would never close.
+  if (Platform.environment.containsKey('FLUTTER_TEST')) return null;
   RawDatagramSocket? socket;
   try {
     socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, _discoveryPort, reuseAddress: true);

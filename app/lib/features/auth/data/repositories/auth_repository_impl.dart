@@ -6,10 +6,11 @@ import '../../../../core/network/server_discovery.dart';
 import '../../domain/entities/session.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_data_source.dart';
+import '../datasources/google_auth_data_source.dart';
 import '../datasources/session_local_data_source.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  AuthRepositoryImpl(this._remote, this._local, this._config) {
+  AuthRepositoryImpl(this._remote, this._local, this._config, this._google) {
     final saved = _local.serverUrl;
     if (saved != null) _config.baseUrl = saved;
   }
@@ -17,6 +18,7 @@ class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remote;
   final SessionLocalDataSource _local;
   final ServerConfig _config;
+  final GoogleAuthDataSource _google;
 
   @override
   String get lastServerUrl => _config.baseUrl;
@@ -54,7 +56,33 @@ class AuthRepositoryImpl implements AuthRepository {
   });
 
   @override
-  Future<void> signOut() => _local.clearToken();
+  Future<Result<Session>> signInWithGoogle({required String serverUrl, Session? linkTo}) async {
+    _config.baseUrl = serverUrl;
+    final String idToken;
+    try {
+      idToken = await _google.obtainIdToken();
+    } on GoogleSignInCancelled {
+      return const Err(ServerFailure('Sign-in cancelled.', code: 'CANCELLED'));
+    } on GoogleSignInUnavailable catch (e) {
+      return Err(ServerFailure(e.reason, code: 'GOOGLE_UNAVAILABLE'));
+    }
+    final result = await guard(() async {
+      final (token, profile) = await _remote.google(idToken, linkToken: linkTo?.token);
+      await _local.save(token: token, serverUrl: serverUrl);
+      return Session(profile: profile, token: token, serverUrl: serverUrl);
+    });
+    if (result case Err(failure: NetworkFailure())) {
+      return Err(NetworkFailure('Can\'t reach $serverUrl. Is the server running?'));
+    }
+    return result;
+  }
+
+  @override
+  Future<void> signOut([Session? session]) async {
+    if (session?.token != null) await _remote.logout(session!.token!);
+    await _google.signOut();
+    await _local.clearToken();
+  }
 
   @override
   Future<bool> isServerReachable(String serverUrl) => _remote.health(serverUrl);

@@ -24,24 +24,19 @@ class LeaderboardPage extends StatelessWidget {
             physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
             slivers: [
               const CupertinoSliverNavigationBar(
-                largeTitle: Text('Leaderboard'),
+                largeTitle: Text('Rankings'),
                 previousPageTitle: 'Lobby',
-                backgroundColor: Color(0xB30C0A09),
+                backgroundColor: Color(0xE6120E1F),
                 border: null,
               ),
               CupertinoSliverRefreshControl(onRefresh: () => context.read<LeaderboardCubit>().load(token)),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                 sliver: SliverToBoxAdapter(
-                  child: CupertinoSlidingSegmentedControl<Board>(
-                    groupValue: s.board,
-                    thumbColor: MMColors.surfaceHi,
-                    backgroundColor: MMColors.glass,
-                    children: const {
-                      Board.today: Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('Today', style: MMText.headline)),
-                      Board.allTime: Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('All Time', style: MMText.headline)),
-                    },
-                    onValueChanged: (b) => context.read<LeaderboardCubit>().load(token, b),
+                  child: AppSegmented<Board>(
+                    value: s.board,
+                    items: const {Board.today: 'Today', Board.allTime: 'All Time'},
+                    onChanged: (b) => context.read<LeaderboardCubit>().load(token, b),
                   ),
                 ),
               ),
@@ -73,9 +68,10 @@ class LeaderboardPage extends StatelessWidget {
                                   subtitle: s.board == Board.today
                                       ? '${e.todayWins} wins today · ${e.todayCoins} coins'
                                       : 'Level ${e.level} · ${e.wins} treasures',
+                                  highlight: e.playerId == youId,
                                   trailing: s.board == Board.today
-                                      ? Pill('${e.todayWins}', icon: CupertinoIcons.star_fill, color: MMColors.gold)
-                                      : Pill('${e.totalCoins}', icon: CupertinoIcons.money_dollar_circle_fill, color: MMColors.gold),
+                                      ? Pill('${e.todayWins} WINS', icon: CupertinoIcons.star_fill, color: MMColors.gold)
+                                      : CurrencyPill(e.totalCoins),
                                 ),
                             ],
                           ),
@@ -129,11 +125,18 @@ class _Podium extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
-                      gradient: e.rank == 1 ? MMColors.accentGradient : null,
-                      color: e.rank == 1 ? null : MMColors.glassStrong,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: switch (e.rank) {
+                          1 => const [MMColors.goldLight, MMColors.gold],
+                          2 => const [Color(0xFFE4E9F2), Color(0xFFAEB7C8)],
+                          _ => const [Color(0xFFF0B27A), Color(0xFFC77B3B)],
+                        },
+                      ),
                     ),
                     alignment: Alignment.center,
-                    child: Text('${e.rank}', style: MMText.title.copyWith(fontSize: 20)),
+                    child: Text('${e.rank}', style: MMText.title.copyWith(fontSize: 24, color: MMColors.onGold)),
                   ),
                 ],
               ),

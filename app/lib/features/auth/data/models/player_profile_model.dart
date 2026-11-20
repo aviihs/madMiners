@@ -14,7 +14,11 @@ class PlayerProfileModel extends PlayerProfile {
     super.gamesPlayed,
     super.wins,
     super.bestScore,
+    super.bestDepth,
+    super.oresMined,
     super.todayWins,
+    super.providers,
+    super.email,
     super.owned,
     super.look,
   });
@@ -30,7 +34,11 @@ class PlayerProfileModel extends PlayerProfile {
     gamesPlayed: (j['gamesPlayed'] as num?)?.toInt() ?? 0,
     wins: (j['wins'] as num?)?.toInt() ?? 0,
     bestScore: (j['bestScore'] as num?)?.toInt() ?? 0,
+    bestDepth: (j['bestDepth'] as num?)?.toInt() ?? 0,
+    oresMined: (j['oresMined'] as num?)?.toInt() ?? 0,
     todayWins: (j['todayWins'] as num?)?.toInt() ?? 0,
+    providers: (j['providers'] as List? ?? const []).cast<String>(),
+    email: j['email'] as String?,
     owned: {...(j['owned'] as List? ?? const []).cast<String>()},
     look: Look.fromJson(j['look']),
   );

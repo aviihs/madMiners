@@ -3,7 +3,7 @@ import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flame/text.dart';
-import 'package:flutter/painting.dart' show TextStyle, FontWeight, Shadow;
+import 'package:flutter/painting.dart' show TextStyle, Shadow;
 import 'package:mad_miners_core/mad_miners_core.dart';
 
 import '../../controller/game_controller.dart';
@@ -16,8 +16,9 @@ class FloatingText extends Component {
       _text = r.text,
       _paint = TextPaint(
         style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w800,
+          fontFamily: 'Lilita',
+          fontSize: 16,
+          letterSpacing: 0.5,
           color: Color(r.color),
           shadows: const [Shadow(blurRadius: 4, color: Color(0xCC000000))],
         ),

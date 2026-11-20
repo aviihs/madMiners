@@ -95,15 +95,96 @@ abstract final class MinerArt {
       canvas.drawCircle(const Offset(4, -7), 1.4, _p);
     }
 
-    // Head.
-    _p.color = skinFor(seed).withValues(alpha: opacity);
-    canvas.drawCircle(const Offset(0, -14), 6.5, _p);
-    _p.color = c(0xFF1B1B1B);
-    canvas.drawCircle(Offset(2.6 * dir, -14), 1.1, _p);
-
+    final character = look.def(CosmeticSlot.character);
+    _drawHead(canvas, character, dir, c);
     _drawHelmet(canvas, helmet, dir, c);
     if (sin(angle) >= -0.2) pickaxe();
     canvas.restore();
+  }
+
+  static void _drawHead(Canvas canvas, CosmeticDef ch, double dir, Color Function(int) c) {
+    const head = Offset(0, -14);
+    final skin = c(ch.primary);
+    final hair = c(ch.secondary);
+    final eye = Offset(2.6 * dir, -14.2);
+
+    switch (ch.style) {
+      case Face.ponytail:
+        _p.color = hair;
+        canvas.drawOval(Rect.fromCenter(center: Offset(-6.5 * dir, -12), width: 5, height: 9), _p);
+      case Face.robot:
+        _p.color = skin;
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: head, width: 14, height: 13), const Radius.circular(3.5)), _p);
+        _p.color = hair;
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(1.8 * dir, -14), width: 9, height: 4), const Radius.circular(2)), _p);
+        _p.color = const Color(0xAAFFFFFF);
+        canvas.drawCircle(Offset(3.5 * dir, -14.6), 0.9, _p);
+        _p.color = c(0xFF6B7785);
+        canvas.drawRect(const Rect.fromLTWH(-1, -24, 2, 4), _p);
+        return;
+      default:
+        break;
+    }
+
+    _p.color = skin;
+    canvas.drawCircle(head, 6.5, _p);
+
+    switch (ch.style) {
+      case Face.beard:
+        _p.color = hair;
+        canvas.drawPath(
+          Path()
+            ..moveTo(-6, -13)
+            ..quadraticBezierTo(-6, -4, 0, -3.5)
+            ..quadraticBezierTo(6, -4, 6, -13)
+            ..quadraticBezierTo(0, -10, -6, -13)
+            ..close(),
+          _p,
+        );
+        _p.color = c(0xFF1B1B1B);
+        canvas.drawCircle(eye, 1.1, _p);
+      case Face.goggles:
+        _p.color = hair;
+        canvas.drawRect(const Rect.fromLTWH(-6.5, -15.6, 13, 2.4), _p);
+        _p.color = c(0xFF2B2B2B);
+        canvas.drawCircle(Offset(2.6 * dir, -14.4), 2.6, _p);
+        _p.color = c(0xFF7FD3FF);
+        canvas.drawCircle(Offset(2.6 * dir, -14.4), 1.7, _p);
+      case Face.ninja:
+        _p.color = hair;
+        canvas.drawPath(
+          Path()
+            ..addArc(Rect.fromCircle(center: head, radius: 6.5), 0.05, pi - 0.1)
+            ..close(),
+          _p,
+        );
+        canvas.drawRect(const Rect.fromLTWH(-6.5, -14.5, 13, 1.2), _p);
+        _p.color = c(0xFFFFFFFF);
+        canvas.drawCircle(eye, 1.2, _p);
+        _p.color = c(0xFF1B1B1B);
+        canvas.drawCircle(eye + Offset(0.3 * dir, 0), 0.6, _p);
+      case Face.mole:
+        _p.color = c(0xFF4E3629);
+        canvas.drawCircle(head + const Offset(0, -1), 5.4, _p);
+        _p.color = hair;
+        canvas.drawCircle(Offset(5.6 * dir, -12.6), 2, _p);
+        _p.color = c(0xFF111111);
+        canvas.drawCircle(Offset(2.4 * dir, -15), 0.8, _p);
+      case Face.skeleton:
+        _p.color = hair;
+        canvas.drawOval(Rect.fromCenter(center: Offset(2.2 * dir, -14.6), width: 3.2, height: 3.6), _p);
+        canvas.drawOval(Rect.fromCenter(center: Offset(-1.6 * dir, -14.6), width: 2.6, height: 3.2), _p);
+        for (var i = -2; i <= 2; i++) {
+          canvas.drawRect(Rect.fromLTWH(i * 1.6 - 0.5, -10.6, 1, 1.8), _p);
+        }
+      default:
+        _p.color = c(0xFF1B1B1B);
+        canvas.drawCircle(eye, 1.1, _p);
+        _stroke
+          ..color = c(0xFF7A3B2A)
+          ..strokeWidth = 1;
+        canvas.drawArc(Rect.fromCenter(center: Offset(2 * dir, -11.5), width: 3.6, height: 2.4), 0.2, pi - 0.4, false, _stroke);
+    }
   }
 
   static void _drawHelmet(Canvas canvas, CosmeticDef h, double dir, Color Function(int) c) {
@@ -134,6 +215,12 @@ abstract final class MinerArt {
         canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(-6, -25, 12, 8), const Radius.circular(3)), _p);
         _p.color = c(h.secondary);
         canvas.drawRect(const Rect.fromLTWH(-6, -19.5, 12, 1.6), _p);
+      case 4: // beanie
+        _p.color = c(h.primary);
+        canvas.drawArc(Rect.fromCircle(center: const Offset(0, -15.2), radius: 7), pi, pi, true, _p);
+        _p.color = c(h.secondary);
+        canvas.drawRRect(RRect.fromRectAndRadius(const Rect.fromLTWH(-7.5, -16.5, 15, 3), const Radius.circular(1.5)), _p);
+        canvas.drawCircle(const Offset(0, -23), 2.3, _p);
       default: // hard hat with lamp
         _p.color = c(h.primary);
         canvas.drawArc(Rect.fromCircle(center: const Offset(0, -15.5), radius: 7.2), pi, pi, true, _p);

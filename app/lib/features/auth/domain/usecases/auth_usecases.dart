@@ -10,6 +10,14 @@ class SignInAsGuest {
       _repo.signInAsGuest(username: username.trim(), serverUrl: serverUrl.trim());
 }
 
+class SignInWithGoogle {
+  const SignInWithGoogle(this._repo);
+  final AuthRepository _repo;
+
+  Future<Result<Session>> call({required String serverUrl, Session? linkTo}) =>
+      _repo.signInWithGoogle(serverUrl: serverUrl.trim(), linkTo: linkTo);
+}
+
 class RestoreSession {
   const RestoreSession(this._repo);
   final AuthRepository _repo;
@@ -25,7 +33,7 @@ class RefreshProfile {
 class SignOut {
   const SignOut(this._repo);
   final AuthRepository _repo;
-  Future<void> call() => _repo.signOut();
+  Future<void> call([Session? session]) => _repo.signOut(session);
 }
 
 class CheckServer {

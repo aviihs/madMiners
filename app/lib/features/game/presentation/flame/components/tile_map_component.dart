@@ -3,7 +3,6 @@ import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flame/text.dart';
-import 'package:flutter/painting.dart' show TextStyle, FontWeight;
 import 'package:mad_miners_core/mad_miners_core.dart';
 
 import '../../controller/game_controller.dart';
@@ -31,7 +30,7 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     ..color = const Color(0xE6FFFFFF)
     ..strokeWidth = 2
     ..style = PaintingStyle.stroke;
-  final _signText = TextPaint(style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF3A2414), letterSpacing: 1));
+  final _signText = TextPaint(style: const TextStyle(fontFamily: 'Lilita', fontSize: 14, color: Color(0xFF3A2414), letterSpacing: 1.2));
 
   @override
   void update(double dt) => _t += dt;

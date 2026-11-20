@@ -18,9 +18,11 @@ Future<void> main(List<String> args) async {
   }
 
   for (var round = 0; round < 3; round++) {
+    print('round $round: signing up');
     final login = await post('/api/v1/auth/guest', {'username': 'Smoke$round'});
     final token = login['data']['accessToken'] as String;
     final room = await post('/api/v1/matchmaking/quick', {}, token);
+    print('round $round: room ${room['data']?['roomId']}');
     final ws = IOWebSocketChannel.connect('${base.replaceFirst('http', 'ws')}${room['data']['wsPath']}&token=$token');
     var snaps = 0;
     final sub = ws.stream.listen((d) {
@@ -35,11 +37,14 @@ Future<void> main(List<String> args) async {
     }
     print('round $round: $snaps snapshots');
     if (round == 1) {
-      await sub.cancel(); // abrupt drop -> reconnect window
+      await sub.cancel().timeout(const Duration(seconds: 3), onTimeout: () => print('cancel timed out'));
+      print('round $round: dropped');
     } else {
       ws.sink.add(const LeaveMessage().encode());
-      await ws.sink.close();
+      await ws.sink.close().timeout(const Duration(seconds: 3), onTimeout: () => print('close timed out'));
+      print('round $round: left');
     }
   }
   http.close(force: true);
+  exit(0);
 }

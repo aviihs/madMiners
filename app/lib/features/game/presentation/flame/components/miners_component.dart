@@ -19,8 +19,8 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
   static const double ts = MadMinersGame.tileSize;
 
   final _p = Paint();
-  final _nameText = TextPaint(style: const TextStyle(fontSize: 11, color: Color(0xFFFFFFFF), fontWeight: FontWeight.w600));
-  final _youText = TextPaint(style: const TextStyle(fontSize: 11, color: Color(0xFFFFB340), fontWeight: FontWeight.w800));
+  final _nameText = TextPaint(style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFFFFFFFF), fontWeight: FontWeight.w800));
+  final _youText = TextPaint(style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFFFFC233), fontWeight: FontWeight.w900));
 
   final Map<String, _Anim> _anim = {};
 

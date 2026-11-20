@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Scaffold;
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mad_miners_core/mad_miners_core.dart';
 
 import '../../../../app/di.dart';
 import '../../../../app/theme.dart';
 import '../../../../app/ui/ui.dart';
+import '../../../../core/config/google_config.dart';
+import '../../../store/presentation/widgets/avatar_preview.dart';
 import '../../domain/usecases/auth_usecases.dart';
 import '../cubit/auth_cubit.dart';
 
@@ -25,9 +29,10 @@ class _LoginPageState extends State<LoginPage> {
   late final _server = TextEditingController(text: widget.state.serverUrl);
   final _checkServer = sl<CheckServer>();
   final _findServer = sl<FindServer>();
-  bool _searching = false;
   var _status = _ServerStatus.checking;
+  bool _searching = false;
   bool _editServer = false;
+  bool _guestForm = false;
   String? _nameError;
   Timer? _debounce;
 
@@ -55,6 +60,14 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _name.dispose();
+    _server.dispose();
+    super.dispose();
+  }
+
   Future<void> _probe({bool autoFind = false}) async {
     final url = _server.text;
     if (_status != _ServerStatus.checking) setState(() => _status = _ServerStatus.checking);
@@ -64,7 +77,7 @@ class _LoginPageState extends State<LoginPage> {
     if (!ok && autoFind) await _autoFind();
   }
 
-  /// Looks for the server on localhost, the emulator host and the Wi‑Fi.
+  /// Looks for the server on localhost, the emulator host and the Wi-Fi.
   Future<void> _autoFind() async {
     if (_searching) return;
     setState(() {
@@ -79,89 +92,93 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
     final changed = found != _server.text;
-    _debounce?.cancel();
-    _server.text = found; // listener re-probes; cancel that below
+    _server.text = found;
     _debounce?.cancel();
     setState(() {
       _status = _ServerStatus.online;
       _editServer = false;
     });
-    if (changed) showToast(context, 'Found the game server at ${found.replaceFirst('http://', '')}');
+    if (changed) showToast(context, 'Connected to ${found.replaceFirst('http://', '')}');
   }
 
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _name.dispose();
-    _server.dispose();
-    super.dispose();
-  }
-
-  bool _validate() {
+  void _guest() {
     final ok = _validName.hasMatch(_name.text.trim());
-    setState(() => _nameError = ok ? null : 'Use 3–16 letters or numbers');
-    return ok;
+    setState(() => _nameError = ok ? null : 'Use 3 to 16 letters or numbers');
+    if (ok) context.read<AuthCubit>().signInAsGuest(_name.text, _server.text);
   }
-
-  void _online() {
-    if (_validate()) context.read<AuthCubit>().signInAsGuest(_name.text, _server.text);
-  }
-
-  void _offline() => context.read<AuthCubit>().playOffline(_name.text);
 
   @override
   Widget build(BuildContext context) {
     final busy = widget.state.busy;
+    final online = _status == _ServerStatus.online;
+    final googleVisible = GoogleConfig.platformSupported;
     return Scaffold(
       body: AppBackground(
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 400),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Center(child: AppLogo()),
-                    const SizedBox(height: 22),
-                    const Text('Mad Miners', textAlign: TextAlign.center, style: MMText.largeTitle),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Dig deep. Dodge the lava.\nFind the treasure before anyone else.',
-                      textAlign: TextAlign.center,
-                      style: MMText.callout,
-                    ),
-                    const SizedBox(height: 36),
-                    AppTextField(
-                      controller: _name,
-                      placeholder: 'Choose a username',
-                      icon: CupertinoIcons.person_fill,
-                      maxLength: 16,
-                      onSubmitted: (_) => _online(),
-                    ),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      child: _nameError == null
-                          ? const SizedBox(width: double.infinity)
-                          : Padding(
-                              padding: const EdgeInsets.only(top: 8, left: 4),
-                              child: Text(_nameError!, style: MMText.footnote.copyWith(color: MMColors.health)),
-                            ),
-                    ),
-                    const SizedBox(height: 12),
-                    _serverRow(),
+                    const _Hero(),
                     const SizedBox(height: 28),
-                    PrimaryButton(
-                      label: 'Play Online',
-                      icon: CupertinoIcons.globe,
-                      loading: busy,
-                      onPressed: _status == _ServerStatus.offline ? null : _online,
-                    ),
-                    const SizedBox(height: 12),
-                    SecondaryButton(label: 'Practice Offline', icon: CupertinoIcons.game_controller, onPressed: busy ? null : _offline),
-                    const SizedBox(height: 20),
-                    const Text('8–12 miners per match', textAlign: TextAlign.center, style: MMText.caption),
+                    if (!_guestForm) ...[
+                      if (googleVisible) ...[
+                        GameButton(
+                          label: 'Continue with Google',
+                          tone: ButtonTone.light,
+                          leading: const _GoogleMark(size: 22),
+                          fontSize: 17,
+                          loading: busy,
+                          onPressed: online ? () => context.read<AuthCubit>().signInWithGoogle(_server.text) : null,
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      GameButton(
+                        label: 'Play as Guest',
+                        icon: CupertinoIcons.person_fill,
+                        onPressed: busy ? null : () => setState(() => _guestForm = true),
+                      ),
+                      const SizedBox(height: 14),
+                      GameButton(
+                        label: 'Practice Offline',
+                        icon: CupertinoIcons.game_controller_solid,
+                        tone: ButtonTone.dark,
+                        height: 52,
+                        fontSize: 17,
+                        onPressed: busy ? null : () => context.read<AuthCubit>().playOffline(_name.text.isEmpty ? 'Miner' : _name.text),
+                      ),
+                    ] else ...[
+                      Text('Pick a miner name', style: MMText.title.copyWith(fontSize: 22), textAlign: TextAlign.center),
+                      const SizedBox(height: 6),
+                      const Text('You can link Google later to keep your progress safe.', style: MMText.footnote, textAlign: TextAlign.center),
+                      const SizedBox(height: 18),
+                      AppTextField(
+                        controller: _name,
+                        placeholder: 'Username',
+                        icon: CupertinoIcons.person_fill,
+                        maxLength: 16,
+                        autofocus: true,
+                        onSubmitted: (_) => _guest(),
+                      ),
+                      if (_nameError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, left: 6),
+                          child: Text(_nameError!, style: MMText.footnote.copyWith(color: MMColors.lava)),
+                        ),
+                      const SizedBox(height: 16),
+                      GameButton(label: 'Start Digging', loading: busy, onPressed: online ? _guest : null),
+                      const SizedBox(height: 10),
+                      CupertinoButton(
+                        onPressed: busy ? null : () => setState(() => _guestForm = false),
+                        child: const Text('Back', style: TextStyle(fontFamily: MMFonts.body, fontWeight: FontWeight.w800, color: MMColors.muted)),
+                      ),
+                    ],
+                    const SizedBox(height: 26),
+                    _serverRow(),
                   ],
                 ),
               ),
@@ -174,32 +191,32 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _serverRow() {
     final (color, label) = switch (_status) {
-      _ServerStatus.checking => (MMColors.muted, _searching ? 'Searching…' : 'Checking…'),
-      _ServerStatus.online => (MMColors.stamina, 'Online'),
-      _ServerStatus.offline => (MMColors.health, 'Unreachable'),
+      _ServerStatus.checking => (MMColors.muted, _searching ? 'Searching' : 'Checking'),
+      _ServerStatus.online => (MMColors.leaf, 'Online'),
+      _ServerStatus.offline => (MMColors.lava, 'Not found'),
     };
     return GlassCard(
-      radius: 14,
+      radius: 16,
       padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
       child: Column(
         children: [
           Row(
             children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              _Dot(color: color, pulse: _status == _ServerStatus.checking),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  _server.text.replaceFirst(RegExp('^https?://'), ''),
-                  style: MMText.footnote.copyWith(color: MMColors.text),
+                  'Server  ${_server.text.replaceFirst(RegExp('^https?://'), '')}',
+                  style: MMText.caption.copyWith(color: MMColors.muted),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(label, style: MMText.footnote.copyWith(color: color)),
+              Text(label.toUpperCase(), style: MMText.caption.copyWith(color: color, letterSpacing: 0.8)),
               CupertinoButton(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 minimumSize: const Size(32, 32),
                 onPressed: () => setState(() => _editServer = !_editServer),
-                child: Icon(_editServer ? CupertinoIcons.checkmark_alt : CupertinoIcons.pencil, size: 18),
+                child: Icon(_editServer ? CupertinoIcons.checkmark_alt : CupertinoIcons.slider_horizontal_3, size: 18, color: MMColors.muted),
               ),
             ],
           ),
@@ -210,22 +227,16 @@ class _LoginPageState extends State<LoginPage> {
             ),
           if (_status == _ServerStatus.offline && !_editServer)
             Padding(
-              padding: const EdgeInsets.fromLTRB(0, 0, 8, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.fromLTRB(0, 2, 8, 10),
+              child: Row(
                 children: [
-                  const Text(
-                    'Server not found. Start it on your computer (dart run bin/server.dart) and keep this device on the same Wi‑Fi.',
-                    style: MMText.caption,
+                  const Expanded(
+                    child: Text('Start the server on your computer and stay on the same Wi-Fi.', style: MMText.caption),
                   ),
-                  const SizedBox(height: 8),
-                  CupertinoButton(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    minimumSize: const Size(0, 32),
-                    color: MMColors.glassStrong,
-                    borderRadius: BorderRadius.circular(99),
-                    onPressed: _autoFind,
-                    child: const Text('Search again', style: TextStyle(fontSize: 14, color: MMColors.amber, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 110,
+                    child: GameButton(label: 'Retry', tone: ButtonTone.dark, height: 38, fontSize: 14, onPressed: _autoFind),
                   ),
                 ],
               ),
@@ -234,4 +245,112 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
+}
+
+class _Hero extends StatelessWidget {
+  const _Hero();
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      SizedBox(
+        height: 190,
+        width: 300,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(colors: [MMColors.gold.withValues(alpha: 0.28), MMColors.gold.withValues(alpha: 0)]),
+              ),
+            ),
+            const Positioned(
+              left: 0,
+              bottom: 18,
+              child: AvatarPreview(look: Look(character: 'char_maya', outfit: 'outfit_denim', helmet: 'helmet_white'), seed: 'a', size: 120),
+            ),
+            const Positioned(
+              right: 0,
+              bottom: 18,
+              child: AvatarPreview(
+                look: Look(character: 'char_bahadur', outfit: 'outfit_forest', helmet: 'helmet_cowboy', pickaxe: 'pick_ruby'),
+                seed: 'b',
+                size: 120,
+              ),
+            ),
+            const Positioned(bottom: 6, child: AvatarPreview(look: Look.standard, seed: 'c', size: 150)),
+          ],
+        ),
+      ),
+      const SizedBox(height: 10),
+      ShaderMask(
+        shaderCallback: (r) =>
+            const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [MMColors.goldLight, MMColors.gold]).createShader(r),
+        child: const Text(
+          'MAD MINERS',
+          style: TextStyle(fontFamily: MMFonts.display, fontSize: 46, letterSpacing: 1.5, color: CupertinoColors.white, height: 1),
+        ),
+      ),
+      const SizedBox(height: 8),
+      const Text('Dig deep. Dodge the lava.\nFind the treasure first.', textAlign: TextAlign.center, style: MMText.callout),
+    ],
+  );
+}
+
+class _Dot extends StatelessWidget {
+  const _Dot({required this.color, this.pulse = false});
+  final Color color;
+  final bool pulse;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 9,
+    height: 9,
+    decoration: BoxDecoration(
+      color: color,
+      shape: BoxShape.circle,
+      boxShadow: [BoxShadow(color: color.withValues(alpha: 0.6), blurRadius: pulse ? 4 : 8)],
+    ),
+  );
+}
+
+/// Four-colour "G" mark drawn with arcs.
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark({this.size = 20});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(size: Size.square(size), painter: _GPainter());
+}
+
+class _GPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size s) {
+    final r = s.width / 2;
+    final c = Offset(r, r);
+    final stroke = s.width * 0.2;
+    final rect = Rect.fromCircle(center: c, radius: r - stroke / 2);
+    final p = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke;
+    void arc(Color color, double start, double sweep) {
+      p.color = color;
+      canvas.drawArc(rect, start, sweep, false, p);
+    }
+
+    arc(const Color(0xFFEA4335), -pi * 0.78, pi * 0.55);
+    arc(const Color(0xFFFBBC05), -pi * 1.22, pi * 0.46);
+    arc(const Color(0xFF34A853), pi * 0.25, pi * 0.55);
+    arc(const Color(0xFF4285F4), -pi * 0.02, pi * 0.3);
+    p
+      ..style = PaintingStyle.fill
+      ..color = const Color(0xFF4285F4);
+    canvas.drawRect(Rect.fromLTWH(r, r - stroke / 2, r - stroke * 0.1, stroke), p);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

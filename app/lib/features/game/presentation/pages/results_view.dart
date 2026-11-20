@@ -42,7 +42,7 @@ class _ResultsViewState extends State<ResultsView> with SingleTickerProviderStat
     final good = youWon || crewWon;
 
     return ColoredBox(
-      color: const Color(0xCC0C0A09),
+      color: const Color(0xE6120E1F),
       child: SafeArea(
         child: FadeTransition(
           opacity: _anim,
@@ -61,13 +61,14 @@ class _ResultsViewState extends State<ResultsView> with SingleTickerProviderStat
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: good ? MMColors.accentGradient : null,
-                          color: good ? null : MMColors.glassStrong,
-                          boxShadow: good ? const [BoxShadow(color: Color(0x88FFB340), blurRadius: 40)] : null,
+                          color: good ? null : MMColors.surfaceHi,
+                          border: Border.all(color: const Color(0x40FFFFFF), width: 2),
+                          boxShadow: good ? [BoxShadow(color: MMColors.gold.withValues(alpha: 0.55), blurRadius: 44)] : null,
                         ),
                         child: Icon(
                           winner == null ? CupertinoIcons.timer : (good ? CupertinoIcons.star_fill : CupertinoIcons.cube_box),
                           size: 46,
-                          color: CupertinoColors.white,
+                          color: good ? MMColors.onGold : MMColors.text,
                         ),
                       ),
                     ),
@@ -82,7 +83,7 @@ class _ResultsViewState extends State<ResultsView> with SingleTickerProviderStat
                       children: [
                         _Stat(label: 'Rank', value: '#${you.rank}'),
                         const SizedBox(width: 10),
-                        _Stat(label: 'Coins', value: '${you.score}'),
+                        _Stat(label: 'Coins', value: formatAmount(you.score), icon: const CoinIcon(size: 18)),
                         const SizedBox(width: 10),
                         _Stat(label: 'XP', value: '+${you.xp}'),
                       ],
@@ -112,14 +113,18 @@ class _ResultsViewState extends State<ResultsView> with SingleTickerProviderStat
                               : Text('${p.rank}', style: MMText.headline.copyWith(color: p.rank <= 3 ? MMColors.amber : MMColors.muted)),
                           title: p.playerId == widget.youId ? '${p.name} (you)' : p.name,
                           subtitle: p.playerId == r.winnerId ? 'Found the treasure' : '${p.oresMined} finds',
-                          trailing: Text('${p.score}', style: MMText.headline.merge(MMText.number)),
+                          highlight: p.playerId == widget.youId,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [const CoinIcon(size: 15), const SizedBox(width: 5), Text(formatAmount(p.score), style: MMText.number.copyWith(fontSize: 16, color: MMColors.text))],
+                          ),
                         ),
                     ],
                   ),
                   const SizedBox(height: 24),
-                  PrimaryButton(label: 'Play Again', icon: CupertinoIcons.arrow_clockwise, onPressed: widget.onPlayAgain),
-                  const SizedBox(height: 10),
-                  SecondaryButton(label: 'Back to Lobby', onPressed: widget.onLobby),
+                  GameButton(label: 'Play Again', icon: CupertinoIcons.arrow_clockwise, onPressed: widget.onPlayAgain),
+                  const SizedBox(height: 12),
+                  GameButton(label: 'Lobby', tone: ButtonTone.dark, height: 52, fontSize: 17, onPressed: widget.onLobby),
                 ],
               ),
             ),
@@ -131,9 +136,10 @@ class _ResultsViewState extends State<ResultsView> with SingleTickerProviderStat
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.label, required this.value});
+  const _Stat({required this.label, required this.value, this.icon});
   final String label;
   final String value;
+  final Widget? icon;
 
   @override
   Widget build(BuildContext context) => Expanded(
@@ -142,7 +148,10 @@ class _Stat extends StatelessWidget {
       radius: 16,
       child: Column(
         children: [
-          Text(value, style: MMText.title.merge(MMText.number)),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [if (icon != null) ...[icon!, const SizedBox(width: 5)], Text(value, style: MMText.title.merge(MMText.number))],
+          ),
           const SizedBox(height: 2),
           Text(label, style: MMText.caption),
         ],

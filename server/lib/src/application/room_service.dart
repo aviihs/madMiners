@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:mad_miners_core/mad_miners_core.dart';
 
+import '../domain/entities/match_record.dart';
 import '../domain/entities/player_account.dart';
 import '../domain/repositories/account_repository.dart';
 import 'app_exception.dart';
@@ -94,14 +95,39 @@ class RoomService {
   }
 
   Future<void> _persistResults(GameRoom room, MatchResult result) async {
-    final updated = <PlayerAccount>[];
-    for (final r in result.players.where((p) => !p.isBot)) {
-      final acc = await _accounts.findById(r.playerId);
-      if (acc == null) continue;
-      acc.applyResult(r, foundTreasure: r.playerId == result.winnerId);
-      updated.add(acc);
-    }
-    await _accounts.saveAll(updated);
+    final humans = result.players.where((p) => !p.isBot).toList();
+    if (humans.isEmpty) return;
+    final winner = result.players.where((p) => p.playerId == result.winnerId).firstOrNull;
+    await _accounts.recordMatch(
+      MatchRecord(
+        id: _uuid(),
+        roomCode: room.code,
+        mapId: room.settings.mapId,
+        mode: room.settings.mode,
+        startedAt: room.createdAt,
+        durationSeconds: DateTime.now().difference(room.createdAt).inSeconds,
+        playerCount: result.players.length,
+        winnerUserId: winner == null || winner.isBot ? null : winner.playerId,
+        winnerName: winner?.name,
+        players: [
+          for (final r in humans)
+            MatchPlayerRecord(
+              userId: r.playerId,
+              result: r,
+              foundTreasure: r.playerId == result.winnerId,
+              reward: Reward.forResult(r, foundTreasure: r.playerId == result.winnerId),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _uuid() {
+    final b = List.generate(16, (_) => _rng.nextInt(256));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    final h = b.map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+    return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
   }
 
   void shutdown() {

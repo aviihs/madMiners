@@ -36,11 +36,13 @@ class AuthSignedIn extends AuthState {
 class AuthCubit extends Cubit<AuthState> {
   AuthCubit({
     required SignInAsGuest signIn,
+    required SignInWithGoogle google,
     required RestoreSession restore,
     required RefreshProfile refresh,
     required SignOut signOut,
     required AuthRepository repo,
   }) : _signIn = signIn,
+       _google = google,
        _restore = restore,
        _refresh = refresh,
        _signOut = signOut,
@@ -48,6 +50,7 @@ class AuthCubit extends Cubit<AuthState> {
        super(const AuthRestoring());
 
   final SignInAsGuest _signIn;
+  final SignInWithGoogle _google;
   final RestoreSession _restore;
   final RefreshProfile _refresh;
   final SignOut _signOut;
@@ -71,6 +74,26 @@ class AuthCubit extends Cubit<AuthState> {
     );
   }
 
+  Future<void> signInWithGoogle(String serverUrl) async {
+    emit(AuthSignedOut(serverUrl: serverUrl, busy: true));
+    final r = await _google(serverUrl: serverUrl);
+    r.fold(
+      (f) => emit(AuthSignedOut(serverUrl: serverUrl, error: f.code == 'CANCELLED' ? null : f.message)),
+      (s) => emit(AuthSignedIn(s)),
+    );
+  }
+
+  /// Attaches Google to the current guest account. Returns an error message.
+  Future<String?> linkGoogle() async {
+    final s = state;
+    if (s is! AuthSignedIn || !s.session.isOnline) return 'Sign in online first.';
+    final r = await _google(serverUrl: s.session.serverUrl ?? _repo.lastServerUrl, linkTo: s.session);
+    return r.fold((f) => f.code == 'CANCELLED' ? null : f.message, (session) {
+      emit(AuthSignedIn(session));
+      return null;
+    });
+  }
+
   void playOffline(String username) {
     final name = username.trim().isEmpty ? 'Miner' : username.trim();
     emit(AuthSignedIn(Session.offline(name)));
@@ -89,7 +112,8 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   Future<void> signOut() async {
-    await _signOut();
+    final s = state;
+    await _signOut(s is AuthSignedIn ? s.session : null);
     emit(AuthSignedOut(serverUrl: _repo.lastServerUrl));
   }
 }

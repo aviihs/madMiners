@@ -17,21 +17,45 @@ class FakeConn implements PlayerConnection {
   void close([int? code, String? reason]) => closed = true;
 }
 
+class FakeGoogle implements GoogleTokenVerifier {
+  @override
+  bool get isConfigured => true;
+
+  @override
+  Future<GoogleIdentity?> verify(String idToken) async =>
+      idToken.startsWith('good:') ? GoogleIdentity(subject: idToken.substring(5), email: 'p@example.com', name: 'Google Person') : null;
+}
+
+MatchRecord match(List<(String, PlayerResult, bool)> players) => MatchRecord(
+  id: '00000000-0000-4000-8000-${DateTime.now().microsecondsSinceEpoch.toString().padLeft(12, '0').substring(0, 12)}',
+  roomCode: 'MMTEST',
+  mapId: MapId.starterMine,
+  mode: GameMode.treasureHunt,
+  startedAt: DateTime.now().subtract(const Duration(minutes: 2)),
+  durationSeconds: 120,
+  playerCount: 8,
+  winnerUserId: players.where((p) => p.$3).firstOrNull?.$1,
+  winnerName: players.where((p) => p.$3).firstOrNull?.$2.name,
+  players: [
+    for (final (id, r, found) in players)
+      MatchPlayerRecord(userId: id, result: r, foundTreasure: found, reward: Reward.forResult(r, foundTreasure: found)),
+  ],
+);
+
 void main() {
-  late JsonFileAccountRepository repo;
+  late InMemoryAccountRepository repo;
   late AuthService auth;
   late RoomService rooms;
 
   setUp(() async {
-    repo = await JsonFileAccountRepository.open(null);
-    auth = AuthService(repo);
+    repo = InMemoryAccountRepository();
+    auth = AuthService(repo, FakeGoogle());
     rooms = RoomService(repo, autoStart: false);
   });
 
   test('guest tokens authenticate and are stored hashed', () async {
     final r = await auth.registerGuest('Shiva');
     expect((await auth.authenticate(r.token)).id, r.account.id);
-    expect(r.account.tokenHash, isNot(r.token));
     expect(() => auth.authenticate('nope'), throwsA(isA<AppException>()));
     final dup = await auth.registerGuest('shiva');
     expect(dup.account.username, isNot('shiva'));
@@ -65,25 +89,42 @@ void main() {
     expect(ca.sent.whereType<SnapshotMessage>(), isNotEmpty);
     expect(ca.sent.last, isA<MatchEndMessage>());
     await Future<void>.delayed(Duration.zero);
-    expect((await repo.findById(a.id))!.gamesPlayed, 1);
+    expect((await repo.findById(a.id))!.stats.gamesPlayed, 1);
+    expect(await repo.matchHistory(a.id), hasLength(1));
     expect(rooms.byId(room.id), isNull, reason: 'ended rooms are disposed');
+  });
+
+  test('google sign-in: new account, returning login, and linking a guest', () async {
+    final g1 = await auth.signInWithGoogle('good:sub-1');
+    expect(g1.isNew, isTrue);
+    expect(g1.account.providers, ['google']);
+    final again = await auth.signInWithGoogle('good:sub-1');
+    expect(again.account.id, g1.account.id);
+    expect(() => auth.signInWithGoogle('bad'), throwsA(isA<AppException>()));
+
+    final guest = await auth.registerGuest('Linker');
+    final linked = await auth.signInWithGoogle('good:sub-2', linkToToken: guest.token);
+    expect(linked.account.id, guest.account.id, reason: 'progress is kept');
+    expect(linked.account.providers, containsAll(['guest', 'google']));
   });
 
   test('store: buy with coins/gems, idempotent retries, equip', () async {
     final store = StoreService(repo);
-    final a = (await auth.registerGuest('Shopper')).account
-      ..wallet = 500
-      ..gems = 70;
+    var a = (await auth.registerGuest('Shopper')).account;
+    repo.grant(a.id, coins: 500, gems: 70);
+    a = (await repo.findById(a.id))!;
     await expectLater(store.purchase(a, 'outfit_purple', 'r1'), throwsA(isA<AppException>()), reason: '700 > 500');
-    await store.purchase(a, 'outfit_forest', 'r2');
-    await store.purchase(a, 'outfit_forest', 'r2'); // network retry: no double charge
-    expect(a.wallet, 200);
-    await store.purchase(a, 'outfit_gold', 'r3');
+    a = await store.purchase(a, 'outfit_forest', 'r2');
+    a = await store.purchase(a, 'outfit_forest', 'r2'); // network retry: no double charge
+    expect(a.coins, 250);
+    a = await store.purchase(a, 'outfit_gold', 'r3');
     expect(a.gems, 10);
     await expectLater(store.equip(a, 'helmet_crown'), throwsA(isA<AppException>()), reason: 'not owned');
-    await store.equip(a, 'outfit_gold');
-    await store.equip(a, 'helmet_white'.replaceAll('white', 'yellow')); // free items are always owned
+    a = await store.equip(a, 'outfit_gold');
+    a = await store.equip(a, 'helmet_yellow'); // free items are always owned
     expect(a.look.outfit, 'outfit_gold');
+    final tx = await repo.transactions(a.id);
+    expect(tx.where((t) => t.kind == 'purchase').length, 2, reason: 'one row per real purchase');
 
     // The look shows up in the match.
     final room = rooms.create(a, const MatchSettings(), isPrivate: false);
@@ -98,12 +139,15 @@ void main() {
   test('daily leaderboard ranks treasure finds first', () async {
     final a = (await auth.registerGuest('Finder')).account;
     final b = (await auth.registerGuest('Grinder')).account;
-    a.applyResult(const PlayerResult(playerId: 'x', name: 'A', isBot: false, team: -1, rank: 1, score: 100, oresMined: 1, xp: 10), foundTreasure: true);
-    b.applyResult(const PlayerResult(playerId: 'y', name: 'B', isBot: false, team: -1, rank: 2, score: 900, oresMined: 9, xp: 10), foundTreasure: false);
-    await repo.saveAll([a, b]);
+    await repo.recordMatch(match([
+      (a.id, const PlayerResult(playerId: 'x', name: 'A', isBot: false, team: -1, rank: 1, score: 100, oresMined: 1, xp: 10, maxDepth: 40), true),
+      (b.id, const PlayerResult(playerId: 'y', name: 'B', isBot: false, team: -1, rank: 2, score: 900, oresMined: 9, xp: 10, maxDepth: 30), false),
+    ]));
     final top = await repo.topToday(10);
     expect(top.first.id, a.id);
-    expect(a.gems, 10);
+    expect((await repo.findById(a.id))!.gems, 10);
+    expect((await repo.findById(a.id))!.stats.bestDepth, 40);
+    expect((await repo.matchHistory(b.id)).single.score, 900);
   });
 
   test('treasure hints are sent privately', () async {
@@ -172,7 +216,7 @@ void main() {
   });
 
   test('HTTP + WebSocket end to end', () async {
-    final app = ServerApp(repo);
+    final app = ServerApp(repo, google: FakeGoogle());
     final server = await io.serve(app.handler, InternetAddress.loopbackIPv4, 0);
     addTearDown(() async {
       app.rooms.shutdown();

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/config/server_config.dart';
 import '../core/network/api_client.dart';
 import '../features/auth/data/datasources/auth_remote_data_source.dart';
+import '../features/auth/data/datasources/google_auth_data_source.dart';
 import '../features/auth/data/datasources/session_local_data_source.dart';
 import '../features/auth/data/repositories/auth_repository_impl.dart';
 import '../features/auth/domain/repositories/auth_repository.dart';
@@ -22,6 +23,11 @@ import '../features/lobby/data/repositories/lobby_repository_impl.dart';
 import '../features/lobby/domain/repositories/lobby_repository.dart';
 import '../features/lobby/domain/usecases/lobby_usecases.dart';
 import '../features/lobby/presentation/cubit/lobby_cubit.dart';
+import '../features/profile/data/datasources/profile_remote_data_source.dart';
+import '../features/profile/data/repositories/profile_repository_impl.dart';
+import '../features/profile/domain/repositories/profile_repository.dart';
+import '../features/profile/domain/usecases/profile_usecases.dart';
+import '../features/profile/presentation/cubit/profile_cubit.dart';
 import '../features/store/data/datasources/store_remote_data_source.dart';
 import '../features/store/data/repositories/store_repository_impl.dart';
 import '../features/store/domain/repositories/store_repository.dart';
@@ -40,14 +46,16 @@ Future<void> configureDependencies() async {
     // Auth
     ..registerLazySingleton(() => AuthRemoteDataSource(sl()))
     ..registerLazySingleton(() => SessionLocalDataSource(sl()))
-    ..registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl(), sl(), sl()))
+    ..registerLazySingleton(GoogleAuthDataSource.new)
+    ..registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl(), sl(), sl(), sl()))
     ..registerFactory(() => SignInAsGuest(sl()))
+    ..registerFactory(() => SignInWithGoogle(sl()))
     ..registerFactory(() => RestoreSession(sl()))
     ..registerFactory(() => RefreshProfile(sl()))
     ..registerFactory(() => SignOut(sl()))
     ..registerFactory(() => CheckServer(sl()))
     ..registerFactory(() => FindServer(sl()))
-    ..registerFactory(() => AuthCubit(signIn: sl(), restore: sl(), refresh: sl(), signOut: sl(), repo: sl()))
+    ..registerFactory(() => AuthCubit(signIn: sl(), google: sl(), restore: sl(), refresh: sl(), signOut: sl(), repo: sl()))
     // Lobby
     ..registerLazySingleton(() => LobbyRemoteDataSource(sl()))
     ..registerLazySingleton<LobbyRepository>(() => LobbyRepositoryImpl(sl()))
@@ -65,6 +73,12 @@ Future<void> configureDependencies() async {
     ..registerFactory(() => GetGlobalLeaderboard(sl()))
     ..registerFactory(() => GetTodayLeaderboard(sl()))
     ..registerFactory(() => LeaderboardCubit(sl(), sl()))
+    // Profile
+    ..registerLazySingleton(() => ProfileRemoteDataSource(sl()))
+    ..registerLazySingleton<ProfileRepository>(() => ProfileRepositoryImpl(sl()))
+    ..registerFactory(() => GetMatchHistory(sl()))
+    ..registerFactory(() => GetWalletHistory(sl()))
+    ..registerFactory(() => ProfileCubit(sl(), sl()))
     // Store
     ..registerLazySingleton(() => StoreRemoteDataSource(sl()))
     ..registerLazySingleton<StoreRepository>(() => StoreRepositoryImpl(sl()))

@@ -46,7 +46,7 @@ class ShopPanel extends StatelessWidget {
                   const SizedBox(width: 8),
                   const Text('Shop', style: MMText.headline),
                   const Spacer(),
-                  Pill('${me.coins}', icon: CupertinoIcons.money_dollar_circle_fill, color: MMColors.gold),
+                  CurrencyPill(me.coins),
                 ],
               ),
               const SizedBox(height: 8),
@@ -150,13 +150,10 @@ class _Tile extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (price != null) ...[
-                    Icon(CupertinoIcons.money_dollar_circle_fill, size: 13, color: enabled ? CupertinoColors.white : MMColors.muted),
-                    const SizedBox(width: 3),
-                  ],
+                  if (price != null) ...[const CoinIcon(size: 13), const SizedBox(width: 4)],
                   Text(
-                    price == null ? 'Max' : '$price',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: enabled ? CupertinoColors.white : MMColors.muted),
+                    price == null ? 'MAX' : '$price',
+                    style: MMText.number.copyWith(fontSize: 14, color: enabled ? MMColors.onGold : MMColors.muted),
                   ),
                 ],
               ),

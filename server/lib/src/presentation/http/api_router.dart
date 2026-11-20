@@ -25,6 +25,10 @@ class ApiRouter {
       ..get('/', _home)
       ..get('/health', (Request _) => ok({'status': 'ok', 'rooms': _rooms.rooms.length}))
       ..post('/api/v1/auth/guest', _guest)
+      ..post('/api/v1/auth/google', _google)
+      ..post('/api/v1/auth/logout', _logout)
+      ..get('/api/v1/players/me/matches', _matches)
+      ..get('/api/v1/economy/transactions', _transactions)
       ..get('/api/v1/players/me', _me)
       ..get('/api/v1/rooms', _listRooms)
       ..post('/api/v1/rooms', _createRoom)
@@ -62,7 +66,7 @@ body{margin:0;font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif;bac
 h1{margin:0 0 4px;font-size:26px}.ok{color:#30d158;font-weight:600}.muted{color:#98989f}
 ul{padding-left:18px;line-height:1.7}code{background:#2b2623;padding:2px 6px;border-radius:6px}
 </style></head><body><div class="card">
-<h1>⛏ Mad Miners</h1><p class="ok">● Server is running</p>
+<h1>Mad Miners</h1><p class="ok">Server is running</p>
 <p class="muted">${rooms.length} match(es) · $players player(s) online</p>${rooms.isEmpty ? rows : '<ul>$rows</ul>'}
 <p class="muted">Open the Mad Miners app and use this address as the server. API lives under <code>/api/v1</code>, health check at <code>/health</code>.</p>
 </div></body></html>''',
@@ -82,6 +86,30 @@ ul{padding-left:18px;line-height:1.7}code{background:#2b2623;padding:2px 6px;bor
     final body = await readJson(req);
     final result = await _auth.registerGuest((body['username'] as String?) ?? '');
     return ok({'accessToken': result.token, ...result.account.toPublicJson()}, status: 201);
+  }
+
+  Future<Response> _google(Request req) async {
+    final body = await readJson(req);
+    final idToken = body['idToken'] as String? ?? '';
+    if (idToken.isEmpty) throw AppException.badRequest('MISSING_ID_TOKEN', 'idToken is required.');
+    final r = await _auth.signInWithGoogle(idToken, linkToToken: bearerToken(req));
+    return ok({'accessToken': r.token, 'isNew': r.isNew, ...r.account.toPublicJson()}, status: r.isNew ? 201 : 200);
+  }
+
+  Future<Response> _logout(Request req) async {
+    final token = bearerToken(req);
+    if (token != null) await _auth.signOut(token);
+    return ok({'signedOut': true});
+  }
+
+  Future<Response> _matches(Request req) async {
+    final user = await _user(req);
+    return ok([for (final m in await _accounts.matchHistory(user.id, limit: 30)) m.toJson()]);
+  }
+
+  Future<Response> _transactions(Request req) async {
+    final user = await _user(req);
+    return ok([for (final t in await _accounts.transactions(user.id, limit: 50)) t.toJson()]);
   }
 
   Future<Response> _me(Request req) async => ok((await _user(req)).toPublicJson());
@@ -136,7 +164,7 @@ ul{padding-left:18px;line-height:1.7}code{background:#2b2623;padding:2px 6px;bor
     await _user(req);
     final top = await _accounts.topToday(50);
     return ok([
-      for (var i = 0; i < top.length; i++) {'rank': i + 1, ...top[i].toPublicJson()},
+      for (var i = 0; i < top.length; i++) {'rank': i + 1, ...top[i].toRankJson()},
     ]);
   }
 
@@ -157,7 +185,7 @@ ul{padding-left:18px;line-height:1.7}code{background:#2b2623;padding:2px 6px;bor
     await _user(req);
     final top = await _accounts.topByCoins(50);
     return ok([
-      for (var i = 0; i < top.length; i++) {'rank': i + 1, ...top[i].toPublicJson()},
+      for (var i = 0; i < top.length; i++) {'rank': i + 1, ...top[i].toRankJson()},
     ]);
   }
 
