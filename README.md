@@ -308,3 +308,6 @@ Gameplay uses a WebSocket at `/ws/game?room=<id>&token=<accessToken>`.
   world (each match is still its own mine).
 - Graphics are side-view 2D (Flame), not realistic 3D. The core and server don't depend on the client, so
   a 3D client could reuse them.
+  
+
+<!-- flutter build appbundle --dart-define=MM_SERVER=https://tapai-ko-server.com -->
