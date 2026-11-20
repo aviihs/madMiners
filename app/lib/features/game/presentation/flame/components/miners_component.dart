@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 import 'package:flame/text.dart';
 import 'package:flutter/painting.dart' show TextStyle, FontWeight, HSLColor;
+import 'package:mad_miners_core/mad_miners_core.dart';
 
 import '../../../../../app/theme.dart';
 import '../../controller/game_controller.dart';
@@ -23,6 +24,7 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
   final _youText = TextPaint(style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFFFFC233), fontWeight: FontWeight.w900));
 
   final Map<String, _Anim> _anim = {};
+  double _t = 0;
 
   static Color colorFor(String id, int team) {
     if (team >= 0) return MMColors.teams[team % MMColors.teams.length];
@@ -33,13 +35,26 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
 
   @override
   void update(double dt) {
+    _t += dt;
+    final map = controller.map;
     for (final m in controller.miners.values) {
       final a = _anim.putIfAbsent(m.snap.id, () => _Anim(m.rx, m.ry));
       final dx = m.rx - a.lastX, dy = m.ry - a.lastY;
-      final speed = sqrt(dx * dx + dy * dy) / max(dt, 1e-4);
-      a.walk += speed * dt * 9;
-      a.moving = speed > 0.4;
-      if (m.snap.fx.abs() > 0.3) a.left = m.snap.fx < 0;
+      final hs = dx.abs() / max(dt, 1e-4);
+      final vs = dy / max(dt, 1e-4);
+      // Smoothed vertical speed for the jump/fall pose.
+      a.vy += (vs - a.vy) * min(1, dt * 14);
+      final grounded = map != null && Physics.onGround(map, m.rx, m.ry, Balance.playerRadius + 0.02);
+      final wasAir = a.airborne;
+      a.airborne = !grounded && a.vy.abs() > 0.6;
+      if (wasAir && grounded && a.peakFall > 7 && m.snap.alive) {
+        game.particles.dust(m.rx, m.ry + Balance.playerRadius, (a.peakFall / 3).clamp(3, 12).round());
+      }
+      a.peakFall = a.airborne ? max(a.peakFall, a.vy) : 0;
+      a.walk += hs * dt * 9;
+      a.moving = hs > 0.4;
+      if (dx.abs() > 0.004) a.left = dx < 0;
+      if (m.snap.fx.abs() > 0.3 && (m.snap.mining || !a.moving)) a.left = m.snap.fx < 0;
       a
         ..lastX = m.rx
         ..lastY = m.ry;
@@ -56,7 +71,7 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
       if (!s.alive) continue;
       final a = _anim[s.id];
       final isYou = s.id == you;
-      final c = Offset(m.rx * ts, m.ry * ts);
+      final c = Offset(m.rx * ts, m.ry * ts - 2);
       canvas.save();
       canvas.translate(c.dx, c.dy);
       _drawMiner(canvas, m, a, isYou);
@@ -80,6 +95,9 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
       opacity: s.connected ? 1 : 0.45,
       teamColor: s.team >= 0 ? MMColors.teams[s.team % MMColors.teams.length] : null,
       you: isYou,
+      airborne: a?.airborne ?? false,
+      vy: a?.vy ?? 0,
+      time: _t,
     );
   }
 
@@ -108,4 +126,7 @@ class _Anim {
   double walk = 0;
   bool moving = false;
   bool left = false;
+  bool airborne = false;
+  double vy = 0;
+  double peakFall = 0;
 }

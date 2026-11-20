@@ -86,6 +86,7 @@ class GameSimulation {
     final existing = players[id];
     if (existing != null) return existing;
     final p = _spawnPlayer(id, name, isBot: false)..look = look.sanitized();
+    _applyLoadout(p);
     _events.add(GameEvent(GameEventKind.joined, playerId: id, text: name));
     syncBots();
     _botJoinIn = min(_botJoinIn, 0.4);
@@ -124,7 +125,7 @@ class GameSimulation {
     final taken = players.values.map((p) => p.name).toSet();
     final free = _botNames.where((n) => !taken.contains(n)).toList();
     final name = free.isEmpty ? 'Miner${_rng.nextInt(900) + 100}' : free[_rng.nextInt(free.length)];
-    _spawnPlayer(id, name, isBot: true).look = Look.random(_rng);
+    _applyLoadout(_spawnPlayer(id, name, isBot: true)..look = Look.random(_rng));
     _bots[id] = BotBrain(id, seed: _rng.nextInt(1 << 30));
     _events.add(
       GameEvent(disguiseBots ? GameEventKind.joined : GameEventKind.botJoined, playerId: id, text: name),
@@ -146,8 +147,16 @@ class GameSimulation {
     return p;
   }
 
+  /// Miners drop in just above the camp floor.
   (double, double) _spawnPoint() =>
-      (map.spawn.cx + (_rng.nextDouble() - 0.5) * 10, map.spawn.cy + (_rng.nextDouble() - 0.5) * 1.5);
+      (map.spawn.cx + (_rng.nextDouble() - 0.5) * 10, MapGenerator.surfaceRows - 1.6 - _rng.nextDouble() * 0.6);
+
+  /// A Locker pickaxe is real gear: you start the match at its level.
+  void _applyLoadout(SimPlayer p) {
+    final power = p.look.def(CosmeticSlot.pickaxe).power.clamp(0, UpgradeKind.pickaxe.maxLevel);
+    final i = UpgradeKind.pickaxe.index;
+    if (p.upgrades[i] < power) p.upgrades[i] = power;
+  }
 
   void setConnected(String id, {required bool connected}) => players[id]?.connected = connected;
 
@@ -186,15 +195,22 @@ class GameSimulation {
     return true;
   }
 
-  /// Drop a lit bomb on the tile you stand on.
+  /// Light a bomb and throw it the way you face (facing down drops it at
+  /// your feet). Bombs fly, bounce and roll under gravity.
   bool useItem(String id, ItemKind kind) {
     final p = players[id];
     if (p == null || !p.alive || isWarmup || ended || p.items[kind.index] <= 0) return false;
     if (p.inDepot) return false; // no bombing the shop
-    final tx = p.x.floor(), ty = p.y.floor();
-    if (_bombs.any((b) => b.x.floor() == tx && b.y.floor() == ty)) return false;
+    if (_bombs.where((b) => b.ownerId == id).length >= Balance.maxActiveBombs) return false;
     p.items[kind.index] -= 1;
-    _bombs.add(_Bomb(tx + 0.5, ty + 0.5, kind, itemDefs[kind]!.fuse, p.id));
+    final (vx, vy) = switch ((p.fx, p.fy)) {
+      (final fx, _) when fx.abs() > 0.5 => (fx.sign * 6.5 + p.vx * 0.4, -4.5),
+      (_, final fy) when fy < -0.5 => (p.vx * 0.3, -9.0),
+      _ => (p.vx * 0.2, 0.0),
+    };
+    _bombs.add(_Bomb(p.x, p.y, kind, itemDefs[kind]!.fuse, p.id)
+      ..vx = vx
+      ..vy = vy);
     return true;
   }
 
@@ -230,6 +246,7 @@ class GameSimulation {
     timeLeft = max(0, timeLeft - dt);
     _updateBombs(dt);
     _updateCooling(dt);
+    _updateBoulders(dt);
     if (winnerId != null) return;
 
     final claimed = <TilePos>{
@@ -263,7 +280,7 @@ class GameSimulation {
     _wanderIn[p.id] = 0.6 + _rng.nextDouble() * 1.8;
     if (_rng.nextDouble() < 0.45) return const PlayerInput();
     final dir = _rng.nextBool() ? 1.0 : -1.0;
-    return PlayerInput(dx: dir * (0.4 + _rng.nextDouble() * 0.6), fx: dir, fy: 0);
+    return PlayerInput(dx: dir * (0.4 + _rng.nextDouble() * 0.6), fx: dir, fy: 0, jump: _rng.nextDouble() < 0.25);
   }
 
   void _updatePlayer(SimPlayer p, double dt) {
@@ -277,6 +294,8 @@ class GameSimulation {
           ..respawnIn = 0
           ..x = sx
           ..y = sy
+          ..vx = 0
+          ..vy = 0
           ..hp = Balance.maxHealth
           ..stamina = Balance.maxStamina
           ..maxDepth = 0;
@@ -287,24 +306,39 @@ class GameSimulation {
 
     final input = p.connected ? p.input : PlayerInput.idle;
 
-    // Movement.
-    var dx = input.dx, dy = input.dy;
-    final mag = sqrt(dx * dx + dy * dy);
-    if (mag > 1) {
-      dx /= mag;
-      dy /= mag;
-    }
+    // Movement: run left/right, jump, climb shafts, fall.
+    p.crushCooldown = max(0, p.crushCooldown - dt);
     final speed = Physics.speedFor(p.stamina, boots: p.boots);
-    final (nx, ny) = Physics.step(map, p.x, p.y, dx * speed, dy * speed, dt);
+    final mv = Physics.move(
+      map,
+      p.x,
+      p.y,
+      p.vx,
+      p.vy,
+      moveX: input.dx,
+      speed: speed,
+      dt: dt,
+      jump: input.jump,
+      up: input.up,
+      jumpBoost: Physics.jumpBoostFor(p.boots),
+    );
     p
-      ..x = nx
-      ..y = ny;
+      ..x = mv.x
+      ..y = mv.y
+      ..vx = mv.vx
+      ..vy = mv.vy
+      ..onGround = mv.onGround;
     if (input.fx != 0 || input.fy != 0) {
       p.fx = input.fx;
       p.fy = input.fy;
-    } else if (mag > 0.1) {
-      p.fx = dx;
-      p.fy = dy;
+    } else if (input.dx.abs() > 0.1) {
+      p.fx = input.dx.sign;
+      p.fy = 0;
+    }
+    final fall = Physics.fallDamage(mv.impact);
+    if (fall > 0) {
+      _hurt(p, fall, 'a long fall', armored: false);
+      if (!p.alive) return;
     }
     final depth = max(0, p.y.floor() - MapGenerator.surfaceRows + 1);
     if (depth > p.maxDepth) p.maxDepth = depth;
@@ -358,6 +392,7 @@ class GameSimulation {
   void _updateBombs(double dt) {
     for (final b in _bombs) {
       b.fuse -= dt;
+      _moveBomb(b, dt);
     }
     // Explosions can chain, so loop until nothing new goes off.
     while (true) {
@@ -368,6 +403,30 @@ class GameSimulation {
         _explode(b);
       }
     }
+  }
+
+  /// Bombs are small, bouncy and fall like everything else.
+  void _moveBomb(_Bomb b, double dt) {
+    const r = 0.22;
+    b.vy = min(b.vy + Balance.gravity * dt, Balance.maxFallSpeed);
+    final steps = max(1, ((b.vx.abs() + b.vy.abs()) * dt / 0.15).ceil());
+    final h = dt / steps;
+    for (var i = 0; i < steps; i++) {
+      final nx = b.x + b.vx * h;
+      if (Physics.collides(map, nx, b.y, r)) {
+        b.vx = -b.vx * 0.35;
+      } else {
+        b.x = nx;
+      }
+      final ny = b.y + b.vy * h;
+      if (Physics.collides(map, b.x, ny, r)) {
+        b.vy = b.vy > 2 ? -b.vy * 0.3 : 0;
+        b.vx *= 0.6; // rolls to a stop
+      } else {
+        b.y = ny;
+      }
+    }
+    if (b.vx.abs() < 0.05) b.vx = 0;
   }
 
   void _explode(_Bomb b) {
@@ -401,14 +460,32 @@ class GameSimulation {
     if (winnerId != null) return;
 
     for (final p in players.values) {
-      final d = sqrt(pow(p.x - b.x, 2) + pow(p.y - b.y, 2));
+      if (!p.alive) continue;
+      final dx = p.x - b.x, dy = p.y - b.y;
+      final d = sqrt(dx * dx + dy * dy);
+      if (d > r + 1.5) continue;
+      // The blast throws you, even when it's too far to hurt.
+      final push = Balance.blastKnockback * (1 - d / (r + 1.5)) * (b.kind == ItemKind.dynamite ? 1.25 : 1);
+      final nx = d < 0.05 ? 0.0 : dx / d, ny = d < 0.05 ? -1.0 : dy / d;
+      p
+        ..vx += nx * push
+        ..vy = min(p.vy, 0) + (ny * 0.6 - 0.5) * push;
       if (d > r + 0.5) continue;
       final falloff = 1 - (d / (r + 0.5)) * 0.5;
       _hurt(p, def.damage * falloff, b.kind == ItemKind.bomb ? 'a bomb' : 'dynamite');
     }
-    // Chain reaction.
+    // Chain reaction; bombs just outside get kicked away.
     for (final other in _bombs) {
-      if (pow(other.x - b.x, 2) + pow(other.y - b.y, 2) <= r * r) other.fuse = min(other.fuse, 0.15);
+      final dx = other.x - b.x, dy = other.y - b.y;
+      final d2 = dx * dx + dy * dy;
+      if (d2 <= r * r) {
+        other.fuse = min(other.fuse, 0.15);
+      } else if (d2 <= (r + 2) * (r + 2)) {
+        final d = sqrt(d2);
+        other
+          ..vx += dx / d * 6
+          ..vy -= 5;
+      }
     }
   }
 
@@ -451,6 +528,69 @@ class GameSimulation {
       done.add(i);
     });
     done.forEach(_cooling.remove);
+  }
+
+  // ---- boulders ---------------------------------------------------------------
+
+  double _boulderClock = 0;
+
+  /// Unsupported boulders (tile index → seconds they've been loose).
+  final Map<int, double> _loose = {};
+
+  /// Loose boulders wobble briefly, then drop one tile per step and crush
+  /// any miner below. Falling into lava melts them.
+  void _updateBoulders(double dt) {
+    _boulderClock += dt;
+    if (_boulderClock < Balance.boulderStepSeconds) return;
+    final step = _boulderClock;
+    _boulderClock = 0;
+    final w = map.width;
+    final next = <int, double>{};
+    // Bottom-up so a stack of boulders falls together.
+    for (var y = map.height - 2; y >= 1; y--) {
+      for (var x = 1; x < w - 1; x++) {
+        if (map.tileAt(x, y) != TileType.boulder) continue;
+        final i = map.indexOf(x, y);
+        final below = map.tileAt(x, y + 1);
+        if (below.isSolid || below == TileType.depot) continue;
+        final loose = (_loose[i] ?? 0) + step;
+        if (loose < Balance.boulderWobble) {
+          next[i] = loose;
+          continue;
+        }
+        if (below == TileType.lava) {
+          map.setTile(x, y, TileType.empty);
+          _dirtyTiles.add(i);
+          continue;
+        }
+        // Anyone in the way gets hit; the boulder rests on them for now.
+        final victims = players.values.where((p) => p.alive && _overlapsTile(p, x, y + 1)).toList();
+        if (victims.isNotEmpty) {
+          for (final v in victims) {
+            if (v.crushCooldown > 0) continue;
+            v.crushCooldown = 1.2;
+            v.vy = max(v.vy, 4);
+            _hurt(v, Balance.boulderDamage, 'a falling boulder', armored: false);
+          }
+          next[i] = loose;
+          continue;
+        }
+        map.setTile(x, y, TileType.empty);
+        map.setTile(x, y + 1, TileType.boulder);
+        _dirtyTiles
+          ..add(i)
+          ..add(i + w);
+        next[i + w] = loose;
+      }
+    }
+    _loose
+      ..clear()
+      ..addAll(next);
+  }
+
+  static bool _overlapsTile(SimPlayer p, int x, int y) {
+    const r = Balance.playerRadius;
+    return p.x + r > x && p.x - r < x + 1 && p.y + r > y && p.y - r < y + 1;
   }
 
   // ---- hints ------------------------------------------------------------------
@@ -584,8 +724,10 @@ class GameSimulation {
 
 class _Bomb {
   _Bomb(this.x, this.y, this.kind, this.fuse, this.ownerId);
-  final double x;
-  final double y;
+  double x;
+  double y;
+  double vx = 0;
+  double vy = 0;
   final ItemKind kind;
   double fuse;
   final String ownerId;

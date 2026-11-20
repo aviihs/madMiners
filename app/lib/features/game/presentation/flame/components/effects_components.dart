@@ -74,6 +74,24 @@ class ParticlesComponent extends Component {
     }
   }
 
+  /// Puff of dust kicked up by a hard landing.
+  void dust(double x, double y, int n) {
+    for (var i = 0; i < n; i++) {
+      final side = _rng.nextBool() ? 1 : -1;
+      _ps.add(_Particle(
+        x * ts + side * _rng.nextDouble() * 6,
+        y * ts,
+        side * (30 + _rng.nextDouble() * 60),
+        -10 - _rng.nextDouble() * 30,
+        0.4 + _rng.nextDouble() * 0.35,
+        3 + _rng.nextDouble() * 3,
+        const Color(0xFFB8A48C),
+        gravity: 60,
+        soft: true,
+      ));
+    }
+  }
+
   @override
   void update(double dt) {
     for (final p in _ps) {
@@ -94,6 +112,11 @@ class ParticlesComponent extends Component {
         _paint.color = p.color.withValues(alpha: a * 0.35);
         canvas.drawCircle(Offset(p.x, p.y), p.size * 2.5, _paint);
       }
+      if (p.soft) {
+        _paint.color = p.color.withValues(alpha: a * 0.55);
+        canvas.drawCircle(Offset(p.x, p.y), p.size * (1.6 - a * 0.6), _paint);
+        continue;
+      }
       _paint.color = p.color.withValues(alpha: a);
       canvas.drawRect(Rect.fromCenter(center: Offset(p.x, p.y), width: p.size, height: p.size), _paint);
     }
@@ -101,11 +124,12 @@ class ParticlesComponent extends Component {
 }
 
 class _Particle {
-  _Particle(this.x, this.y, this.vx, this.vy, this.life, this.size, this.color, {required this.gravity, this.glow = false});
+  _Particle(this.x, this.y, this.vx, this.vy, this.life, this.size, this.color, {required this.gravity, this.glow = false, this.soft = false});
   double x, y, vx, vy;
   final double life, size, gravity;
   final Color color;
   final bool glow;
+  final bool soft;
   double age = 0;
 }
 
@@ -191,7 +215,7 @@ class BombsComponent extends Component {
   void render(Canvas canvas) {
     const ts = MadMinersGame.tileSize;
     for (final b in controller.bombs) {
-      final c = Offset(b.x * ts, b.y * ts + 4);
+      final c = Offset(b.x * ts, b.y * ts - 1);
       final urgent = b.fuse < 0.8;
       final blink = urgent ? (sin(_t * 30) > 0) : (sin(_t * 10) > 0.6);
       _p.color = const Color(0x55000000);

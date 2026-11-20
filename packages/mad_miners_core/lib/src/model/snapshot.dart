@@ -5,7 +5,7 @@ double _r2(double v) => (v * 100).roundToDouble() / 100;
 
 /// What a client asks its miner to do this tick. Untrusted: the server clamps it.
 class PlayerInput {
-  const PlayerInput({this.seq = 0, this.dx = 0, this.dy = 0, this.fx = 0, this.fy = 1, this.mine = false});
+  const PlayerInput({this.seq = 0, this.dx = 0, this.dy = 0, this.fx = 0, this.fy = 1, this.mine = false, this.jump = false});
 
   static const idle = PlayerInput();
 
@@ -16,9 +16,15 @@ class PlayerInput {
   final double fy;
   final bool mine;
 
+  /// Jump (when standing on something).
+  final bool jump;
+
+  /// Holding up: climbs a 1-wide shaft by bracing against both walls.
+  bool get up => dy < -0.5;
+
   PlayerInput sanitized() {
     double c(double v) => v.isFinite ? v.clamp(-1.0, 1.0) : 0.0;
-    return PlayerInput(seq: seq, dx: c(dx), dy: c(dy), fx: c(fx), fy: c(fy), mine: mine);
+    return PlayerInput(seq: seq, dx: c(dx), dy: c(dy), fx: c(fx), fy: c(fy), mine: mine, jump: jump);
   }
 
   Map<String, dynamic> toJson() => {
@@ -28,6 +34,7 @@ class PlayerInput {
     'fx': _r2(fx),
     'fy': _r2(fy),
     'm': mine,
+    if (jump) 'j': true,
   };
 
   factory PlayerInput.fromJson(Map<String, dynamic> j) => PlayerInput(
@@ -37,6 +44,7 @@ class PlayerInput {
     fx: (j['fx'] as num?)?.toDouble() ?? 0,
     fy: (j['fy'] as num?)?.toDouble() ?? 1,
     mine: j['m'] == true,
+    jump: j['j'] == true,
   ).sanitized();
 }
 
@@ -63,6 +71,8 @@ class PlayerSnapshot {
     required this.inDepot,
     this.items = const [0, 0],
     this.look = Look.standard,
+    this.vx = 0,
+    this.vy = 0,
   });
 
   final String id;
@@ -98,8 +108,12 @@ class PlayerSnapshot {
   /// Carried consumables indexed by [ItemKind.index].
   final List<int> items;
 
-  /// Cosmetics (purely visual).
+  /// Equipped Locker items (the pickaxe also sets your starting dig power).
   final Look look;
+
+  /// Velocity in tiles / second (used by client prediction and animation).
+  final double vx;
+  final double vy;
 
   int itemCount(ItemKind k) => k.index < items.length ? items[k.index] : 0;
 
@@ -129,6 +143,8 @@ class PlayerSnapshot {
     'dp': inDepot,
     'it': items,
     'lk': look.toJson(),
+    'vx': _r2(vx),
+    'vy': _r2(vy),
   };
 
   factory PlayerSnapshot.fromJson(Map<String, dynamic> j) => PlayerSnapshot(
@@ -153,6 +169,8 @@ class PlayerSnapshot {
     inDepot: j['dp'] as bool,
     items: (j['it'] as List? ?? const [0, 0]).cast<num>().map((e) => e.toInt()).toList(),
     look: Look.fromJson(j['lk']),
+    vx: (j['vx'] as num?)?.toDouble() ?? 0,
+    vy: (j['vy'] as num?)?.toDouble() ?? 0,
   );
 }
 
@@ -329,6 +347,7 @@ class MatchResult {
 
 class BombSnapshot {
   const BombSnapshot(this.x, this.y, this.kind, this.fuse);
+
   final double x;
   final double y;
   final ItemKind kind;

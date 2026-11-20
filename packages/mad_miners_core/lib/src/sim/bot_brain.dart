@@ -46,7 +46,9 @@ class BotBrain {
   int? _lane;
   double _pause = 0;
   double _retreat = 0;
-  double _rx = 0, _ry = -1;
+  double _rx = 0;
+  int _tileKey = -1;
+  double _tileStay = 0;
 
   BotDecision think(GameMap map, SimPlayer me, double dt, Set<TilePos> claimed, TilePos? revealedTreasure) {
     if (!me.alive) {
@@ -72,10 +74,10 @@ class BotBrain {
       }
     }
 
-    // Running from our own bomb.
+    // Running from our own bomb (jumping over bumps on the way).
     if (_retreat > 0) {
       _retreat -= dt;
-      return BotDecision(PlayerInput(dx: _rx, dy: _ry, fx: _rx, fy: _ry), upgrade: buy, buyItem: buyItem);
+      return BotDecision(PlayerInput(dx: _rx, fx: _rx, fy: 0, jump: true), upgrade: buy, buyItem: buyItem);
     }
 
     // Treasure in sight? Drop everything.
@@ -96,8 +98,18 @@ class BotBrain {
     } else {
       _stuckFor = 0;
     }
-    if (_stuckFor > 1.5) {
+    // With gravity a bot can bounce (jump, fall back) without progress:
+    // also count time spent in one tile without digging.
+    final key = map.indexOf(me.x.floor(), me.y.floor());
+    if (key != _tileKey || me.miningFlash > 0) {
+      _tileKey = key;
+      _tileStay = 0;
+    } else {
+      _tileStay += dt;
+    }
+    if (_stuckFor > 1.5 || _tileStay > 2.5) {
       _stuckFor = 0;
+      _tileStay = 0;
       _path = const [];
       _replanIn = 0;
       _lane = 2 + _rng.nextInt(map.width - 4);
@@ -110,19 +122,21 @@ class BotBrain {
       return BotDecision(const PlayerInput(), upgrade: buy, buyItem: buyItem);
     }
 
-    // Sometimes blast through a long stretch of hard rock, then back off.
-    if (me.items[ItemKind.bomb.index] > 0 && _path.length > 3 && goal == BotGoal.digDown && _rng.nextDouble() < dt * 0.08) {
+    // Sometimes drop a bomb to blast through hard rock below, then run
+    // sideways along open floor.
+    if (me.items[ItemKind.bomb.index] > 0 && _path.length > 3 && goal == BotGoal.digDown && me.onGround && _rng.nextDouble() < dt * 0.08) {
       final solidAhead = _path.take(3).where((w) => map.tileAt(w.x, w.y).isMinable).length;
-      if (solidAhead >= 2 && map.tileAt(me.x.floor(), me.y.floor()) == TileType.empty) {
-        final w = _path.first;
-        final ax = w.cx - me.x, ay = w.cy - me.y;
-        final len = sqrt(ax * ax + ay * ay).clamp(0.001, 99);
-        _rx = -ax / len;
-        _ry = -ay / len;
-        _retreat = itemDefs[ItemKind.bomb]!.fuse + 0.6;
+      final tx = me.x.floor(), ty = me.y.floor();
+      bool runway(int dir) =>
+          !map.isSolid(tx + dir, ty) && !map.isSolid(tx + dir * 2, ty) && map.isSolid(tx + dir, ty + 1) && map.isSolid(tx + dir * 2, ty + 1);
+      final dir = runway(1) ? 1 : (runway(-1) ? -1 : 0);
+      if (solidAhead >= 2 && dir != 0) {
+        _rx = dir.toDouble();
+        _retreat = itemDefs[ItemKind.bomb]!.fuse + 0.5;
         _path = const [];
         _replanIn = _retreat + 0.2;
-        return BotDecision(PlayerInput(dx: _rx, dy: _ry, fx: _rx, fy: _ry), upgrade: buy, useItem: ItemKind.bomb);
+        // Facing down drops the bomb at our feet.
+        return BotDecision(const PlayerInput(fx: 0, fy: 1), upgrade: buy, useItem: ItemKind.bomb);
       }
     }
 
@@ -201,33 +215,42 @@ class BotBrain {
     _path = best == null ? const [] : pf.pathTo(best);
   }
 
+  /// Turns the next waypoint into stick/jump/dig input, respecting gravity.
   PlayerInput _follow(GameMap map, SimPlayer me) {
-    while (_path.isNotEmpty) {
-      final w = _path.first;
-      final reached = me.x.floor() == w.x &&
-          me.y.floor() == w.y &&
-          (me.x - w.cx).abs() < 0.3 &&
-          (me.y - w.cy).abs() < 0.3;
-      if (!reached) break;
-      _path = _path.sublist(1);
-    }
+    final cx = me.x.floor(), cy = me.y.floor();
+    // Falling can skip several waypoints at once.
+    final at = _path.indexWhere((w) => w.x == cx && w.y == cy);
+    if (at >= 0) _path = _path.sublist(at + 1);
     if (_path.isEmpty) return const PlayerInput();
 
     final w = _path.first;
+    final dirX = w.x - cx, dirY = w.y - cy;
+    if (dirX.abs() + dirY.abs() != 1) {
+      // Knocked or fell off the route: plan again from here.
+      _path = const [];
+      _replanIn = 0;
+      return const PlayerInput();
+    }
     final tile = map.tileAt(w.x, w.y);
     if (tile == TileType.lava || tile == TileType.bedrock) {
       _path = const [];
       return const PlayerInput();
     }
-    var dx = w.cx - me.x, dy = w.cy - me.y;
-    final len = sqrt(dx * dx + dy * dy);
-    if (len > 0.001) {
-      dx /= len;
-      dy /= len;
-    }
+    // Stay centred in the column when moving vertically.
+    final centre = ((w.cx - me.x) * 3).clamp(-1.0, 1.0);
+    final steer = centre.abs() < 0.12 ? 0.0 : centre;
+
     if (tile.isMinable) {
-      return PlayerInput(dx: dx * 0.35, dy: dy * 0.35, fx: dx, fy: dy, mine: true);
+      if (dirY != 0) return PlayerInput(dx: steer * 0.5, fx: 0, fy: dirY.toDouble(), mine: true);
+      return PlayerInput(dx: dirX * 0.2, fx: dirX.toDouble(), fy: 0, mine: true);
     }
-    return PlayerInput(dx: dx, dy: dy, fx: dx, fy: dy);
+    if (dirY < 0) {
+      // Up into open space: jump (or climb a shaft).
+      return PlayerInput(dx: steer, dy: -1, fx: 0, fy: -1, jump: me.onGround || centre.abs() < 0.3);
+    }
+    if (dirY > 0) return PlayerInput(dx: steer, fx: 0, fy: 1);
+    // Sideways: walk, hop up if there's a lip in the way.
+    final blocked = map.isSolid(w.x, cy) || (me.onGround && me.vx.abs() < 0.2 && map.isSolid(cx + dirX, cy));
+    return PlayerInput(dx: dirX.toDouble(), fx: dirX.toDouble(), fy: 0, jump: blocked);
   }
 }

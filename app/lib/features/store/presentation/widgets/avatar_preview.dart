@@ -63,6 +63,7 @@ class _AvatarPainter extends CustomPainter {
       swing: (t - 0.55) * 40,
       aim: 0,
       walk: t * pi * 2,
+      time: t * 9,
     );
     canvas.restore();
   }

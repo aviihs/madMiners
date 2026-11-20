@@ -17,8 +17,21 @@ class DigPathfinder {
     TileType.lava => double.infinity,
     TileType.gas => 25,
     TileType.empty || TileType.depot => 1,
+    // Digging under a boulder is asking for a headache.
+    TileType.boulder => 2 + (hp / damage).ceil() * 0.9,
     _ => 1 + (hp / damage).ceil() * 0.9,
   };
+
+  /// Gravity: going up is slow (dig, jump, climb); never stand over lava;
+  /// don't dig right under a boulder.
+  double moveCost(int fromY, int nx, int ny) {
+    var c = 0.0;
+    if (ny < fromY) c += 4;
+    final below = map.tileAt(nx, ny + 1);
+    if (below == TileType.lava) return double.infinity;
+    if (map.tileAt(nx, ny - 1) == TileType.boulder) c += 6;
+    return c;
+  }
 
   /// Fills [cost]/[parent] from [start], exploring at most [budget] nodes.
   void run(TilePos start, int damage, {int budget = 4000}) {
@@ -35,7 +48,7 @@ class DigPathfinder {
       for (final (nx, ny) in [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]) {
         if (!map.inBounds(nx, ny)) continue;
         final ni = map.indexOf(nx, ny);
-        final c = enterCost(map.tileAtIndex(ni), map.hpAtIndex(ni), damage);
+        final c = enterCost(map.tileAtIndex(ni), map.hpAtIndex(ni), damage) + moveCost(y, nx, ny);
         if (c == double.infinity) continue;
         final nd = d + c;
         if (nd < cost[ni]) {

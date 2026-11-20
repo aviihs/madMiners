@@ -70,7 +70,7 @@ class _HudOverlayState extends State<HudOverlay> {
                 if (me != null && me.alive && hud.warmup <= 0 && !me.inDepot)
                   Positioned(
                     right: touch ? 30 : 12,
-                    bottom: touch ? 136 : 44,
+                    bottom: touch ? 140 : 44,
                     child: _ItemBar(me: me, onUse: c.useItem, vertical: touch),
                   ),
                 if (hud.warmup > 0 && hud.link == LinkStatus.connected) Center(child: _Lobby(hud: hud)),
@@ -87,6 +87,7 @@ class _HudOverlayState extends State<HudOverlay> {
                     }),
                   ),
                   Positioned(right: 32, bottom: 32, child: MineButton(onChanged: (v) => c.mineHeld = v)),
+                  Positioned(right: 134, bottom: 24, child: JumpButton(onChanged: (v) => c.jumpHeld = v)),
                 ] else
                   const Positioned(bottom: 14, left: 0, right: 0, child: Center(child: _KeyHints())),
               ],
@@ -649,12 +650,16 @@ class _KeyHints extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        key('W'), key('A'), key('S'), key('D'),
-        const Text('  move     ', style: label),
+        key('A'), key('D'),
+        const Text('  run   ', style: label),
+        key('W'),
+        const Text('  jump / climb   ', style: label),
+        key('S'),
+        const Text('  aim down   ', style: label),
         key('SPACE'),
-        const Text('  dig     ', style: label),
+        const Text('  dig   ', style: label),
         key('B'),
-        const Text(' bomb  ', style: label),
+        const Text(' throw bomb  ', style: label),
         key('N'),
         const Text(' dynamite     ', style: label),
         const Text('Beware hidden volcanoes!', style: label),

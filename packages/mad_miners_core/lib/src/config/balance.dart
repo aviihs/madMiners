@@ -130,6 +130,37 @@ abstract final class Balance {
   static const double moveSpeed = 4.2; // tiles / second
   static const double tiredSpeedFactor = 0.7;
 
+  // ---- gravity (side-view physics) ----
+  /// Downward acceleration, tiles / s².
+  static const double gravity = 30;
+
+  /// Take-off speed of a jump. Clears a 1-tile ledge (apex ≈ 1.4 tiles).
+  static const double jumpSpeed = 9.2;
+  static const double maxFallSpeed = 20;
+
+  /// How quickly you reach running speed on the ground / steer in the air.
+  static const double groundAccel = 42;
+  static const double airAccel = 16;
+
+  /// Bracing against both walls of a 1-wide shaft lets you climb it.
+  static const double climbSpeed = 2.6;
+
+  /// Landing faster than this hurts (≈ a 3.5-tile drop).
+  static const double safeFallSpeed = 14.5;
+  static const double fallDamagePerSpeed = 7;
+
+  /// Loose boulders fall when nothing holds them up.
+  static const int boulderHardness = 4;
+  static const double boulderWobble = 0.45;
+  static const double boulderStepSeconds = 0.13;
+  static const double boulderDamage = 45;
+
+  /// Explosions shove miners and bombs around.
+  static const double blastKnockback = 13;
+
+  /// Lit bombs one miner may have out at once.
+  static const int maxActiveBombs = 3;
+
   static const double maxHealth = 100;
   static const double maxStamina = 100;
   static const double staminaPerHit = 4;

@@ -11,7 +11,7 @@ import '../../../auth/presentation/cubit/auth_cubit.dart';
 import '../cubit/store_cubit.dart';
 import '../widgets/avatar_preview.dart';
 
-/// Locker: try on and buy outfits, helmets and pickaxe skins.
+/// Locker: try on and buy miners, outfits, helmets and pickaxes (pickaxes add dig power).
 class StorePage extends StatelessWidget {
   const StorePage({super.key, required this.token});
   final String token;
@@ -86,10 +86,17 @@ class _StoreView extends StatelessWidget {
                                     Text(
                                       st.preview == null
                                           ? look.def(CosmeticSlot.character).description
-                                          : (profile.owns(st.preview!) ? 'Owned. Tap Wear to put it on.' : 'Trying it on. Buy to keep it.'),
+                                          : [
+                                              if (st.preview!.description.isNotEmpty) st.preview!.description,
+                                              profile.owns(st.preview!) ? 'Owned. Tap Wear to put it on.' : 'Trying it on. Buy to keep it.',
+                                            ].join('\n'),
                                       style: MMText.footnote,
                                       textAlign: TextAlign.center,
                                     ),
+                                    if (st.slot == CosmeticSlot.pickaxe || st.preview?.slot == CosmeticSlot.pickaxe) ...[
+                                      const SizedBox(height: 10),
+                                      PickPower(item: st.preview ?? look.def(CosmeticSlot.pickaxe), large: true),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -121,7 +128,9 @@ class _StoreView extends StatelessWidget {
                               ),
                               const SizedBox(height: 16),
                               const Text(
-                                'Earn coins in every match. Find the treasure to earn gems.\nLooks never change how the game plays.',
+                                'Earn coins in every match. Find the treasure to earn gems.\n'
+                                'Pickaxes are real gear: you start every match already at their dig level.\n'
+                                'Miners, outfits and helmets change how you look.',
                                 textAlign: TextAlign.center,
                                 style: MMText.caption,
                               ),
@@ -214,6 +223,7 @@ class _ItemCard extends StatelessWidget {
               child: AvatarPreview(look: profile.look.withItem(item), seed: profile.id, size: 110, animate: false),
             ),
             Text(item.name, style: MMText.title.copyWith(fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+            if (item.slot == CosmeticSlot.pickaxe) ...[const SizedBox(height: 4), PickPower(item: item)],
             const SizedBox(height: 8),
             if (equipped)
               Container(
@@ -237,6 +247,48 @@ class _ItemCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Dig power of a Locker pickaxe: pips plus the in-match level it starts at.
+class PickPower extends StatelessWidget {
+  const PickPower({super.key, required this.item, this.large = false});
+  final CosmeticDef item;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    final level = UpgradeKind.pickaxe.levels[item.power.clamp(0, UpgradeKind.pickaxe.maxLevel)];
+    final pip = large ? 10.0 : 7.0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(CupertinoIcons.hammer_fill, size: pip + 4, color: MMColors.gold),
+            const SizedBox(width: 4),
+            for (var i = 0; i <= UpgradeKind.pickaxe.maxLevel; i++)
+              Container(
+                width: pip,
+                height: pip,
+                margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i <= item.power ? MMColors.gold : MMColors.glassStrong,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          large ? 'Starts as ${level.name} · ${level.stat.toInt()} dmg per hit' : '${level.stat.toInt()} dmg / hit',
+          style: MMText.caption.copyWith(fontSize: large ? 12 : 10.5, color: MMColors.gold),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 }

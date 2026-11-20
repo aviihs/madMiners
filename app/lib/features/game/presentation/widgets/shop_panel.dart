@@ -89,7 +89,7 @@ class ShopPanel extends StatelessWidget {
       icon: k == ItemKind.bomb ? CupertinoIcons.burst_fill : CupertinoIcons.flame_fill,
       color: MMColors.ember,
       title: def.name,
-      subtitle: k == ItemKind.bomb ? 'Blasts 3×3' : 'Blasts 5×5',
+      subtitle: k == ItemKind.bomb ? 'Throw · blasts 3×3' : 'Throw · blasts 5×5',
       level: '×$have',
       price: full ? null : def.cost,
       enabled: !full && me.coins >= def.cost,

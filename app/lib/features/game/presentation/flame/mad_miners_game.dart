@@ -20,7 +20,7 @@ class MadMinersGame extends FlameGame {
   /// Roughly how many tiles fit across the shorter screen edge.
   static const double tilesAcross = 13;
 
-  final _particles = ParticlesComponent();
+  final particles = ParticlesComponent();
   final _rng = Random();
   double _shake = 0;
 
@@ -31,7 +31,7 @@ class MadMinersGame extends FlameGame {
   Future<void> onLoad() async {
     world.addAll([
       TileMapComponent(controller),
-      _particles,
+      particles,
       BombsComponent(controller),
       MinersComponent(controller),
       DarknessComponent(controller),
@@ -55,9 +55,9 @@ class MadMinersGame extends FlameGame {
         case FxKind.text:
           world.add(FloatingText(fx));
         case FxKind.chips:
-          _particles.chips(fx.x, fx.y, Color(fx.color), fx.amount.round());
+          particles.chips(fx.x, fx.y, Color(fx.color), fx.amount.round());
         case FxKind.burst:
-          _particles.burst(fx.x, fx.y, Color(fx.color));
+          particles.burst(fx.x, fx.y, Color(fx.color));
         case FxKind.shake:
           _shake = max(_shake, fx.amount);
       }

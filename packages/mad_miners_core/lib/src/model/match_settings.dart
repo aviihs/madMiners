@@ -23,6 +23,7 @@ class MapDef {
     required this.gasPockets,
     required this.lootBoost,
     required this.volcanoes,
+    this.boulders = 0.006,
   });
 
   final MapId id;
@@ -42,6 +43,9 @@ class MapDef {
 
   /// Hidden volcano tiles in the deep half.
   final int volcanoes;
+
+  /// Chance that a rock tile is a loose boulder.
+  final double boulders;
 }
 
 enum MapId {
@@ -71,6 +75,7 @@ enum MapId {
       gasPockets: 5,
       lootBoost: 1.8,
       volcanoes: 16,
+      boulders: 0.008,
     ),
     MapId.lavaMine => const MapDef(
       id: MapId.lavaMine,
@@ -82,6 +87,7 @@ enum MapId {
       gasPockets: 4,
       lootBoost: 1.4,
       volcanoes: 28,
+      boulders: 0.01,
     ),
   };
 

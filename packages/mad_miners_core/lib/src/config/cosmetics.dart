@@ -1,6 +1,8 @@
 import 'dart:math';
 
-/// Cosmetic catalog (looks only — never affects gameplay, SRS §11.3).
+/// Locker catalog. Characters, outfits and helmets are looks only.
+/// Pickaxes are real gear: each one has a [CosmeticDef.power] that sets the
+/// pickaxe level you start every match with.
 enum CosmeticSlot {
   character('Miner'),
   outfit('Outfit'),
@@ -26,6 +28,7 @@ class CosmeticDef {
     required this.secondary,
     this.style = 0,
     this.description = '',
+    this.power = 0,
   });
 
   final String id;
@@ -41,12 +44,24 @@ class CosmeticDef {
   final int secondary;
 
   /// Shape variant. Character: face style. Helmet: 0 hard hat, 1 crown,
-  /// 2 viking, 3 prospector hat, 4 beanie.
+  /// 2 viking, 3 prospector hat, 4 beanie. Pickaxe: see [PickStyle].
   final int style;
   final String description;
 
+  /// Pickaxes only: the in-match pickaxe level (index into the pickaxe
+  /// upgrade track) you start with. 0 = Basic Pickaxe.
+  final int power;
+
   bool get isFree => price == 0;
   bool get isPremium => currency == Currency.gems && price > 0;
+}
+
+/// Pickaxe head shapes.
+abstract final class PickStyle {
+  static const pick = 0;
+  static const axe = 1;
+  static const drill = 2;
+  static const mattock = 3;
 }
 
 /// Character face styles.
@@ -89,13 +104,16 @@ const List<CosmeticDef> cosmeticCatalog = [
   CosmeticDef(id: 'helmet_cowboy', slot: CosmeticSlot.helmet, name: 'Prospector Hat', price: 500, currency: Currency.coins, primary: 0xFF8B5A2B, secondary: 0xFF5A3A1A, style: 3),
   CosmeticDef(id: 'helmet_viking', slot: CosmeticSlot.helmet, name: 'Viking Helm', price: 70, currency: Currency.gems, primary: 0xFFB0B7C0, secondary: 0xFFF5E6C8, style: 2),
   CosmeticDef(id: 'helmet_crown', slot: CosmeticSlot.helmet, name: 'Miner King Crown', price: 150, currency: Currency.gems, primary: 0xFFFFD34D, secondary: 0xFFE0115F, style: 1),
-  // Pickaxes.
-  CosmeticDef(id: 'pick_wood', slot: CosmeticSlot.pickaxe, name: 'Trusty Pick', price: 0, currency: Currency.coins, primary: 0xFF8B5A2B, secondary: 0xFFC9D1D9),
-  CosmeticDef(id: 'pick_steel', slot: CosmeticSlot.pickaxe, name: 'Steel Pick', price: 200, currency: Currency.coins, primary: 0xFF4A4A4A, secondary: 0xFFE6EEF5),
-  CosmeticDef(id: 'pick_ruby', slot: CosmeticSlot.pickaxe, name: 'Ruby Pick', price: 550, currency: Currency.coins, primary: 0xFF5A2A1A, secondary: 0xFFE0115F),
-  CosmeticDef(id: 'pick_emerald', slot: CosmeticSlot.pickaxe, name: 'Emerald Pick', price: 750, currency: Currency.coins, primary: 0xFF1F3A2A, secondary: 0xFF34D399),
-  CosmeticDef(id: 'pick_gold', slot: CosmeticSlot.pickaxe, name: 'Golden Pick', price: 50, currency: Currency.gems, primary: 0xFF8A5A00, secondary: 0xFFFFD34D),
-  CosmeticDef(id: 'pick_crystal', slot: CosmeticSlot.pickaxe, name: 'Crystal Pick', price: 100, currency: Currency.gems, primary: 0xFF2B5C8A, secondary: 0xFF8AF0FF),
+  // Pickaxes: real gear. You start each match at the pickaxe's power level.
+  CosmeticDef(id: 'pick_wood', slot: CosmeticSlot.pickaxe, name: 'Trusty Pick', price: 0, currency: Currency.coins, primary: 0xFF8B5A2B, secondary: 0xFFC9D1D9, description: 'Gets the job done. Slowly.'),
+  CosmeticDef(id: 'pick_steel', slot: CosmeticSlot.pickaxe, name: 'Steel Pick', price: 300, currency: Currency.coins, primary: 0xFF4A4A4A, secondary: 0xFFE6EEF5, power: 1, description: 'Double damage from the first swing.'),
+  CosmeticDef(id: 'pick_ruby', slot: CosmeticSlot.pickaxe, name: 'Ruby Pick', price: 900, currency: Currency.coins, primary: 0xFF5A2A1A, secondary: 0xFFE0115F, power: 2, description: 'Cuts rock like butter.'),
+  CosmeticDef(id: 'pick_emerald', slot: CosmeticSlot.pickaxe, name: 'Emerald Mattock', price: 1400, currency: Currency.coins, primary: 0xFF1F3A2A, secondary: 0xFF34D399, style: PickStyle.mattock, power: 2, description: 'Wide blade, heavy swing.'),
+  CosmeticDef(id: 'pick_titan', slot: CosmeticSlot.pickaxe, name: 'Titan Axe', price: 2600, currency: Currency.coins, primary: 0xFF2E2E36, secondary: 0xFFFF9F1C, style: PickStyle.axe, power: 3, description: 'Two blades. Splits hard rock.'),
+  CosmeticDef(id: 'pick_drill', slot: CosmeticSlot.pickaxe, name: 'Thunder Drill', price: 6000, currency: Currency.coins, primary: 0xFF3A3F4A, secondary: 0xFFFFD34D, style: PickStyle.drill, power: 4, description: 'Motorised. The fastest digger money can buy.'),
+  CosmeticDef(id: 'pick_gold', slot: CosmeticSlot.pickaxe, name: 'Golden Pick', price: 60, currency: Currency.gems, primary: 0xFF8A5A00, secondary: 0xFFFFD34D, power: 2, description: 'Shiny and sharp.'),
+  CosmeticDef(id: 'pick_crystal', slot: CosmeticSlot.pickaxe, name: 'Crystal Pick', price: 120, currency: Currency.gems, primary: 0xFF2B5C8A, secondary: 0xFF8AF0FF, power: 3, description: 'Harder than diamond.'),
+  CosmeticDef(id: 'pick_plasma', slot: CosmeticSlot.pickaxe, name: 'Plasma Drill', price: 300, currency: Currency.gems, primary: 0xFF1C1630, secondary: 0xFFB06BFF, style: PickStyle.drill, power: 4, description: 'Glowing bit, top dig power.'),
 ];
 
 final Map<String, CosmeticDef> cosmeticsById = {for (final c in cosmeticCatalog) c.id: c};
@@ -168,7 +186,12 @@ class Look {
   /// Random look for a bot — mostly free/coin items, sometimes premium.
   factory Look.random(Random rng) {
     String pick(CosmeticSlot slot) {
-      final items = cosmeticCatalog.where((c) => c.slot == slot).toList();
+      var items = cosmeticCatalog.where((c) => c.slot == slot).toList();
+      if (slot == CosmeticSlot.pickaxe) {
+        // Most players haven't saved up for a drill yet.
+        final cap = rng.nextDouble() < 0.8 ? 1 : 3;
+        items = items.where((c) => c.power <= cap).toList();
+      }
       final premium = rng.nextDouble() < 0.15;
       final pool = items.where((c) => c.isPremium == premium).toList();
       final from = pool.isEmpty ? items : pool;

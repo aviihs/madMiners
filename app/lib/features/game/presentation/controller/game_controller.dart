@@ -69,12 +69,19 @@ class GameController {
   final List<FxRequest> _fx = [];
 
   // Local prediction.
-  double predX = 0, predY = 0;
+  double predX = 0, predY = 0, predVx = 0, predVy = 0;
   bool _hasPrediction = false;
+  bool _freshSnap = false;
 
   // Input sources.
   double joyX = 0, joyY = 0;
   bool mineHeld = false;
+
+  /// Touch jump button.
+  bool jumpHeld = false;
+
+  /// Keeps a quick tap "pressed" long enough for the server to see it.
+  double _jumpLatch = 0;
   double _fx0 = 0, _fy0 = 1;
   int _seq = 0;
   bool _bombKey = false, _dynKey = false;
@@ -144,6 +151,8 @@ class GameController {
 
     if (s.tiles.isNotEmpty) {
       final lavaTop = m.height - 1 - settings.mapId.def.lavaRows;
+      // A boulder moving down a tile is not a broken tile: no rock chips.
+      final boulderNow = {for (final t in s.tiles) if (t.typeIndex == TileType.boulder.index) t.index};
       for (final t in s.tiles) {
         final old = m.tileAtIndex(t.index);
         final oldHp = m.hpAtIndex(t.index);
@@ -152,6 +161,7 @@ class GameController {
         final x = t.index % m.width + 0.5, y = t.index ~/ m.width + 0.5;
         final d = ((y - MapGenerator.surfaceRows) / max(1, lavaTop - MapGenerator.surfaceRows)).clamp(0.0, 1.0);
         final color = MinePalette.chip(old, d).toARGB32();
+        if (old == TileType.boulder && boulderNow.contains(t.index + m.width)) continue;
         if (old.isSolid && !nt.isSolid) {
           _fx.add(FxRequest.chips(x, y, color, amount: 10));
           if (old.ore != null) _fx.add(FxRequest.burst(x, y, MinePalette.chip(old, d).toARGB32()));
@@ -185,8 +195,11 @@ class GameController {
       if (!_hasPrediction || !mine.snap.alive) {
         predX = mine.snap.x;
         predY = mine.snap.y;
+        predVx = mine.snap.vx;
+        predVy = mine.snap.vy;
         _hasPrediction = true;
       }
+      _freshSnap = true;
     }
 
     for (final ev in s.events) {
@@ -310,29 +323,55 @@ class GameController {
 
     final mine = me;
     if (mine == null) return;
-    final input = _readInput();
+    final input = _readInput(dt);
 
-    // Predict your own movement with the shared physics.
-    if (mine.snap.alive && _hasPrediction) {
-      final speed = Physics.speedFor(mine.snap.stamina, boots: mine.snap.gear(UpgradeKind.boots).stat);
-      final (nx, ny) = Physics.step(m, predX, predY, input.dx * speed, input.dy * speed, dt);
-      predX = nx;
-      predY = ny;
+    // Predict your own movement with the shared gravity physics.
+    final s = mine.snap;
+    if (s.alive && _hasPrediction) {
+      final boots = s.gear(UpgradeKind.boots).stat;
+      final mv = Physics.move(
+        m,
+        predX,
+        predY,
+        predVx,
+        predVy,
+        moveX: input.dx,
+        speed: Physics.speedFor(s.stamina, boots: boots),
+        dt: dt,
+        jump: input.jump,
+        up: input.up,
+        jumpBoost: Physics.jumpBoostFor(boots),
+      );
+      predX = mv.x;
+      predY = mv.y;
+      predVx = mv.vx;
+      predVy = mv.vy;
+      // A blast or boulder shoved us on the server: take its velocity.
+      if (_freshSnap && (s.vx - predVx).abs() + (s.vy - predVy).abs() > 7) {
+        predVx = s.vx;
+        predVy = s.vy;
+      }
+      _freshSnap = false;
       // Reconcile toward the authoritative position.
-      final ex = mine.snap.x - predX, ey = mine.snap.y - predY;
+      final ex = s.x - predX, ey = s.y - predY;
       final err = sqrt(ex * ex + ey * ey);
       if (err > 2.5) {
-        predX = mine.snap.x;
-        predY = mine.snap.y;
+        predX = s.x;
+        predY = s.y;
+        predVx = s.vx;
+        predVy = s.vy;
       } else {
-        final moving = input.dx != 0 || input.dy != 0;
-        final rate = min(1.0, dt * (moving ? (err > 0.8 ? 4 : 1.2) : 8));
-        predX += ex * rate;
-        predY += ey * rate;
+        final rate = min(1.0, dt * (err > 0.6 ? 6 : 2.5));
+        final nx = predX + ex * rate, ny = predY + ey * rate;
+        if (!Physics.collides(m, nx, ny)) {
+          predX = nx;
+          predY = ny;
+        }
       }
     } else {
-      predX = mine.snap.x;
-      predY = mine.snap.y;
+      predX = s.x;
+      predY = s.y;
+      predVx = predVy = 0;
     }
     mine
       ..rx = predX
@@ -342,6 +381,7 @@ class GameController {
     final changed = input.dx != _lastSent.dx ||
         input.dy != _lastSent.dy ||
         input.mine != _lastSent.mine ||
+        input.jump != _lastSent.jump ||
         input.fx != _lastSent.fx ||
         input.fy != _lastSent.fy;
     if ((changed && _sendTimer >= 0.05) || _sendTimer >= 0.5) {
@@ -351,7 +391,7 @@ class GameController {
     }
   }
 
-  PlayerInput _readInput() {
+  PlayerInput _readInput(double dt) {
     final keys = HardwareKeyboard.instance.logicalKeysPressed;
     var dx = joyX, dy = joyY;
     if (keys.contains(LogicalKeyboardKey.keyA) || keys.contains(LogicalKeyboardKey.arrowLeft)) dx -= 1;
@@ -363,17 +403,20 @@ class GameController {
       dx /= mag;
       dy /= mag;
     }
-    if (mag > 0.25) {
-      // Snap facing to the dominant axis so you dig the tile you expect.
-      if (dx.abs() > dy.abs()) {
-        _fx0 = dx.sign;
-        _fy0 = 0;
-      } else {
-        _fx0 = 0;
-        _fy0 = dy.sign;
-      }
+    // Aim along the dominant axis so you dig the tile you expect. Up/down
+    // only take over when clearly pushed; running keeps aiming sideways.
+    if (dy.abs() > 0.45 && dy.abs() > dx.abs() * 0.8) {
+      _fx0 = 0;
+      _fy0 = dy.sign;
+    } else if (dx.abs() > 0.25) {
+      _fx0 = dx.sign;
+      _fy0 = 0;
     }
     final mining = mineHeld || keys.contains(LogicalKeyboardKey.space) || keys.contains(LogicalKeyboardKey.keyJ);
+    // Up jumps, unless you're digging upward.
+    if (jumpHeld || (dy < -0.5 && !mining)) _jumpLatch = 0.15;
+    final jump = _jumpLatch > 0;
+    _jumpLatch = max(0, _jumpLatch - dt);
     // B = bomb, N = dynamite (on key-down only).
     final bomb = keys.contains(LogicalKeyboardKey.keyB), dyn = keys.contains(LogicalKeyboardKey.keyN);
     if (bomb && !_bombKey) useItem(ItemKind.bomb);
@@ -387,6 +430,7 @@ class GameController {
       fx: _fx0,
       fy: _fy0,
       mine: mining,
+      jump: jump,
     );
   }
 

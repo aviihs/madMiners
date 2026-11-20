@@ -58,17 +58,16 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
         final h = _hash(x, y);
         switch (t) {
           case TileType.empty:
-            _p.color = MinePalette.shade(MinePalette.tunnel(d), ((h % 9) - 4) / 120);
-            canvas.drawRect(r, _p);
-            // Soft shadow under the ceiling.
-            if (map.isSolid(x, y - 1)) canvas.drawRect(Rect.fromLTWH(r.left, r.top, ts, 7), _shadow);
+            _drawBackWall(canvas, map, r, x, y, h, d);
+          case TileType.boulder:
+            _drawBackWall(canvas, map, r, x, y, h, d);
+            _drawBoulder(canvas, map, r, x, y, h, d);
           case TileType.depot:
             _drawDepotFloor(canvas, r, h);
           case TileType.lava:
             _drawLava(canvas, r, h, map.tileAt(x, y - 1) != TileType.lava);
           case TileType.gas:
-            _p.color = MinePalette.tunnel(d);
-            canvas.drawRect(r, _p);
+            _drawBackWall(canvas, map, r, x, y, h, d);
             _drawGas(canvas, r, h);
           case TileType.bedrock:
             _p.color = const Color(0xFF0F0C0B);
@@ -91,6 +90,61 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
 
   // ---- pieces ---------------------------------------------------------------
 
+  /// Dug-out space: the darker rock face behind the tunnel, with ambient
+  /// occlusion where it meets solid rock.
+  void _drawBackWall(Canvas canvas, GameMap map, Rect r, int x, int y, int h, double d) {
+    final base = MinePalette.shade(MinePalette.tunnel(d), ((h % 9) - 4) / 110);
+    _p.color = base;
+    canvas.drawRect(r, _p);
+    // Faint stones in the back wall.
+    _p.color = MinePalette.shade(base, 0.06);
+    canvas.drawOval(Rect.fromLTWH(r.left + (h % 17) + 2, r.top + (h >> 5) % 18 + 3, 10, 6), _p);
+    _p.color = MinePalette.shade(base, -0.18);
+    canvas.drawOval(Rect.fromLTWH(r.left + (h >> 9) % 18 + 6, r.top + (h >> 2) % 16 + 12, 7, 4), _p);
+    if (h % 7 == 0) {
+      _crack.color = MinePalette.shade(base, -0.3);
+      canvas.drawLine(Offset(r.left + 6 + h % 12, r.top + 4), Offset(r.left + 12 + h % 9, r.top + 16), _crack);
+      _crack.color = const Color(0xCC140E0B);
+    }
+    // Ambient occlusion from neighbouring rock.
+    if (map.isSolid(x, y - 1)) canvas.drawRect(Rect.fromLTWH(r.left, r.top, ts, 8), _shadow);
+    if (map.isSolid(x, y - 1)) canvas.drawRect(Rect.fromLTWH(r.left, r.top, ts, 3), _shadow);
+    if (map.isSolid(x - 1, y)) canvas.drawRect(Rect.fromLTWH(r.left, r.top, 5, ts), _shadow);
+    if (map.isSolid(x + 1, y)) canvas.drawRect(Rect.fromLTWH(r.right - 5, r.top, 5, ts), _shadow);
+    // Rubble on the floor.
+    if (map.isSolid(x, y + 1)) {
+      _p.color = MinePalette.shade(MinePalette.rock(d, hard: d > 0.5), -0.1);
+      canvas.drawOval(Rect.fromLTWH(r.left + (h % 14) + 2, r.bottom - 4, 6, 4), _p);
+      canvas.drawOval(Rect.fromLTWH(r.left + (h >> 4) % 12 + 16, r.bottom - 3, 4, 3), _p);
+    }
+  }
+
+  /// A loose boulder: round, heavy, and wobbling when nothing holds it up.
+  void _drawBoulder(Canvas canvas, GameMap map, Rect r, int x, int y, int h, double d) {
+    final loose = !map.isSolid(x, y + 1);
+    final wob = loose ? sin(_t * 28) * 1.2 : 0.0;
+    final c = r.center + Offset(wob, 1);
+    const rad = ts * 0.47;
+    _p.color = const Color(0x66000000);
+    canvas.drawOval(Rect.fromCenter(center: Offset(c.dx, r.bottom - 2), width: ts * 0.9, height: 6), _p);
+    final base = MinePalette.shade(const Color(0xFF9A8A78), d * -0.2);
+    _p.shader = Gradient.radial(c + const Offset(-5, -6), rad * 1.4, [
+      MinePalette.shade(base, 0.28),
+      base,
+      MinePalette.shade(base, -0.45),
+    ], const [0, 0.5, 1]);
+    canvas.drawCircle(c, rad, _p);
+    _p.shader = null;
+    _p.color = MinePalette.shade(base, -0.25);
+    canvas.drawOval(Rect.fromCenter(center: c + Offset(4.0 + h % 3, 3), width: 7, height: 5), _p);
+    canvas.drawOval(Rect.fromCenter(center: c + const Offset(-4, 5), width: 4, height: 3), _p);
+    _crack.color = MinePalette.shade(base, -0.5);
+    canvas.drawLine(c + const Offset(-6, -2), c + const Offset(0, 1), _crack);
+    _crack.color = const Color(0xCC140E0B);
+    final hp = map.hpAt(x, y), maxHp = TileType.boulder.maxHp;
+    if (hp < maxHp) _drawCracks(canvas, r, 1 - hp / maxHp, h);
+  }
+
   void _drawSky(Canvas canvas, GameMap map, Rect view) {
     final top = min(0.0, view.top - ts);
     final sky = Rect.fromLTRB(view.left - ts, top, view.right + ts, MapGenerator.surfaceRows * ts);
@@ -107,6 +161,26 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     canvas.drawCircle(Offset(map.width * ts * 0.78, ts * 3.2), ts * 1.6, _p);
     _p.color = const Color(0xFFFFE3A3);
     canvas.drawCircle(Offset(map.width * ts * 0.78, ts * 3.2), ts * 0.9, _p);
+    // Far mountains (slow parallax), drifting clouds.
+    final camX = game.camera.viewfinder.position.x;
+    final far = Path()..moveTo(view.left - ts, MapGenerator.surfaceRows * ts);
+    for (var sx = view.left - ts; sx <= view.right + ts; sx += ts) {
+      final wx = sx + camX * -0.6;
+      far.lineTo(sx, MapGenerator.surfaceRows * ts - ts * (2.6 + 1.2 * sin(wx / (ts * 7)) + 0.6 * sin(wx / (ts * 2.3))));
+    }
+    far
+      ..lineTo(view.right + ts, MapGenerator.surfaceRows * ts)
+      ..close();
+    _p.color = const Color(0xFF7A5568);
+    canvas.drawPath(far, _p);
+    for (var i = 0; i < 5; i++) {
+      final cx = ((i * 9.7 + _t * (0.25 + i * 0.05)) % (map.width + 12) - 6) * ts;
+      final cy = ts * (0.6 + (i * 37 % 5) * 0.35);
+      _p.color = const Color(0x55FFF1E0);
+      for (final (ox, oy, rr) in const [(0.0, 0.0, 0.55), (0.6, -0.2, 0.7), (1.3, 0.05, 0.5)]) {
+        canvas.drawCircle(Offset(cx + ox * ts, cy + oy * ts), rr * ts, _p);
+      }
+    }
     // Distant hills.
     final hills = Path()..moveTo(0, MapGenerator.surfaceRows * ts);
     for (var x = 0.0; x <= map.width * ts; x += ts * 2) {
@@ -117,6 +191,32 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
       ..close();
     _p.color = const Color(0xFF5B3A2E);
     canvas.drawPath(hills, _p);
+    // Pine trees along the surface, away from the camp.
+    final depots = controller.depotXs;
+    for (var x = 2; x < map.width - 2; x += 3) {
+      final h = _hash(x, 99);
+      if (h % 3 == 0) continue;
+      if (depots.isNotEmpty && x >= depots.first - 3 && x <= depots.last + 3) continue;
+      _drawPine(canvas, (x + 0.5 + (h % 10) / 20) * ts, MapGenerator.surfaceRows * ts, 1.6 + (h % 7) / 6);
+    }
+  }
+
+  void _drawPine(Canvas canvas, double x, double ground, double size) {
+    _p.color = const Color(0xFF4A2F1E);
+    canvas.drawRect(Rect.fromLTWH(x - 2.5, ground - ts * 0.5 * size, 5, ts * 0.5 * size), _p);
+    for (var i = 0; i < 3; i++) {
+      final w = ts * (0.9 - i * 0.22) * size;
+      final top = ground - ts * (0.55 + i * 0.42 + 0.7) * size;
+      _p.color = i.isEven ? const Color(0xFF2F5A2C) : const Color(0xFF3B6E35);
+      canvas.drawPath(
+        Path()
+          ..moveTo(x, top)
+          ..lineTo(x + w / 2, top + ts * 0.75 * size)
+          ..lineTo(x - w / 2, top + ts * 0.75 * size)
+          ..close(),
+        _p,
+      );
+    }
   }
 
   void _drawSolid(Canvas canvas, GameMap map, Rect r, int x, int y, TileType t, int h, double d) {
@@ -125,6 +225,11 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     _p.color = base;
     canvas.drawRect(r, _p);
 
+    // Rock strata: faint horizontal bands that continue across tiles.
+    if (y % 3 == 0) {
+      _p.color = MinePalette.shade(base, -0.07);
+      canvas.drawRect(Rect.fromLTWH(r.left, r.top + 9 + (x * 3 + y) % 5, ts, 3), _p);
+    }
     // Pebbles for texture.
     _p.color = MinePalette.shade(base, 0.08);
     canvas.drawOval(Rect.fromLTWH(r.left + (h % 13) + 3, r.top + (h >> 4) % 12 + 4, 9, 6), _p);

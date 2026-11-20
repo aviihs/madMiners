@@ -20,6 +20,9 @@ class SimPlayer {
 
   double x;
   double y;
+  double vx = 0;
+  double vy = 0;
+  bool onGround = false;
   double fx = 0;
   double fy = 1;
   PlayerInput input = PlayerInput.idle;
@@ -43,6 +46,9 @@ class SimPlayer {
   double mineCooldown = 0;
   double respawnIn = 0;
   double miningFlash = 0;
+
+  /// Brief immunity after a boulder hit, so one rock doesn't hit twice.
+  double crushCooldown = 0;
   bool connected = true;
   bool inDepot = false;
 
@@ -75,5 +81,7 @@ class SimPlayer {
     inDepot: inDepot,
     items: List.of(items),
     look: look,
+    vx: vx,
+    vy: vy,
   );
 }

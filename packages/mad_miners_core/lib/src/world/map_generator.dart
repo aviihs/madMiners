@@ -80,6 +80,16 @@ class MapGenerator {
       }
     }
 
+    // 3b. Loose boulders sitting in the rock: dig under one and it drops.
+    for (var y = surfaceRows + 3; y < lavaTop - 4; y++) {
+      for (var x = 2; x < width - 2; x++) {
+        final t = map.tileAt(x, y);
+        if ((t == TileType.rock || t == TileType.hardRock) && rng.nextDouble() < def.boulders) {
+          map.setTile(x, y, TileType.boulder);
+        }
+      }
+    }
+
     // 4. Hazards.
     _scatter(map, rng, TileType.gas, def.gasPockets, fromY: surfaceRows + (lavaTop - surfaceRows) ~/ 4, toY: lavaTop - 3, radius: 1);
     _scatter(map, rng, TileType.lava, def.lavaPockets, fromY: lavaTop - (lavaTop - surfaceRows) ~/ 4, toY: lavaTop - 2, radius: 1);

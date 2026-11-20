@@ -55,8 +55,16 @@ Tests: `dart test` in `packages/mad_miners_core` and in `server` (the PostgreSQL
   "hot", and the screen edge glows. It never shows the exact tile, and nobody else sees your hints.
 - **Shop (on the surface, paid with match coins):** Pickaxe (dig speed), Helmet (light and sense range),
   Boots (run speed), Armor (less blast and gas damage), Bomb (3x3 blast), Dynamite (5x5 blast).
-- **Controls:** WASD or arrows to move, Space to dig, B for a bomb, N for dynamite. Touch screens get a
-  joystick, a dig button and bomb buttons.
+- **Gravity:** the mine is a side view. You run, jump (clears a 1-tile ledge; better boots jump higher)
+  and fall. Landing from more than about 3.5 tiles hurts. In a 1-wide shaft you can brace against both
+  walls and climb back up.
+- **Loose boulders** sit in the rock. Dig out the tile under one and it wobbles, then drops and hits
+  whoever is below.
+- **Bombs are thrown** the way you face: forward in an arc, straight up, or dropped at your feet when
+  aiming down. They bounce and roll, chain-react, and the blast shoves miners (and other bombs) away.
+- **Controls:** A/D or ←/→ to run, W/↑ to jump (or climb a shaft), S/↓ to aim down, Space to dig,
+  B to throw a bomb, N for dynamite. Touch screens get a joystick, a dig button, a jump button and bomb
+  buttons.
 
 ### Players in the room
 
@@ -75,8 +83,23 @@ expect it), set `disguiseBots: false` in `GameSimulation`.
 | Gems (premium) | 10 for finding the treasure, 2 for a top-3 finish | Premium items |
 
 The **Locker** has 8 miners (Rookie, Maya, Old Bahadur, Tinker, Shadow, Bolt-9, Mr. Mole, Bones),
-9 outfits, 7 helmets and 6 pickaxe skins. You can try any item on before buying it. Most items cost
-coins and a few premium ones cost gems. Looks never change gameplay.
+9 outfits, 7 helmets and 9 pickaxes. You can try any item on before buying it. Most items cost coins
+and a few premium ones cost gems. Each slot changes the drawn character: its own head, hands and body
+details per miner, patterns per outfit, shapes per helmet, and four pickaxe head shapes (pick, axe,
+mattock, drill).
+
+**Pickaxes are real gear.** Each one has a power level, and you start every match with the in-match
+pickaxe at that level (you can still upgrade further at the surface shop):
+
+| Pickaxe | Price | Starts as |
+|---|---|---|
+| Trusty Pick | free | Basic Pickaxe (1 dmg) |
+| Steel Pick | 300 coins | Iron Pickaxe (2 dmg) |
+| Ruby Pick, Emerald Mattock, Golden Pick | 900 / 1,400 coins, 60 gems | Steel Pickaxe (3 dmg) |
+| Titan Axe, Crystal Pick | 2,600 coins, 120 gems | Diamond Pickaxe (5 dmg) |
+| Thunder Drill, Plasma Drill | 6,000 coins, 300 gems | Laser Drill (8 dmg) |
+
+Miners, outfits and helmets are looks only.
 
 ## Accounts and Google sign-in
 
@@ -171,5 +194,5 @@ Gameplay uses a WebSocket at `/ws/game?room=<id>&token=<accessToken>`.
 
 - Real-money gem purchases (needs App Store / Play billing and receipt checks on the server).
 - An admin dashboard, friends and chat.
-- Graphics are top-down 2D (Flame), not realistic 3D. The core and server don't depend on the client, so
+- Graphics are side-view 2D (Flame), not realistic 3D. The core and server don't depend on the client, so
   a 3D client could reuse them.

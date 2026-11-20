@@ -79,19 +79,120 @@ void main() {
     });
   });
 
-  test('corner assist slides a misaligned miner into a 1-wide shaft', () {
-    final map = GameMap(5, 8, spawn: const TilePos(2, 1));
-    for (var y = 0; y < 8; y++) {
-      for (var x = 0; x < 5; x++) {
-        map.setTile(x, y, y <= 2 || x == 2 ? TileType.empty : TileType.rock);
+  group('gravity', () {
+    GameMap shaftMap() {
+      final map = GameMap(5, 10, spawn: const TilePos(2, 1));
+      for (var y = 0; y < 10; y++) {
+        for (var x = 0; x < 5; x++) {
+          map.setTile(x, y, y <= 2 || (x == 2 && y < 8) ? TileType.empty : TileType.rock);
+        }
       }
+      return map;
     }
-    var (x, y) = (2.2, 2.5); // overlaps column 1
-    for (var i = 0; i < 60; i++) {
-      (x, y) = Physics.step(map, x, y, 0, Balance.moveSpeed, 1 / 30);
+
+    MoveResult run(GameMap map, double x, double y, {double moveX = 0, bool jump = false, bool up = false, int ticks = 60}) {
+      var r = MoveResult(x, y, 0, 0, onGround: false, impact: 0, climbing: false);
+      for (var i = 0; i < ticks; i++) {
+        r = Physics.move(map, r.x, r.y, r.vx, r.vy, moveX: moveX, speed: Balance.moveSpeed, dt: 1 / 30, jump: jump, up: up);
+      }
+      return r;
     }
-    expect(y, greaterThan(4), reason: 'should have slid in and moved down the shaft');
-    expect((x - 2.5).abs(), lessThan(0.2));
+
+    test('a misaligned miner slides into a 1-wide shaft and falls', () {
+      final r = run(shaftMap(), 2.2, 2.5); // overlaps column 1
+      expect(r.y, greaterThan(6), reason: 'should have dropped down the shaft');
+      expect((r.x - 2.5).abs(), lessThan(0.2));
+    });
+
+    test('miners fall and land on solid ground', () {
+      final map = shaftMap();
+      final r = run(map, 0.5 + 0.5, 0.5, ticks: 45);
+      expect(r.onGround, isTrue);
+      expect(r.y, closeTo(3 - Balance.playerRadius, 0.01));
+    });
+
+    test('a jump clears a one-tile ledge but not two', () {
+      final map = GameMap(8, 8, spawn: const TilePos(1, 1));
+      for (var y = 0; y < 8; y++) {
+        for (var x = 0; x < 8; x++) {
+          final floor = y >= 6 || (x >= 3 && y >= 5) || (x >= 6 && y >= 3);
+          map.setTile(x, y, floor ? TileType.rock : TileType.empty);
+        }
+      }
+      final r = run(map, 1.5, 5.6, moveX: 1, jump: true, ticks: 90);
+      expect(r.x, greaterThan(3.5), reason: 'hopped onto the 1-tile step');
+      expect(r.x, lessThan(6), reason: 'needs a running jump for the next one');
+    });
+
+    test('bracing against both walls climbs a shaft', () {
+      final r = run(shaftMap(), 2.5, 7.6, up: true, ticks: 60);
+      expect(r.y, lessThan(5), reason: 'climbed up');
+    });
+
+    test('long falls hurt, short ones do not', () {
+      expect(Physics.fallDamage(Balance.safeFallSpeed - 1), 0);
+      expect(Physics.fallDamage(Balance.maxFallSpeed), greaterThan(30));
+    });
+  });
+
+  group('boulders and gear', () {
+    late GameSimulation sim;
+    late SimPlayer p;
+    setUp(() {
+      sim = GameSimulation(settings: const MatchSettings(fillWithBots: false), seed: 3, warmup: 0);
+      p = sim.addHuman('p', 'P');
+      for (var x = 5; x <= 15; x++) {
+        for (var y = 15; y <= 25; y++) {
+          sim.map.setTile(x, y, TileType.rock);
+        }
+      }
+    });
+
+    test('a boulder falls when dug out from under and hits the miner below', () {
+      // Shaft: boulder at (10,16) above an open shaft, miner standing at the bottom (10,20).
+      sim.map.setTile(10, 16, TileType.boulder);
+      sim.map.setTile(10, 17, TileType.empty);
+      sim.map.setTile(10, 18, TileType.empty);
+      sim.map.setTile(10, 19, TileType.empty);
+      sim.map.setTile(10, 20, TileType.empty);
+      p
+        ..x = 10.5
+        ..y = 20.6;
+      for (var i = 0; i < 30 * 3; i++) {
+        sim.update(1 / 30);
+      }
+      expect(sim.map.tileAt(10, 16), TileType.empty);
+      expect(sim.map.tileAt(10, 17), TileType.empty);
+      expect(sim.map.tileAt(10, 19), TileType.boulder, reason: 'rests on the miner\'s head');
+      expect(p.hp, lessThan(Balance.maxHealth));
+    });
+
+    test('Locker pickaxes set the starting dig level', () {
+      final q = sim.addHuman('q', 'Q', look: const Look(pickaxe: 'pick_titan'));
+      expect(q.upgrades[UpgradeKind.pickaxe.index], cosmeticsById['pick_titan']!.power);
+      expect(p.upgrades[UpgradeKind.pickaxe.index], 0);
+    });
+
+    test('a thrown bomb flies forward and lands', () {
+      sim.map.setTile(9, 20, TileType.empty);
+      for (var x = 10; x <= 14; x++) {
+        sim.map.setTile(x, 20, TileType.empty);
+        sim.map.setTile(x, 19, TileType.empty);
+      }
+      p
+        ..x = 10.5
+        ..y = 20.6
+        ..fx = 1
+        ..fy = 0
+        ..items[ItemKind.bomb.index] = 1;
+      expect(sim.useItem('p', ItemKind.bomb), isTrue);
+      for (var i = 0; i < 30; i++) {
+        sim.update(1 / 30);
+      }
+      final b = sim.takeSnapshot().bombs.single;
+      expect(b.x, greaterThan(12), reason: 'travelled right');
+      expect(b.y, greaterThan(20), reason: 'came to rest on the floor');
+    });
   });
 
   group('bombs, volcanoes and hints', () {

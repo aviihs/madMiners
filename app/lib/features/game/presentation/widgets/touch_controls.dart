@@ -120,3 +120,45 @@ class _MineButtonState extends State<MineButton> {
     ),
   );
 }
+
+/// Hold-to-jump button (also climbs 1-wide shafts when held with up).
+class JumpButton extends StatefulWidget {
+  const JumpButton({super.key, required this.onChanged});
+  final ValueChanged<bool> onChanged;
+
+  @override
+  State<JumpButton> createState() => _JumpButtonState();
+}
+
+class _JumpButtonState extends State<JumpButton> {
+  bool _down = false;
+
+  void _set(bool v) {
+    if (_down == v) return;
+    if (v) HapticFeedback.selectionClick();
+    setState(() => _down = v);
+    widget.onChanged(v);
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    onPointerDown: (_) => _set(true),
+    onPointerUp: (_) => _set(false),
+    onPointerCancel: (_) => _set(false),
+    child: AnimatedScale(
+      scale: _down ? 0.9 : 1,
+      duration: const Duration(milliseconds: 90),
+      child: Container(
+        width: 66,
+        height: 66,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: const Color(0x8A1E1830),
+          border: Border.all(color: const Color(0x66FFFFFF), width: 2),
+          boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 12, offset: Offset(0, 4))],
+        ),
+        child: const Icon(CupertinoIcons.arrow_up, size: 30, color: CupertinoColors.white),
+      ),
+    ),
+  );
+}
