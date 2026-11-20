@@ -284,6 +284,45 @@ class PostgresAccountRepository implements AccountRepository {
     return (await findById(userId))!;
   }
 
+  // ---- daily reward ----------------------------------------------------------------
+
+  static String _date(DateTime d) => DateTime.utc(d.year, d.month, d.day).toIso8601String().substring(0, 10);
+
+  Future<DailyStatus> _status(Session s, String userId, DateTime today, {bool lock = false}) async {
+    final rows = await s.execute(
+      Sql.named('SELECT last_day, streak FROM daily_rewards WHERE user_id = @u:uuid${lock ? ' FOR UPDATE' : ''}'),
+      parameters: {'u': userId},
+    );
+    if (rows.isEmpty) return DailyStatus.compute(null, 0, today);
+    final last = rows.first[0] as DateTime;
+    return DailyStatus.compute(DateTime.utc(last.year, last.month, last.day), rows.first[1] as int, today);
+  }
+
+  @override
+  Future<DailyStatus> dailyStatus(String userId, DateTime today) => _db.run((s) => _status(s, userId, today));
+
+  @override
+  Future<(PlayerAccount, DailyStatus)> claimDaily(String userId, DateTime today) async {
+    final st = await _db.runTx((tx) async {
+      // Lock the wallet first, like purchases, so claims serialise.
+      await tx.execute(Sql.named('SELECT 1 FROM wallets WHERE user_id = @u:uuid FOR UPDATE'), parameters: {'u': userId});
+      final st = await _status(tx, userId, today, lock: true);
+      if (!st.available) throw const DailyClaimedException();
+      final day = _date(today);
+      await tx.execute(
+        Sql.named('''
+          INSERT INTO daily_rewards (user_id, last_day, streak) VALUES (@u:uuid, @d:date, @s)
+          ON CONFLICT (user_id) DO UPDATE SET last_day = EXCLUDED.last_day, streak = EXCLUDED.streak'''),
+        parameters: {'u': userId, 'd': DateTime.utc(today.year, today.month, today.day), 's': st.streak},
+      );
+      // The unique (user_id, request_id) index makes a second credit for the same day impossible.
+      await _credit(tx, userId, 'coins', st.coins, 'daily_reward', 'daily:$day', requestId: 'daily-$day');
+      if (st.gems > 0) await _credit(tx, userId, 'gems', st.gems, 'daily_reward', 'daily:$day', requestId: 'daily-gems-$day');
+      return DailyStatus(available: false, streak: st.streak, coins: st.coins, gems: st.gems);
+    });
+    return ((await findById(userId))!, st);
+  }
+
   // ---- leaderboards & history ----------------------------------------------------
 
   Future<List<PlayerAccount>> _many(String tail, int limit) async {

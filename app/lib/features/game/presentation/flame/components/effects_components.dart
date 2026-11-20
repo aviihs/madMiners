@@ -74,6 +74,16 @@ class ParticlesComponent extends Component {
     }
   }
 
+  /// Jetpack exhaust: a couple of hot sparks and smoke each frame.
+  void jet(double x, double y) {
+    for (var i = 0; i < 2; i++) {
+      _ps.add(_Particle(x * ts + (_rng.nextDouble() - 0.5) * 4, y * ts, (_rng.nextDouble() - 0.5) * 30, 90 + _rng.nextDouble() * 60,
+          0.25 + _rng.nextDouble() * 0.2, 2 + _rng.nextDouble() * 2, i == 0 ? const Color(0xFFFFB13B) : const Color(0xFF9A8F88),
+          gravity: -40, glow: i == 0, soft: i == 1));
+    }
+    if (_ps.length > 900) _ps.removeRange(0, _ps.length - 900);
+  }
+
   /// Puff of dust kicked up by a hard landing.
   void dust(double x, double y, int n) {
     for (var i = 0; i < n; i++) {

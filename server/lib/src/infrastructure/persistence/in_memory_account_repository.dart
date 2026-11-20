@@ -184,6 +184,26 @@ class InMemoryAccountRepository implements AccountRepository {
   Future<List<WalletTransaction>> transactions(String userId, {int limit = 30}) async =>
       _tx.reversed.where((t) => t.$1 == userId).map((t) => t.$2).take(limit).toList();
 
+  final Map<String, (DateTime, int)> _daily = {};
+
+  @override
+  Future<DailyStatus> dailyStatus(String userId, DateTime today) async {
+    final d = _daily[userId];
+    return DailyStatus.compute(d?.$1, d?.$2 ?? 0, today);
+  }
+
+  @override
+  Future<(PlayerAccount, DailyStatus)> claimDaily(String userId, DateTime today) async {
+    final st = await dailyStatus(userId, today);
+    if (!st.available) throw const DailyClaimedException();
+    final day = DateTime.utc(today.year, today.month, today.day);
+    _daily[userId] = (day, st.streak);
+    final ref = 'daily:${day.toIso8601String().substring(0, 10)}';
+    _credit(userId, 'coins', st.coins, 'daily_reward', ref);
+    if (st.gems > 0) _credit(userId, 'gems', st.gems, 'daily_reward', ref);
+    return (_view(_users[userId]!), DailyStatus(available: false, streak: st.streak, coins: st.coins, gems: st.gems));
+  }
+
   /// Test helper: give someone money.
   void grant(String userId, {int coins = 0, int gems = 0}) {
     if (coins != 0) _credit(userId, 'coins', coins, 'grant', 'test');

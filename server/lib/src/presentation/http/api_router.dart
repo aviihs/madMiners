@@ -40,6 +40,8 @@ class ApiRouter {
       ..get('/api/v1/leaderboards/daily', _daily)
       ..get('/api/v1/store/catalog', (Request _) => ok(_store.catalog()))
       ..post('/api/v1/store/purchase', _purchase)
+      ..get('/api/v1/rewards/daily', _dailyStatus)
+      ..post('/api/v1/rewards/daily', _claimDaily)
       ..post('/api/v1/players/me/equip', _equip)
       ..get('/api/v1/catalog', _catalog);
     return r;
@@ -166,6 +168,22 @@ ul{padding-left:18px;line-height:1.7}code{background:#2b2623;padding:2px 6px;bor
     return ok([
       for (var i = 0; i < top.length; i++) {'rank': i + 1, ...top[i].toRankJson()},
     ]);
+  }
+
+  Future<Response> _dailyStatus(Request req) async {
+    final user = await _user(req);
+    return ok((await _accounts.dailyStatus(user.id, DateTime.now().toUtc())).toJson());
+  }
+
+  /// Server decides the day and the amount; the client only asks.
+  Future<Response> _claimDaily(Request req) async {
+    final user = await _user(req);
+    try {
+      final (acc, st) = await _accounts.claimDaily(user.id, DateTime.now().toUtc());
+      return ok({'reward': st.toJson(), 'profile': acc.toPublicJson()});
+    } on DailyClaimedException {
+      throw const AppException(409, 'ALREADY_CLAIMED', 'Come back tomorrow for your next reward.');
+    }
   }
 
   Future<Response> _purchase(Request req) async {

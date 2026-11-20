@@ -78,14 +78,14 @@ void main() {
     expect(room.humanCount, 2);
     expect(room.botCount, 6);
     final snap = ca.sent.whereType<SnapshotMessage>().last.snapshot;
-    expect(snap.players.every((p) => !p.isBot), isTrue, reason: 'bots look like players');
+    expect(snap.players.where((p) => p.isBot), isNotEmpty, reason: 'bots are labelled for clients');
 
     for (var i = 0; i < 30 * 40 && room.status == RoomStatus.playing; i++) {
       room.tick(1 / 30);
     }
     expect(room.status, RoomStatus.ended);
     final end = ca.sent.whereType<MatchEndMessage>().single.result;
-    expect(end.players.every((p) => !p.isBot), isTrue);
+    expect(end.players.where((p) => !p.isBot).length, 2, reason: 'results show who is a real player');
     expect(ca.sent.whereType<SnapshotMessage>(), isNotEmpty);
     expect(ca.sent.last, isA<MatchEndMessage>());
     await Future<void>.delayed(Duration.zero);
@@ -134,6 +134,23 @@ void main() {
     room.tick(1 / 30);
     final snap = c.sent.whereType<SnapshotMessage>().last.snapshot;
     expect(snap.players.firstWhere((p) => p.id == a.id).look.outfit, 'outfit_gold');
+  });
+
+  test('daily reward: once a day, streak builds, a missed day resets it', () async {
+    final a = (await auth.registerGuest('Daily')).account;
+    final d1 = DateTime.utc(2026, 5, 10, 23, 30);
+    final (acc, r1) = await repo.claimDaily(a.id, d1);
+    expect(r1.streak, 1);
+    expect(acc.coins, dailyReward(1).coins);
+    await expectLater(repo.claimDaily(a.id, d1.add(const Duration(minutes: 20))), throwsA(isA<DailyClaimedException>()));
+    expect((await repo.dailyStatus(a.id, d1)).available, isFalse);
+    var day = d1;
+    for (var i = 2; i <= 7; i++) {
+      day = day.add(const Duration(days: 1));
+      expect((await repo.claimDaily(a.id, day)).$2.streak, i);
+    }
+    expect((await repo.findById(a.id))!.gems, dailyReward(7).gems, reason: 'day 7 pays gems');
+    expect((await repo.dailyStatus(a.id, day.add(const Duration(days: 3)))).streak, 1, reason: 'missed days reset');
   });
 
   test('daily leaderboard ranks treasure finds first', () async {
@@ -251,7 +268,7 @@ void main() {
     final snap = await msgs
         .firstWhere((m) => m is SnapshotMessage && m.snapshot.players.length == 8)
         .timeout(const Duration(seconds: 12));
-    expect((snap as SnapshotMessage).snapshot.players.any((p) => p.isBot), isFalse);
+    expect((snap as SnapshotMessage).snapshot.players.where((p) => p.isBot).length, 7);
     await ws.sink.close();
     client.close(force: true);
   });

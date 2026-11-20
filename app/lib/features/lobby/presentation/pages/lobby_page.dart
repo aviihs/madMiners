@@ -13,6 +13,8 @@ import '../../../game/presentation/pages/game_page.dart';
 import '../../../leaderboard/presentation/cubit/leaderboard_cubit.dart';
 import '../../../leaderboard/presentation/pages/leaderboard_page.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
+import '../../../rewards/presentation/daily_reward_card.dart';
+import '../../../settings/presentation/pages/settings_page.dart';
 import '../../../store/presentation/pages/store_page.dart';
 import '../../../store/presentation/widgets/avatar_preview.dart';
 import '../../domain/entities/room.dart';
@@ -162,6 +164,16 @@ class _LobbyViewState extends State<_LobbyView> {
                         onPlay: s.isOnline ? () => lobby.quickPlay(token) : () => _practice(),
                       ),
                       const SizedBox(height: 14),
+                      if (s.isOnline) DailyRewardCard(token: token),
+                      _Tile(
+                        icon: CupertinoIcons.gear_alt_fill,
+                        color: MMColors.muted,
+                        title: 'Settings',
+                        subtitle: 'Sound, vibration, controls',
+                        wide: true,
+                        onTap: () => _open(const SettingsPage()),
+                      ),
+                      const SizedBox(height: 12),
                       if (s.isOnline) ...[
                         Row(
                           children: [

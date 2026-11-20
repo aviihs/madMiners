@@ -11,6 +11,8 @@ import 'bot_brain.dart';
 import 'physics.dart';
 import 'sim_player.dart';
 
+part 'world_systems.dart';
+
 /// Authoritative game state for one room: a race to dig down and break the
 /// hidden treasure before anyone else. Falling into the lava sends you back
 /// to the surface.
@@ -22,13 +24,31 @@ class GameSimulation {
     required this.settings,
     required int seed,
     MapGenerator generator = const MapGenerator(),
-    this.disguiseBots = true,
+    this.disguiseBots = false,
     this.warmup = Balance.warmupSeconds,
   }) : _rng = Random(seed),
        map = generator.generate(settings.mapId, seed),
        timeLeft = settings.durationSeconds.toDouble() {
     treasure = map.treasure!;
+    _initWorld();
   }
+
+  // Mystery Bombs, monsters, world events (see world_systems.dart).
+  final List<_Monster> _monsters = [];
+  final List<_Opening> _openings = [];
+  final Map<int, MysteryRarity> _rarity = {};
+  int _monsterSeq = 0;
+  double _nextEventIn = 60;
+  double _quakeClock = 0;
+
+  /// Active world event (server-timed) and its seconds left.
+  WorldEventKind? worldEvent;
+  double worldEventLeft = 0;
+
+  int get monsterCount => _monsters.length;
+
+  /// Tests only: put a monster at (x, y).
+  void spawnMonsterForTest(MonsterKind kind, double x, double y) => _spawnMonster(kind, x, y);
 
   final MatchSettings settings;
   final GameMap map;
@@ -51,8 +71,8 @@ class GameSimulation {
   double warmup;
   bool get isWarmup => warmup > 0;
 
-  /// Bots appear to clients as ordinary players with ordinary names.
-  /// The server still knows who is a bot (persistence, analytics, moderation).
+  /// Bots are always labelled as bots on the wire by default, so players can
+  /// tell them from real people. Set true only for internal experiments.
   final bool disguiseBots;
   double _botJoinIn = 0.6;
   final Map<String, double> _wanderIn = {};
@@ -86,7 +106,6 @@ class GameSimulation {
     final existing = players[id];
     if (existing != null) return existing;
     final p = _spawnPlayer(id, name, isBot: false)..look = look.sanitized();
-    _applyLoadout(p);
     _events.add(GameEvent(GameEventKind.joined, playerId: id, text: name));
     syncBots();
     _botJoinIn = min(_botJoinIn, 0.4);
@@ -125,7 +144,7 @@ class GameSimulation {
     final taken = players.values.map((p) => p.name).toSet();
     final free = _botNames.where((n) => !taken.contains(n)).toList();
     final name = free.isEmpty ? 'Miner${_rng.nextInt(900) + 100}' : free[_rng.nextInt(free.length)];
-    _applyLoadout(_spawnPlayer(id, name, isBot: true)..look = Look.random(_rng));
+    _spawnPlayer(id, name, isBot: true).look = Look.random(_rng);
     _bots[id] = BotBrain(id, seed: _rng.nextInt(1 << 30));
     _events.add(
       GameEvent(disguiseBots ? GameEventKind.joined : GameEventKind.botJoined, playerId: id, text: name),
@@ -150,13 +169,6 @@ class GameSimulation {
   /// Miners drop in just above the camp floor.
   (double, double) _spawnPoint() =>
       (map.spawn.cx + (_rng.nextDouble() - 0.5) * 10, MapGenerator.surfaceRows - 1.6 - _rng.nextDouble() * 0.6);
-
-  /// A Locker pickaxe is real gear: you start the match at its level.
-  void _applyLoadout(SimPlayer p) {
-    final power = p.look.def(CosmeticSlot.pickaxe).power.clamp(0, UpgradeKind.pickaxe.maxLevel);
-    final i = UpgradeKind.pickaxe.index;
-    if (p.upgrades[i] < power) p.upgrades[i] = power;
-  }
 
   void setConnected(String id, {required bool connected}) => players[id]?.connected = connected;
 
@@ -201,14 +213,16 @@ class GameSimulation {
     final p = players[id];
     if (p == null || !p.alive || isWarmup || ended || p.items[kind.index] <= 0) return false;
     if (p.inDepot) return false; // no bombing the shop
+    if (p.throwCooldown > 0) return false;
     if (_bombs.where((b) => b.ownerId == id).length >= Balance.maxActiveBombs) return false;
     p.items[kind.index] -= 1;
+    p.throwCooldown = Balance.throwCooldown;
     final (vx, vy) = switch ((p.fx, p.fy)) {
       (final fx, _) when fx.abs() > 0.5 => (fx.sign * 6.5 + p.vx * 0.4, -4.5),
       (_, final fy) when fy < -0.5 => (p.vx * 0.3, -9.0),
       _ => (p.vx * 0.2, 0.0),
     };
-    _bombs.add(_Bomb(p.x, p.y, kind, itemDefs[kind]!.fuse, p.id)
+    _bombs.add(_Bomb(p.x, p.y, kind, itemDefs[kind]!.fuse, p.id, itemDefs[kind]!)
       ..vx = vx
       ..vy = vy);
     return true;
@@ -247,6 +261,9 @@ class GameSimulation {
     _updateBombs(dt);
     _updateCooling(dt);
     _updateBoulders(dt);
+    _updateMonsters(dt);
+    _updateOpenings(dt);
+    _updateWorldEvent(dt);
     if (winnerId != null) return;
 
     final claimed = <TilePos>{
@@ -259,7 +276,7 @@ class GameSimulation {
       if (brain != null) {
         claimed.remove(brain.target);
         final d = brain.think(map, p, dt, claimed, treasureRevealed ? treasure : null);
-        p.input = d.input;
+        p.input = _botSelfDefence(p) ?? d.input;
         if (d.upgrade != null) requestUpgrade(p.id, d.upgrade!);
         if (d.buyItem != null) buyItem(p.id, d.buyItem!);
         if (d.useItem != null) useItem(p.id, d.useItem!);
@@ -296,6 +313,7 @@ class GameSimulation {
           ..y = sy
           ..vx = 0
           ..vy = 0
+          ..fuel = Balance.jetFuelMax
           ..hp = Balance.maxHealth
           ..stamina = Balance.maxStamina
           ..maxDepth = 0;
@@ -308,7 +326,19 @@ class GameSimulation {
 
     // Movement: run left/right, jump, climb shafts, fall.
     p.crushCooldown = max(0, p.crushCooldown - dt);
-    final speed = Physics.speedFor(p.stamina, boots: p.boots);
+    p.spikeCooldown = max(0, p.spikeCooldown - dt);
+    p.throwCooldown = max(0, p.throwCooldown - dt);
+    // Jetpack burns fuel while firing; refills only on solid ground.
+    p.jetting = input.jet && p.fuel > 0;
+    if (p.jetting) {
+      p.fuel = max(0, p.fuel - Balance.jetBurn * dt);
+    } else if (p.onGround) {
+      p.fuel = min(Balance.jetFuelMax, p.fuel + Balance.jetRegen * dt);
+    }
+    p
+      ..slimed = max(0, p.slimed - dt)
+      ..cursed = max(0, p.cursed - dt);
+    final speed = Physics.speedFor(p.stamina, boots: p.boots) * (p.slimed > 0 ? 0.55 : 1);
     final mv = Physics.move(
       map,
       p.x,
@@ -320,6 +350,7 @@ class GameSimulation {
       dt: dt,
       jump: input.jump,
       up: input.up,
+      jet: p.jetting,
       jumpBoost: Physics.jumpBoostFor(p.boots),
     );
     p
@@ -359,9 +390,13 @@ class GameSimulation {
     p.mineCooldown = max(0, p.mineCooldown - dt);
     var mined = false;
     if (input.mine && !isWarmup && p.mineCooldown <= 0 && p.stamina >= Balance.staminaPerHit) {
-      final t = Physics.mineTarget(map, p.x, p.y, p.fx, p.fy);
-      if (t != null) _hit(p, t);
-      mined = t != null;
+      if (_swingAtMonster(p)) {
+        mined = true;
+      } else {
+        final t = Physics.mineTarget(map, p.x, p.y, p.fx, p.fy);
+        if (t != null) _hit(p, t);
+        mined = t != null;
+      }
     }
     if (!mined) p.stamina = min(Balance.maxStamina, p.stamina + Balance.staminaRegen * dt);
     if (winnerId != null) return;
@@ -372,6 +407,14 @@ class GameSimulation {
     if (p.inDepot) p.hp = min(Balance.maxHealth, p.hp + Balance.depotHeal * dt);
     if (under == TileType.lava) _hurt(p, Balance.lavaDamage * dt, 'lava', armored: false);
     if (under == TileType.gas) _hurt(p, Balance.gasDamage * dt, 'toxic gas');
+    // Spike traps: stepping (or landing) on them hurts and bounces you up.
+    final feet = map.tileAt(p.x.floor(), (p.y + Balance.playerRadius - 0.05).floor());
+    if ((under == TileType.spikes || feet == TileType.spikes) && p.spikeCooldown <= 0 && p.alive) {
+      p
+        ..spikeCooldown = Balance.spikeCooldown
+        ..vy = -6;
+      _hurt(p, Balance.spikeDamage, 'spikes');
+    }
   }
 
   /// Applies damage; kills (and respawns at the top) at 0 hp.
@@ -429,8 +472,13 @@ class GameSimulation {
     if (b.vx.abs() < 0.05) b.vx = 0;
   }
 
+  /// A broken (or blasted) crate is lit and goes off a moment later.
+  void _armCrate(int x, int y, String? ownerId) {
+    _bombs.add(_Bomb(x + 0.5, y + 0.5, ItemKind.dynamite, crateBlast.fuse, ownerId ?? '', crateBlast));
+  }
+
   void _explode(_Bomb b) {
-    final def = itemDefs[b.kind]!;
+    final def = b.def;
     final owner = players[b.ownerId];
     final r = def.radius;
     _events.add(GameEvent(GameEventKind.explosion, playerId: b.ownerId, value: b.kind.index, x: b.x, y: b.y));
@@ -442,7 +490,28 @@ class GameSimulation {
         if (dx * dx + dy * dy > r * r) continue;
         final x = cx + dx, y = cy + dy;
         final t = map.tileAt(x, y);
+        if (t == TileType.spikes) {
+          map.setTile(x, y, TileType.empty);
+          _dirtyTiles.add(map.indexOf(x, y));
+          continue;
+        }
         if (!t.isMinable) continue;
+        if (t == TileType.explosive) {
+          map.setTile(x, y, TileType.empty);
+          _dirtyTiles.add(map.indexOf(x, y));
+          _armCrate(x, y, b.ownerId);
+          continue;
+        }
+        if (t == TileType.mystery) {
+          _crackMystery(x, y, owner?.id);
+          continue;
+        }
+        if (t == TileType.obsidian) {
+          // Too tough for one blast: it only cracks.
+          map.damage(x, y, 4);
+          _dirtyTiles.add(map.indexOf(x, y));
+          continue;
+        }
         if (t == TileType.volcano) {
           _erupt(x, y, culprit: null);
           continue;
@@ -472,7 +541,11 @@ class GameSimulation {
         ..vy = min(p.vy, 0) + (ny * 0.6 - 0.5) * push;
       if (d > r + 0.5) continue;
       final falloff = 1 - (d / (r + 0.5)) * 0.5;
-      _hurt(p, def.damage * falloff, b.kind == ItemKind.bomb ? 'a bomb' : 'dynamite');
+      _hurt(p, def.damage * falloff, identical(def, crateBlast) ? 'an explosive crate' : (b.kind == ItemKind.bomb ? 'a bomb' : 'dynamite'));
+    }
+    for (final m in _monsters.toList()) {
+      final d = sqrt(pow(m.x - b.x, 2) + pow(m.y - b.y, 2));
+      if (d <= r + 0.5) _damageMonster(m, def.damage * 1.5 * (1 - (d / (r + 0.5)) * 0.5), owner?.id);
     }
     // Chain reaction; bombs just outside get kicked away.
     for (final other in _bombs) {
@@ -611,7 +684,7 @@ class GameSimulation {
 
   void _hit(SimPlayer p, TilePos t) {
     final pick = p.gear(UpgradeKind.pickaxe);
-    p.mineCooldown = pick.cooldown;
+    p.mineCooldown = pick.cooldown * (p.cursed > 0 ? 1.6 : 1);
     p.stamina -= Balance.staminaPerHit;
     p.miningFlash = 0.25;
 
@@ -622,11 +695,17 @@ class GameSimulation {
 
     if (broken == TileType.treasure) return _treasureFound(p);
     if (broken == TileType.volcano) return _erupt(t.x, t.y, culprit: p);
+    if (broken == TileType.explosive) return _armCrate(t.x, t.y, p.id);
+    if (broken == TileType.mystery) {
+      // damage() already emptied the tile; put it back so _crackMystery owns it.
+      map.setTile(t.x, t.y, TileType.mystery);
+      return _crackMystery(t.x, t.y, p.id);
+    }
     if (broken.ore case final o?) _collect(p, o);
   }
 
   void _collect(SimPlayer p, OreType o) {
-    final v = oreDefs[o]!.value;
+    final v = oreDefs[o]!.value * (worldEvent == WorldEventKind.goldRush ? 2 : 1);
     p
       ..coins += v
       ..score += v
@@ -677,6 +756,13 @@ class GameSimulation {
       teamScores: teamScores,
       warmup: warmup,
       bombs: [for (final b in _bombs) BombSnapshot(b.x, b.y, b.kind, b.fuse)],
+      monsters: [
+        for (final m in _monsters)
+          MonsterSnapshot(id: m.id, kind: m.kind, x: m.x, y: m.y, hp: (m.hp / m.def.hp).clamp(0, 1), left: m.left, attacking: m.attackFlash > 0),
+      ],
+      mysteries: [for (final o in _openings) MysterySnapshot(o.x, o.y, o.t)],
+      worldEvent: worldEvent,
+      worldEventLeft: worldEventLeft,
     );
   }
 
@@ -713,6 +799,9 @@ class GameSimulation {
             oresMined: sorted[i].oresMined,
             xp: sorted[i].xp + (i < 3 ? (3 - i) * 25 : 0),
             maxDepth: sorted[i].bestDepth,
+            bonusGems: sorted[i].bonusGems,
+            monstersKilled: sorted[i].monstersKilled,
+            mysteriesOpened: sorted[i].mysteriesOpened,
           ),
       ],
       teamScores: ts,
@@ -723,7 +812,8 @@ class GameSimulation {
 }
 
 class _Bomb {
-  _Bomb(this.x, this.y, this.kind, this.fuse, this.ownerId);
+  _Bomb(this.x, this.y, this.kind, this.fuse, this.ownerId, this.def);
+  final ItemDef def;
   double x;
   double y;
   double vx = 0;

@@ -49,6 +49,19 @@ class SimPlayer {
 
   /// Brief immunity after a boulder hit, so one rock doesn't hit twice.
   double crushCooldown = 0;
+  double spikeCooldown = 0;
+  double throwCooldown = 0;
+
+  double fuel = Balance.jetFuelMax;
+  bool jetting = false;
+
+  /// Seconds left on the slime prank / treasure curse.
+  double slimed = 0;
+  double cursed = 0;
+  int bonusGems = 0;
+  int monstersKilled = 0;
+  int mysteriesOpened = 0;
+  int get effects => (slimed > 0 ? Effect.slimed : 0) | (cursed > 0 ? Effect.cursed : 0);
   bool connected = true;
   bool inDepot = false;
 
@@ -83,5 +96,8 @@ class SimPlayer {
     look: look,
     vx: vx,
     vy: vy,
+    fuel: fuel,
+    jetting: jetting,
+    effects: effects,
   );
 }

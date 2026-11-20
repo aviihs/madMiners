@@ -121,10 +121,12 @@ class _MineButtonState extends State<MineButton> {
   );
 }
 
-/// Hold-to-jump button (also climbs 1-wide shafts when held with up).
+/// Round hold button: jump by default, also used for the jetpack.
 class JumpButton extends StatefulWidget {
-  const JumpButton({super.key, required this.onChanged});
+  const JumpButton({super.key, required this.onChanged, this.icon = CupertinoIcons.arrow_up, this.size = 66});
   final ValueChanged<bool> onChanged;
+  final IconData icon;
+  final double size;
 
   @override
   State<JumpButton> createState() => _JumpButtonState();
@@ -149,15 +151,15 @@ class _JumpButtonState extends State<JumpButton> {
       scale: _down ? 0.9 : 1,
       duration: const Duration(milliseconds: 90),
       child: Container(
-        width: 66,
-        height: 66,
+        width: widget.size,
+        height: widget.size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: const Color(0x8A1E1830),
           border: Border.all(color: const Color(0x66FFFFFF), width: 2),
           boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 12, offset: Offset(0, 4))],
         ),
-        child: const Icon(CupertinoIcons.arrow_up, size: 30, color: CupertinoColors.white),
+        child: Icon(widget.icon, size: widget.size * 0.45, color: CupertinoColors.white),
       ),
     ),
   );

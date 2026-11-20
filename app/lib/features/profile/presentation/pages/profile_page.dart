@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart' show Scaffold;
+import 'package:flutter/material.dart' show LinearProgressIndicator, Scaffold;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/di.dart';
@@ -13,7 +13,7 @@ import '../../../store/presentation/widgets/avatar_preview.dart';
 import '../../domain/entities/history.dart';
 import '../cubit/profile_cubit.dart';
 
-enum _Tab { matches, wallet }
+enum _Tab { matches, badges, wallet }
 
 /// Player records from the database: stats, match history, wallet history.
 class ProfilePage extends StatefulWidget {
@@ -115,11 +115,13 @@ class _ProfilePageState extends State<ProfilePage> {
                           const SizedBox(height: 22),
                           AppSegmented<_Tab>(
                             value: _tab,
-                            items: const {_Tab.matches: 'Matches', _Tab.wallet: 'Wallet'},
+                            items: const {_Tab.matches: 'Matches', _Tab.badges: 'Badges', _Tab.wallet: 'Wallet'},
                             onChanged: (t) => setState(() => _tab = t),
                           ),
                           const SizedBox(height: 14),
-                          if (st.loading)
+                          if (_tab == _Tab.badges)
+                            _Achievements(profile: p)
+                          else if (st.loading)
                             const Padding(padding: EdgeInsets.only(top: 40), child: CupertinoActivityIndicator(radius: 13))
                           else if (st.error != null)
                             Padding(padding: const EdgeInsets.only(top: 30), child: Text(st.error!, textAlign: TextAlign.center, style: MMText.callout))
@@ -311,4 +313,100 @@ class _Empty extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// One achievement, unlocked from server-recorded stats (never from the app).
+class _Badge {
+  const _Badge(this.icon, this.color, this.title, this.goal, this.value, this.unit);
+  final IconData icon;
+  final Color color;
+  final String title;
+  final int goal;
+  final int value;
+  final String unit;
+  bool get done => value >= goal;
+}
+
+class _Achievements extends StatelessWidget {
+  const _Achievements({required this.profile});
+  final PlayerProfile profile;
+
+  List<_Badge> get _badges {
+    final p = profile;
+    return [
+      _Badge(CupertinoIcons.play_fill, MMColors.sky, 'First Dig', 1, p.gamesPlayed, 'match'),
+      _Badge(CupertinoIcons.flame_fill, MMColors.lava, 'Regular', 25, p.gamesPlayed, 'matches'),
+      _Badge(CupertinoIcons.star_fill, MMColors.gold, 'Treasure Hunter', 1, p.wins, 'treasure'),
+      _Badge(CupertinoIcons.star_circle_fill, MMColors.gold, 'Legend of the Deep', 10, p.wins, 'treasures'),
+      _Badge(CupertinoIcons.arrow_down_to_line, MMColors.violet, 'Deep Diver', 50, p.bestDepth, 'm deep'),
+      _Badge(CupertinoIcons.arrow_down_circle_fill, MMColors.violet, 'Lava Walker', 80, p.bestDepth, 'm deep'),
+      _Badge(CupertinoIcons.cube_fill, MMColors.leaf, 'Prospector', 100, p.oresMined, 'finds'),
+      _Badge(CupertinoIcons.cube_box_fill, MMColors.leaf, 'Motherlode', 1000, p.oresMined, 'finds'),
+      _Badge(CupertinoIcons.money_dollar_circle_fill, MMColors.gold, 'Big Score', 1000, p.bestScore, 'in one match'),
+      _Badge(CupertinoIcons.chart_bar_alt_fill, MMColors.gem, 'Tycoon', 25000, p.totalCoins, 'coins earned'),
+      _Badge(CupertinoIcons.person_crop_square_fill, MMColors.sky, 'Collector', 5, p.owned.length, 'Locker items'),
+      _Badge(CupertinoIcons.rosette, MMColors.gold, 'Veteran', 10, p.level, 'level'),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = _badges;
+    final done = list.where((b) => b.done).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('$done of ${list.length} unlocked', style: MMText.footnote, textAlign: TextAlign.center),
+        const SizedBox(height: 10),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 3,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
+          childAspectRatio: 0.82,
+          children: [for (final b in list) _BadgeTile(b)],
+        ),
+      ],
+    );
+  }
+}
+
+class _BadgeTile extends StatelessWidget {
+  const _BadgeTile(this.b);
+  final _Badge b;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = (b.value / b.goal).clamp(0.0, 1.0);
+    return Opacity(
+      opacity: b.done ? 1 : 0.55,
+      child: GlassCard(
+        padding: const EdgeInsets.all(8),
+        borderColor: b.done ? b.color.withValues(alpha: 0.6) : null,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconTile(b.done ? b.icon : CupertinoIcons.lock_fill, color: b.done ? b.color : MMColors.faint, size: 34),
+            const SizedBox(height: 6),
+            Text(b.title, style: MMText.headline.copyWith(fontSize: 12), textAlign: TextAlign.center, maxLines: 2),
+            const SizedBox(height: 4),
+            if (b.done)
+              Text('${b.goal} ${b.unit}', style: MMText.caption.copyWith(fontSize: 10, color: b.color), maxLines: 1, overflow: TextOverflow.ellipsis)
+            else ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: SizedBox(
+                  height: 4,
+                  child: LinearProgressIndicator(value: progress, backgroundColor: MMColors.glassStrong, color: b.color),
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text('${b.value}/${b.goal}', style: MMText.caption.copyWith(fontSize: 10)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }

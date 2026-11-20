@@ -7,9 +7,10 @@ class Reward {
   final int gems;
   final int xp;
 
-  /// Coins = match score; gems for finding the treasure or a podium finish.
+  /// Coins = match score; gems for finding the treasure or a podium finish,
+  /// plus any gems the server rolled from Mystery Bombs during the match.
   factory Reward.forResult(PlayerResult r, {required bool foundTreasure}) =>
-      Reward(coins: r.score, gems: foundTreasure ? 10 : (r.rank <= 3 ? 2 : 0), xp: r.xp);
+      Reward(coins: r.score, gems: (foundTreasure ? 10 : (r.rank <= 3 ? 2 : 0)) + r.bonusGems.clamp(0, 500), xp: r.xp);
 }
 
 class MatchPlayerRecord {

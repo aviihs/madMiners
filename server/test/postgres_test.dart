@@ -79,5 +79,15 @@ void main() async {
     final tx = await repo.transactions(id);
     expect(tx.map((t) => t.kind), containsAll(['match_reward', 'purchase']));
     expect(tx.first.balanceAfter, 320);
+
+    // Daily reward: once per day, streak continues on the next day.
+    final day1 = DateTime.utc(2026, 3, 1, 9);
+    expect((await repo.dailyStatus(id, day1)).available, isTrue);
+    final (after1, r1) = await repo.claimDaily(id, day1);
+    expect(r1.streak, 1);
+    expect(after1.coins, 320 + dailyReward(1).coins);
+    await expectLater(repo.claimDaily(id, day1.add(const Duration(hours: 5))), throwsA(isA<DailyClaimedException>()));
+    final (_, r2) = await repo.claimDaily(id, day1.add(const Duration(days: 1)));
+    expect(r2.streak, 2);
   });
 }

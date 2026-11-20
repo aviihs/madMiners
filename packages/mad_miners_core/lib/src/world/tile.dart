@@ -22,10 +22,29 @@ enum TileType {
 
   /// Heavy loose rock. Falls when the tile below is dug out and crushes
   /// whoever is underneath.
-  boulder;
+  boulder,
+
+  /// Soft topsoil: one hit.
+  dirt,
+
+  /// Floor trap: rusty spikes in an open tile. Hurts on touch.
+  spikes,
+
+  /// Explosive crate: blows up shortly after it's broken or caught in a blast.
+  explosive,
+  coal,
+  silver,
+  emerald,
+  ruby,
+
+  /// Volcanic glass: very slow to dig, no loot.
+  obsidian,
+
+  /// Glowing Mystery Bomb. Its rarity stays secret until it's opened.
+  mystery;
 
   bool get isSolid => switch (this) {
-    empty || lava || gas || depot => false,
+    empty || lava || gas || depot || spikes => false,
     _ => true,
   };
 
@@ -37,6 +56,10 @@ enum TileType {
     gold => OreType.gold,
     diamond => OreType.diamond,
     moneyBag => OreType.moneyBag,
+    coal => OreType.coal,
+    silver => OreType.silver,
+    emerald => OreType.emerald,
+    ruby => OreType.ruby,
     _ => null,
   };
 
@@ -46,10 +69,14 @@ enum TileType {
     treasure => Balance.treasureHardness,
     volcano => Balance.hardRockHardness,
     boulder => Balance.boulderHardness,
+    dirt => Balance.dirtHardness,
+    explosive => Balance.crateHardness,
+    obsidian => Balance.obsidianHardness,
+    mystery => Balance.mysteryHardness,
     _ => ore != null ? oreDefs[ore]!.hardness : 0,
   };
 
-  bool get isHazard => this == lava || this == gas;
+  bool get isHazard => this == lava || this == gas || this == spikes;
 
   static TileType forOre(OreType o) => switch (o) {
     OreType.copper => copper,
@@ -57,5 +84,9 @@ enum TileType {
     OreType.gold => gold,
     OreType.diamond => diamond,
     OreType.moneyBag => moneyBag,
+    OreType.coal => coal,
+    OreType.silver => silver,
+    OreType.emerald => emerald,
+    OreType.ruby => ruby,
   };
 }

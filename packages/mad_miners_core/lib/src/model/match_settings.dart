@@ -24,6 +24,8 @@ class MapDef {
     required this.lootBoost,
     required this.volcanoes,
     this.boulders = 0.006,
+    this.mysteryBombs = 6,
+    this.monsters = 4,
   });
 
   final MapId id;
@@ -46,6 +48,12 @@ class MapDef {
 
   /// Chance that a rock tile is a loose boulder.
   final double boulders;
+
+  /// Mystery Bombs hidden in the rock at the start.
+  final int mysteryBombs;
+
+  /// Monsters lurking in caves at the start.
+  final int monsters;
 }
 
 enum MapId {
@@ -76,6 +84,8 @@ enum MapId {
       lootBoost: 1.8,
       volcanoes: 16,
       boulders: 0.008,
+      mysteryBombs: 9,
+      monsters: 6,
     ),
     MapId.lavaMine => const MapDef(
       id: MapId.lavaMine,
@@ -88,6 +98,8 @@ enum MapId {
       lootBoost: 1.4,
       volcanoes: 28,
       boulders: 0.01,
+      mysteryBombs: 11,
+      monsters: 8,
     ),
   };
 

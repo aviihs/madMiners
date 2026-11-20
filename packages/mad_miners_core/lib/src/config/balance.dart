@@ -7,7 +7,8 @@ library;
 enum Rarity { common, rare, epic, legendary }
 
 /// Loot found while digging. Coins are credited the moment it breaks.
-enum OreType { copper, iron, gold, diamond, moneyBag }
+/// Append only: the index is the wire encoding.
+enum OreType { copper, iron, gold, diamond, moneyBag, coal, silver, emerald, ruby }
 
 class OreDef {
   const OreDef({
@@ -35,7 +36,115 @@ const Map<OreType, OreDef> oreDefs = {
   OreType.gold: OreDef(type: OreType.gold, name: 'Gold', rarity: Rarity.rare, value: 30, hardness: 5),
   OreType.diamond: OreDef(type: OreType.diamond, name: 'Diamond', rarity: Rarity.epic, value: 80, hardness: 7),
   OreType.moneyBag: OreDef(type: OreType.moneyBag, name: 'Money Bag', rarity: Rarity.epic, value: 120, hardness: 2),
+  OreType.coal: OreDef(type: OreType.coal, name: 'Coal', rarity: Rarity.common, value: 3, hardness: 2),
+  OreType.silver: OreDef(type: OreType.silver, name: 'Silver', rarity: Rarity.rare, value: 18, hardness: 4),
+  OreType.emerald: OreDef(type: OreType.emerald, name: 'Emerald', rarity: Rarity.epic, value: 55, hardness: 6),
+  OreType.ruby: OreDef(type: OreType.ruby, name: 'Ruby', rarity: Rarity.epic, value: 65, hardness: 6),
 };
+
+// ---- depth zones ------------------------------------------------------------
+
+/// Named layers of the mine, from the camp down to the lava.
+enum Zone {
+  starterMine('Starter Mine'),
+  stoneCave('Stone Cave'),
+  goldMine('Gold Mine'),
+  diamondCave('Diamond Cave'),
+  crystalCavern('Crystal Cavern'),
+  lavaUnderground('Lava Underground');
+
+  const Zone(this.label);
+  final String label;
+
+  /// Zone at depth fraction [d] (0 = surface, 1 = lava sea).
+  static Zone at(double d) {
+    if (d < 0.12) return starterMine;
+    if (d < 0.30) return stoneCave;
+    if (d < 0.48) return goldMine;
+    if (d < 0.66) return diamondCave;
+    if (d < 0.83) return crystalCavern;
+    return lavaUnderground;
+  }
+}
+
+// ---- mystery bombs ------------------------------------------------------------
+
+/// Hidden until opened. Deeper bombs tend to be rarer.
+enum MysteryRarity {
+  common('Common', 1.0),
+  rare('Rare', 1.6),
+  epic('Epic', 2.5),
+  legendary('Legendary', 4.0),
+  mythic('Mythic', 7.0);
+
+  const MysteryRarity(this.label, this.mult);
+  final String label;
+
+  /// Scales coin and gem rewards.
+  final double mult;
+}
+
+/// What comes out of a Mystery Bomb. Rolled by the server only.
+enum MysteryReward {
+  goldShower('Gold Shower'),
+  diamondBurst('Diamond Burst'),
+  crystals('Crystal Reward'),
+  jackpot('JACKPOT'),
+  energy('Energy Refill'),
+  explosives('Explosives Cache'),
+  monster('Monster Surprise'),
+  prank('Slime Prank'),
+  cursed('Cursed Treasure');
+
+  const MysteryReward(this.label);
+  final String label;
+}
+
+// ---- monsters -----------------------------------------------------------------
+
+enum MonsterKind { spider, golem }
+
+class MonsterDef {
+  const MonsterDef({
+    required this.name,
+    required this.hp,
+    required this.speed,
+    required this.damage,
+    required this.attackEvery,
+    required this.sense,
+    required this.loot,
+  });
+  final String name;
+  final double hp;
+  final double speed;
+  final double damage;
+  final double attackEvery;
+
+  /// Tiles at which it notices a miner.
+  final double sense;
+
+  /// Coins for the miner who lands the killing blow.
+  final int loot;
+}
+
+const Map<MonsterKind, MonsterDef> monsterDefs = {
+  MonsterKind.spider: MonsterDef(name: 'Cave Spider', hp: 30, speed: 3.6, damage: 9, attackEvery: 0.8, sense: 6, loot: 25),
+  MonsterKind.golem: MonsterDef(name: 'Stone Golem', hp: 120, speed: 1.6, damage: 22, attackEvery: 1.6, sense: 4.5, loot: 90),
+};
+
+// ---- world events ---------------------------------------------------------------
+
+/// Server-timed events that shake up a match.
+enum WorldEventKind {
+  goldRush('Gold Rush', 'All ore pays double!', 25),
+  earthquake('Earthquake', 'Rocks are falling, watch your head!', 9),
+  mysteryRain('Mystery Bomb Rain', 'New Mystery Bombs appeared in the rock!', 4);
+
+  const WorldEventKind(this.label, this.blurb, this.seconds);
+  final String label;
+  final String blurb;
+  final double seconds;
+}
 
 /// Equipment bought with match coins at the surface shop (SRS §3.6).
 enum UpgradeKind { pickaxe, helmet, boots, armor }
@@ -104,6 +213,9 @@ const Map<ItemKind, ItemDef> itemDefs = {
   ItemKind.dynamite: ItemDef('Dynamite', 70, 2.5, 90, 2.6),
 };
 
+/// What an explosive crate does when it goes off (not sold in the shop).
+const ItemDef crateBlast = ItemDef('Explosive Crate', 0, 2.0, 70, 0.8);
+
 extension UpgradeKindX on UpgradeKind {
   List<UpgradeLevel> get levels => upgradeTracks[this]!;
   int get maxLevel => levels.length - 1;
@@ -113,6 +225,13 @@ extension UpgradeKindX on UpgradeKind {
     UpgradeKind.boots => 'Boots',
     UpgradeKind.armor => 'Armor',
   };
+}
+
+/// Daily login reward for day [streak] of a run (1-based; repeats every 7).
+/// Day 7 also pays gems.
+({int coins, int gems}) dailyReward(int streak) {
+  final day = (streak - 1) % 7 + 1;
+  return (coins: 50 + (day - 1) * 25, gems: day == 7 ? 10 : 0);
 }
 
 /// Gameplay tuning constants.
@@ -160,6 +279,38 @@ abstract final class Balance {
 
   /// Lit bombs one miner may have out at once.
   static const int maxActiveBombs = 3;
+
+  /// Seconds between two throws.
+  static const double throwCooldown = 0.7;
+
+  // ---- jetpack ----
+  static const double jetFuelMax = 100;
+  static const double jetBurn = 55; // fuel / second while thrusting
+  static const double jetRegen = 30; // fuel / second, only while standing
+  static const double jetThrust = 52; // tiles / s² upward (beats gravity)
+  static const double jetMaxRise = 6.5; // tiles / s
+
+  // ---- mystery bombs, monsters, events ----
+  static const int mysteryHardness = 3;
+  static const int obsidianHardness = 12;
+
+  /// Suspense before a found Mystery Bomb bursts open.
+  static const double mysteryOpenSeconds = 1.8;
+  static const int maxMonsters = 14;
+
+  /// Pickaxe damage to monsters = base + pickaxe stat × perStat.
+  static const double monsterHitBase = 8;
+  static const double monsterHitPerStat = 4;
+
+  /// Seconds between world events (random within the range).
+  static const double eventGapMin = 60;
+  static const double eventGapMax = 100;
+
+  // ---- blocks and traps ----
+  static const int dirtHardness = 1;
+  static const int crateHardness = 2;
+  static const double spikeDamage = 28;
+  static const double spikeCooldown = 0.9;
 
   static const double maxHealth = 100;
   static const double maxStamina = 100;

@@ -14,7 +14,7 @@ void main() {
 
     test('empty room runs no bots', () => expect(botsNeeded(s, 0), 0));
 
-    test('bots trickle in during the lobby and look like players', () {
+    test('bots trickle in during the lobby and are clearly labelled', () {
       final sim = GameSimulation(settings: s, seed: 1);
       sim.addHuman('a', 'A');
       expect(sim.botCount, 0);
@@ -23,11 +23,9 @@ void main() {
       }
       expect(sim.players.length, 8);
       final snap = sim.takeSnapshot();
-      expect(snap.players.every((p) => !p.isBot), isTrue, reason: 'disguised on the wire');
+      expect(snap.players.where((p) => p.isBot).length, 7, reason: 'clients can tell bots from people');
       expect(snap.players.map((p) => p.name).toSet().length, 8, reason: 'unique names');
-      expect(snap.players.any((p) => p.name.contains('Bot')), isFalse);
-      expect(sim.results(forClients: true).players.every((p) => !p.isBot), isTrue);
-      expect(sim.results().players.where((p) => p.isBot).length, 7, reason: 'server still knows');
+      expect(sim.results(forClients: true).players.where((p) => p.isBot).length, 7);
     });
 
     test('no digging during the lobby countdown', () {
@@ -167,10 +165,71 @@ void main() {
       expect(p.hp, lessThan(Balance.maxHealth));
     });
 
-    test('Locker pickaxes set the starting dig level', () {
-      final q = sim.addHuman('q', 'Q', look: const Look(pickaxe: 'pick_titan'));
-      expect(q.upgrades[UpgradeKind.pickaxe.index], cosmeticsById['pick_titan']!.power);
-      expect(p.upgrades[UpgradeKind.pickaxe.index], 0);
+    test('Locker pickaxes are cosmetic: everyone starts with the same dig power', () {
+      final q = sim.addHuman('q', 'Q', look: const Look(pickaxe: 'pick_plasma'));
+      expect(q.upgrades[UpgradeKind.pickaxe.index], 0);
+      expect(q.look.pickaxe, 'pick_plasma');
+    });
+
+    test('jetpack lifts you, burns fuel, refills on the ground', () {
+      for (var y = 10; y <= 21; y++) {
+        sim.map.setTile(10, y, TileType.empty);
+      }
+      p
+        ..x = 10.5
+        ..y = 21.6;
+      sim.setInput('p', const PlayerInput(jet: true));
+      for (var i = 0; i < 30; i++) {
+        sim.update(1 / 30);
+      }
+      expect(p.y, lessThan(19), reason: 'flew up the shaft');
+      expect(p.fuel, lessThan(Balance.jetFuelMax - 40));
+      sim.setInput('p', const PlayerInput());
+      for (var i = 0; i < 30 * 6; i++) {
+        sim.update(1 / 30);
+      }
+      expect(p.onGround, isTrue);
+      expect(p.fuel, Balance.jetFuelMax);
+    });
+
+    test('spike traps hurt and bounce you', () {
+      sim.map.setTile(10, 20, TileType.spikes);
+      sim.map.setTile(10, 19, TileType.empty);
+      p
+        ..x = 10.5
+        ..y = 20.6;
+      sim.update(1 / 30);
+      expect(p.hp, Balance.maxHealth - Balance.spikeDamage);
+      expect(p.vy, lessThan(0));
+    });
+
+    test('breaking an explosive crate sets it off', () {
+      sim.map.setTile(10, 20, TileType.empty);
+      sim.map.setTile(10, 21, TileType.explosive);
+      sim.map.setTile(11, 21, TileType.rock);
+      p
+        ..x = 10.5
+        ..y = 20.6;
+      sim.setInput('p', const PlayerInput(fy: 1, mine: true));
+      for (var i = 0; i < 30 * 3; i++) {
+        sim.update(1 / 30);
+      }
+      expect(sim.map.tileAt(11, 21), TileType.empty, reason: 'the crate blast cleared its neighbours');
+      expect(p.hp, lessThan(Balance.maxHealth));
+    });
+
+    test('throwing has a cooldown', () {
+      sim.map.setTile(10, 20, TileType.empty);
+      p
+        ..x = 10.5
+        ..y = 20.6
+        ..items[ItemKind.bomb.index] = 3;
+      expect(sim.useItem('p', ItemKind.bomb), isTrue);
+      expect(sim.useItem('p', ItemKind.bomb), isFalse);
+      for (var i = 0; i < 30; i++) {
+        sim.update(1 / 30);
+      }
+      expect(sim.useItem('p', ItemKind.bomb), isTrue);
     });
 
     test('a thrown bomb flies forward and lands', () {
@@ -304,7 +363,7 @@ void main() {
       p = sim.addHuman('p', 'P');
       // Put the miner in a pocket right above a gold deposit.
       for (var x = 9; x <= 11; x++) {
-        for (var y = 19; y <= 21; y++) {
+        for (var y = 19; y <= 24; y++) {
           sim.map.setTile(x, y, TileType.rock);
         }
       }
@@ -360,6 +419,91 @@ void main() {
     });
   });
 
+  group('mystery bombs, monsters, world events', () {
+    late GameSimulation sim;
+    late SimPlayer p;
+    setUp(() {
+      sim = GameSimulation(settings: const MatchSettings(fillWithBots: false, mapId: MapId.starterMine), seed: 3, warmup: 0);
+      p = sim.addHuman('p', 'P');
+      for (var x = 4; x <= 16; x++) {
+        for (var y = 15; y <= 25; y++) {
+          sim.map.setTile(x, y, TileType.rock);
+        }
+      }
+      sim.map.setTile(10, 20, TileType.empty);
+      p
+        ..x = 10.5
+        ..y = 20.6;
+    });
+
+    test('digging a Mystery Bomb cracks it, then the server reveals one reward, once', () {
+      sim.map.setTile(10, 21, TileType.mystery);
+      expect(sim.publicMap().tileAt(10, 21), TileType.mystery, reason: 'visible, but rarity is not on the wire');
+      sim.setInput('p', const PlayerInput(fy: 1, mine: true));
+      final events = <GameEvent>[];
+      var snapWithOpening = false;
+      for (var i = 0; i < 30 * 5; i++) {
+        sim.update(1 / 30);
+        final snap = sim.takeSnapshot();
+        events.addAll(snap.events);
+        if (snap.mysteries.isNotEmpty) snapWithOpening = true;
+        if (i == 30) sim.setInput('p', const PlayerInput());
+      }
+      expect(events.where((e) => e.kind == GameEventKind.mysteryFound), hasLength(1));
+      final opened = events.where((e) => e.kind == GameEventKind.mysteryOpened).toList();
+      expect(opened, hasLength(1), reason: 'paid exactly once');
+      expect(opened.single.playerId, 'p');
+      expect(snapWithOpening, isTrue, reason: 'everyone sees it shaking before the reveal');
+      expect(p.mysteriesOpened, 1);
+    });
+
+    test('monsters chase, attack, and pay loot to whoever kills them', () {
+      for (var x = 6; x <= 14; x++) {
+        sim.map.setTile(x, 20, TileType.empty);
+      }
+      final before = sim.monsterCount;
+      sim.spawnMonsterForTest(MonsterKind.spider, 13.5, 20.6);
+      expect(sim.monsterCount, before + 1);
+      var hurt = false;
+      for (var i = 0; i < 30 * 3; i++) {
+        sim.update(1 / 30);
+        if (p.hp < Balance.maxHealth) hurt = true;
+      }
+      expect(hurt, isTrue, reason: 'the spider came over and bit');
+      p.hp = Balance.maxHealth;
+      final coins = p.coins;
+      final m = sim.takeSnapshot().monsters.firstWhere((m) => m.kind == MonsterKind.spider && (m.y - 20.6).abs() < 1);
+      sim.setInput('p', PlayerInput(fx: (m.x - p.x).sign, fy: 0, mine: true));
+      for (var i = 0; i < 30 * 8 && sim.monsterCount > before; i++) {
+        sim.update(1 / 30);
+        p.hp = Balance.maxHealth;
+      }
+      expect(sim.monsterCount, before, reason: 'killed it');
+      expect(p.coins, coins + monsterDefs[MonsterKind.spider]!.loot);
+      expect(p.monstersKilled, 1);
+    });
+
+    test('gold rush doubles ore value', () {
+      sim.worldEvent = WorldEventKind.goldRush;
+      sim.worldEventLeft = 30;
+      sim.map.setTile(10, 21, TileType.copper);
+      sim.setInput('p', const PlayerInput(fy: 1, mine: true));
+      for (var i = 0; i < 30 * 3; i++) {
+        sim.update(1 / 30);
+      }
+      expect(p.coins, oreDefs[OreType.copper]!.value * 2);
+    });
+
+    test('world events start on their own and end', () {
+      final kinds = <GameEventKind>{};
+      for (var i = 0; i < 30 * 200; i++) {
+        sim.update(1 / 30);
+        kinds.addAll(sim.takeSnapshot().events.map((e) => e.kind));
+      }
+      expect(kinds, containsAll([GameEventKind.worldEvent, GameEventKind.worldEventEnded]));
+    });
+  });
+
   test('treasure is hidden from clients until revealed', () {
     final sim = GameSimulation(settings: const MatchSettings(), seed: 5)..addHuman('h', 'H');
     expect(sim.map.treasure, isNotNull);
@@ -386,7 +530,7 @@ void main() {
         expect(deepest, greaterThan(mapId.def.height ~/ 2), reason: 'bots should get deep');
         if (sim.winnerId != null) {
           found++;
-          expect(sim.players[sim.winnerId]!.isBot, isTrue);
+          expect(sim.players[sim.winnerId]!.isBot, isTrue, reason: 'the human idles');
           expect(sim.results().winnerId, sim.winnerId);
         }
         // ignore: avoid_print

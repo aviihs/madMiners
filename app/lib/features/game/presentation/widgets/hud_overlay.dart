@@ -3,11 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Theme;
 import 'package:mad_miners_core/mad_miners_core.dart';
 
+import '../../../../app/di.dart';
+import '../../../../app/settings.dart';
 import '../../../../app/theme.dart';
 import '../../../../app/ui/ui.dart';
 import '../../domain/entities/session_event.dart';
 import '../controller/game_controller.dart';
 import '../controller/hud_state.dart';
+import 'minimap.dart';
 import 'shop_panel.dart';
 import 'touch_controls.dart';
 
@@ -45,9 +48,14 @@ class _HudOverlayState extends State<HudOverlay> {
                 if (me != null)
                   Positioned(left: 12, top: 10, child: _Vitals(me: me, depth: hud.depth, lavaDepth: hud.lavaDepth, hint: hud.hint)),
                 Positioned(top: 10, left: 0, right: 0, child: Center(child: _TopBar(hud: hud, onExit: widget.onExit))),
+                if (me != null) Positioned(right: 12, top: 10, child: MiniMap(controller: c, width: touch ? 112 : 132, height: touch ? 120 : 150)),
+                if (hud.worldEvent != null)
+                  Positioned(top: touch ? 96 : 60, left: 0, right: 0, child: Center(child: _EventChip(kind: hud.worldEvent!, left: hud.worldEventLeft))),
+                if (hud.banner != null) Positioned(top: 0, bottom: 0, left: 0, right: 0, child: IgnorePointer(child: Center(child: _BannerView(banner: hud.banner!)))),
                 Positioned(
-                  right: 12,
-                  top: 10,
+                  // Phones: left of the mini-map (clear of the bomb buttons). Desktop: under it.
+                  right: me != null && touch ? 132 : 12,
+                  top: me != null && !touch ? 168 : 10,
                   child: _showStandings
                       ? _Standings(hud: hud, onClose: () => setState(() => _showStandings = false))
                       : _RoundButton(icon: CupertinoIcons.list_number, onTap: () => setState(() => _showStandings = true)),
@@ -68,26 +76,16 @@ class _HudOverlayState extends State<HudOverlay> {
                     child: ShopPanel(me: me, onUpgrade: c.buy, onBuyItem: c.buyItem),
                   ),
                 if (me != null && me.alive && hud.warmup <= 0 && !me.inDepot)
-                  Positioned(
-                    right: touch ? 30 : 12,
-                    bottom: touch ? 140 : 44,
-                    child: _ItemBar(me: me, onUse: c.useItem, vertical: touch),
-                  ),
+                  if (touch)
+                    _ActionSide(bottom: 140, inset: 30, child: _ItemBar(me: me, onUse: c.useItem, vertical: true))
+                  else
+                    Positioned(right: 12, bottom: 44, child: _ItemBar(me: me, onUse: c.useItem, vertical: false)),
                 if (hud.warmup > 0 && hud.link == LinkStatus.connected) Center(child: _Lobby(hud: hud)),
                 if (me != null && !me.alive) Center(child: _DeathBanner(seconds: me.respawnIn)),
                 if (hud.link != LinkStatus.connected) Center(child: _LinkBanner(hud: hud, onExit: widget.onExit)),
                 if (!hud.ready && hud.link == LinkStatus.connected) const Center(child: CupertinoActivityIndicator(radius: 14)),
                 if (touch) ...[
-                  Positioned(
-                    left: 28,
-                    bottom: 28,
-                    child: VirtualJoystick(onChanged: (x, y) {
-                      c.joyX = x;
-                      c.joyY = y;
-                    }),
-                  ),
-                  Positioned(right: 32, bottom: 32, child: MineButton(onChanged: (v) => c.mineHeld = v)),
-                  Positioned(right: 134, bottom: 24, child: JumpButton(onChanged: (v) => c.jumpHeld = v)),
+                  Positioned.fill(child: _TouchControls(controller: c)),
                 ] else
                   const Positioned(bottom: 14, left: 0, right: 0, child: Center(child: _KeyHints())),
               ],
@@ -138,6 +136,8 @@ class _Vitals extends StatelessWidget {
             _Bar(icon: CupertinoIcons.heart_fill, value: me.hp / Balance.maxHealth, color: MMColors.health),
             const SizedBox(height: 6),
             _Bar(icon: CupertinoIcons.bolt_fill, value: me.stamina / Balance.maxStamina, color: MMColors.stamina),
+            const SizedBox(height: 6),
+            _Bar(icon: CupertinoIcons.rocket_fill, value: me.fuel / Balance.jetFuelMax, color: MMColors.sky),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -147,11 +147,11 @@ class _Vitals extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    nearLava ? 'Lava close!' : 'lava at ${lavaDepth}m',
+                    nearLava ? 'Lava close!' : Zone.at(lavaDepth <= 0 ? 0 : depth / lavaDepth).label,
                     textAlign: TextAlign.right,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: MMText.caption.copyWith(color: nearLava ? MMColors.ember : MMColors.muted, fontWeight: nearLava ? FontWeight.w600 : null),
+                    style: MMText.caption.copyWith(color: nearLava ? MMColors.ember : MMColors.gold, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -458,6 +458,7 @@ class _Standings extends StatelessWidget {
         SizedBox(width: 16, child: Text('$rank', style: MMText.caption.merge(MMText.number))),
         Avatar(s.name, size: 18, color: s.team >= 0 ? MMColors.teams[s.team] : null),
         const SizedBox(width: 6),
+        if (s.isBot) ...[const Pill('BOT', color: MMColors.sky), const SizedBox(width: 4)],
         Expanded(
           child: Text(
             s.name,
@@ -654,6 +655,8 @@ class _KeyHints extends StatelessWidget {
         const Text('  run   ', style: label),
         key('W'),
         const Text('  jump / climb   ', style: label),
+        key('SHIFT'),
+        const Text('  jetpack   ', style: label),
         key('S'),
         const Text('  aim down   ', style: label),
         key('SPACE'),
@@ -664,6 +667,150 @@ class _KeyHints extends StatelessWidget {
         const Text(' dynamite     ', style: label),
         const Text('Beware hidden volcanoes!', style: label),
       ],
+    );
+  }
+}
+
+/// Positions [child] on the action-button side (right, or left when the
+/// player picked left-handed controls), scaled by the control-size setting.
+class _ActionSide extends StatelessWidget {
+  const _ActionSide({required this.bottom, required this.inset, required this.child});
+  final double bottom;
+  final double inset;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final st = sl<GameSettings>();
+    return ListenableBuilder(
+      listenable: Listenable.merge([st.controlScale, st.leftHanded]),
+      builder: (context, _) {
+        final left = st.leftHanded.value;
+        final k = st.controlScale.value;
+        return Positioned(
+          left: left ? inset : null,
+          right: left ? null : inset,
+          bottom: bottom * k,
+          child: Transform.scale(scale: k, alignment: left ? Alignment.bottomLeft : Alignment.bottomRight, child: child),
+        );
+      },
+    );
+  }
+}
+
+/// Joystick on one side; dig, jump and jetpack on the other. Size and side
+/// come from Settings. Every control is its own pointer target, so they all
+/// work at once (multi-touch).
+class _TouchControls extends StatelessWidget {
+  const _TouchControls({required this.controller});
+  final GameController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final st = sl<GameSettings>();
+    final c = controller;
+    return ListenableBuilder(
+      listenable: Listenable.merge([st.controlScale, st.leftHanded]),
+      builder: (context, _) {
+        final k = st.controlScale.value;
+        final swap = st.leftHanded.value;
+        Widget at({required double side, required double bottom, required bool action, required Widget child}) {
+          final onLeft = action == swap;
+          return Positioned(
+            left: onLeft ? side * k : null,
+            right: onLeft ? null : side * k,
+            bottom: bottom * k,
+            child: Transform.scale(scale: k, alignment: onLeft ? Alignment.bottomLeft : Alignment.bottomRight, child: child),
+          );
+        }
+
+        return Stack(
+          children: [
+            at(
+              side: 28,
+              bottom: 28,
+              action: false,
+              child: VirtualJoystick(onChanged: (x, y) {
+                c.joyX = x;
+                c.joyY = y;
+              }),
+            ),
+            at(side: 32, bottom: 32, action: true, child: MineButton(onChanged: (v) => c.mineHeld = v)),
+            at(side: 134, bottom: 24, action: true, child: JumpButton(onChanged: (v) => c.jumpHeld = v)),
+            at(
+              side: 134,
+              bottom: 100,
+              action: true,
+              child: JumpButton(icon: CupertinoIcons.rocket_fill, size: 58, onChanged: (v) => c.jetHeld = v),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Big centre-screen headline that pops in and fades.
+class _BannerView extends StatelessWidget {
+  const _BannerView({required this.banner});
+  final HudBanner banner;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    key: ValueKey(banner.id),
+    tween: Tween(begin: 0, end: 1),
+    duration: const Duration(milliseconds: 420),
+    curve: Curves.easeOutBack,
+    builder: (context, v, child) => Transform.scale(scale: 0.6 + 0.4 * v, child: Opacity(opacity: v.clamp(0, 1), child: child)),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xCC0C0A09),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Color(banner.color), width: 2),
+        boxShadow: [BoxShadow(color: Color(banner.color).withValues(alpha: 0.45), blurRadius: 28)],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(banner.title, textAlign: TextAlign.center, style: MMText.title.copyWith(color: Color(banner.color), fontSize: 26)),
+          const SizedBox(height: 4),
+          Text(banner.subtitle, textAlign: TextAlign.center, style: MMText.callout.copyWith(color: MMColors.text)),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Active world event with its countdown.
+class _EventChip extends StatelessWidget {
+  const _EventChip({required this.kind, required this.left});
+  final WorldEventKind kind;
+  final double left;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (kind) {
+      WorldEventKind.goldRush => MMColors.gold,
+      WorldEventKind.earthquake => MMColors.lava,
+      WorldEventKind.mysteryRain => MMColors.violet,
+    };
+    return GlassCard(
+      radius: 16,
+      color: const Color(0x99000000),
+      borderColor: color,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(CupertinoIcons.bolt_circle_fill, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(kind.label, style: MMText.headline.copyWith(fontSize: 13, color: color)),
+          const SizedBox(width: 8),
+          Text('${left.ceil()}s', style: MMText.number.copyWith(fontSize: 13, color: MMColors.text)),
+        ],
+      ),
     );
   }
 }

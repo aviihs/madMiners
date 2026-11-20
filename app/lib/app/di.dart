@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -33,15 +36,23 @@ import '../features/store/data/repositories/store_repository_impl.dart';
 import '../features/store/domain/repositories/store_repository.dart';
 import '../features/store/domain/usecases/store_usecases.dart';
 import '../features/store/presentation/cubit/store_cubit.dart';
+import '../features/rewards/data/rewards_remote_data_source.dart';
+import 'audio.dart';
+import 'settings.dart';
 
 /// Service locator. The only place that knows concrete implementations.
 final sl = GetIt.instance;
+
+bool get _isTest => !kIsWeb && Platform.environment.containsKey('FLUTTER_TEST');
 
 Future<void> configureDependencies() async {
   // Core
   sl
     ..registerSingleton<SharedPreferences>(await SharedPreferences.getInstance())
     ..registerLazySingleton(ServerConfig.new)
+    ..registerLazySingleton(() => GameSettings(sl()))
+    // Silent under `flutter test` (no audio plugin there).
+    ..registerLazySingleton(() => GameAudio(sl(), enabled: !_isTest))
     ..registerLazySingleton(() => ApiClient(sl()))
     // Auth
     ..registerLazySingleton(() => AuthRemoteDataSource(sl()))
@@ -58,6 +69,7 @@ Future<void> configureDependencies() async {
     ..registerFactory(() => AuthCubit(signIn: sl(), google: sl(), restore: sl(), refresh: sl(), signOut: sl(), repo: sl()))
     // Lobby
     ..registerLazySingleton(() => LobbyRemoteDataSource(sl()))
+    ..registerLazySingleton(() => RewardsRemoteDataSource(sl()))
     ..registerLazySingleton<LobbyRepository>(() => LobbyRepositoryImpl(sl()))
     ..registerFactory(() => ListRooms(sl()))
     ..registerFactory(() => CreateRoom(sl()))

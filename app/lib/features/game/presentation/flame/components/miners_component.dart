@@ -21,6 +21,7 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
 
   final _p = Paint();
   final _nameText = TextPaint(style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFFFFFFFF), fontWeight: FontWeight.w800));
+  final _botText = TextPaint(style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFF8FC8FF), fontWeight: FontWeight.w800));
   final _youText = TextPaint(style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFFFFC233), fontWeight: FontWeight.w900));
 
   final Map<String, _Anim> _anim = {};
@@ -51,6 +52,7 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
         game.particles.dust(m.rx, m.ry + Balance.playerRadius, (a.peakFall / 3).clamp(3, 12).round());
       }
       a.peakFall = a.airborne ? max(a.peakFall, a.vy) : 0;
+      if (m.snap.jetting && m.snap.alive) game.particles.jet(m.rx - (a.left ? -0.3 : 0.3), m.ry + 0.25);
       a.walk += hs * dt * 9;
       a.moving = hs > 0.4;
       if (dx.abs() > 0.004) a.left = dx < 0;
@@ -76,7 +78,7 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
       canvas.translate(c.dx, c.dy);
       _drawMiner(canvas, m, a, isYou);
       canvas.restore();
-      _drawTag(canvas, c, s.name, isYou, s.hp);
+      _drawTag(canvas, c, s.name, isYou, s.hp, bot: s.isBot);
     }
   }
 
@@ -98,16 +100,18 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
       airborne: a?.airborne ?? false,
       vy: a?.vy ?? 0,
       time: _t,
+      jetpack: true,
+      jetting: s.jetting,
     );
   }
 
-  void _drawTag(Canvas canvas, Offset c, String name, bool isYou, double hp) {
-    final label = isYou ? 'You' : name;
+  void _drawTag(Canvas canvas, Offset c, String name, bool isYou, double hp, {bool bot = false}) {
+    final label = isYou ? 'You' : (bot ? 'BOT $name' : name);
     final w = label.length * 6.2 + 12;
     final tag = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(c.dx, c.dy - 34), width: w, height: 16), const Radius.circular(8));
     _p.color = const Color(0x80000000);
     canvas.drawRRect(tag, _p);
-    (isYou ? _youText : _nameText).render(canvas, label, Vector2(c.dx, c.dy - 34), anchor: Anchor.center);
+    (isYou ? _youText : (bot ? _botText : _nameText)).render(canvas, label, Vector2(c.dx, c.dy - 34), anchor: Anchor.center);
     if (hp < 100) {
       const bw = 26.0;
       final bar = Rect.fromLTWH(c.dx - bw / 2, c.dy - 25, bw, 3);

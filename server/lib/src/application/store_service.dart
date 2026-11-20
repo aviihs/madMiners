@@ -20,7 +20,6 @@ class StoreService {
         'currency': c.currency.name,
         'premium': c.isPremium,
         'description': c.description,
-        if (c.slot == CosmeticSlot.pickaxe) 'power': c.power,
       },
   ];
 

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:mad_miners_core/mad_miners_core.dart';
 
+import '../../../../app/audio.dart';
 import '../../domain/entities/session_event.dart';
 import '../../domain/repositories/game_session_repository.dart';
 import '../flame/palette.dart';
@@ -42,9 +43,19 @@ class FxRequest {
 /// applies local prediction for your own miner, smooths everyone else, turns
 /// keyboard/touch into [PlayerInput], and publishes [HudState].
 class GameController {
-  GameController(this._session);
+  GameController(this._session, {this.audio});
 
   final GameSession _session;
+
+  /// Sound + haptics; null keeps the controller silent (tests).
+  final GameAudio? audio;
+  double _lastHp = Balance.maxHealth;
+
+  /// Volume for a sound at (x, y): full next to you, silent ~16 tiles away.
+  double _vol(double x, double y) {
+    final dx = x - predX, dy = y - predY;
+    return (1 - sqrt(dx * dx + dy * dy) / 16).clamp(0.0, 1.0);
+  }
   StreamSubscription<SessionEvent>? _sub;
 
   GameMap? map;
@@ -57,6 +68,17 @@ class GameController {
 
   /// Lit bombs (from the latest snapshot).
   List<BombSnapshot> bombs = const [];
+
+  /// Monsters and bursting Mystery Bombs (latest snapshot).
+  List<MonsterSnapshot> monsters = const [];
+  List<MysterySnapshot> mysteries = const [];
+
+  /// Fog of war: tiles you've had in your light. Drives the mini-map.
+  List<bool> explored = const [];
+  final minimapTick = ValueNotifier(0);
+  double _minimapClock = 0;
+  int _bannerSeq = 0;
+  double _bannerLeft = 0;
 
   /// Columns of the surface shop.
   List<int> depotXs = const [];
@@ -77,8 +99,9 @@ class GameController {
   double joyX = 0, joyY = 0;
   bool mineHeld = false;
 
-  /// Touch jump button.
+  /// Touch jump / jetpack buttons.
   bool jumpHeld = false;
+  bool jetHeld = false;
 
   /// Keeps a quick tap "pressed" long enough for the server to see it.
   double _jumpLatch = 0;
@@ -116,6 +139,10 @@ class GameController {
         _hasPrediction = false;
         mapVersion++;
         depotXs = (e.map.depotTiles.map((t) => t.x).toSet().toList()..sort());
+        explored = List.filled(e.map.width * e.map.height, false);
+        for (var i = 0; i < e.map.width * (MapGenerator.surfaceRows + 1); i++) {
+          explored[i] = true; // the surface is common knowledge
+        }
         hud.value = hud.value.copyWith(
           roomCode: e.roomCode,
           mode: e.settings.mode,
@@ -127,6 +154,8 @@ class GameController {
       case SessionSnapshot(:final snapshot):
         _applySnapshot(snapshot);
       case SessionEnded(result: final r):
+        final won = r.winnerId == youId || (r.winnerId == null && r.players.isNotEmpty && r.players.first.playerId == youId);
+        audio?.play(won ? Sfx.victory : Sfx.defeat);
         result.value = r;
       case SessionHint(:final hint):
         final old = hud.value.hint;
@@ -163,9 +192,11 @@ class GameController {
         final color = MinePalette.chip(old, d).toARGB32();
         if (old == TileType.boulder && boulderNow.contains(t.index + m.width)) continue;
         if (old.isSolid && !nt.isSolid) {
+          audio?.play(Sfx.rockBreak, volume: _vol(x, y) * 0.8);
           _fx.add(FxRequest.chips(x, y, color, amount: 10));
           if (old.ore != null) _fx.add(FxRequest.burst(x, y, MinePalette.chip(old, d).toARGB32()));
         } else if (nt == old && t.hp < oldHp) {
+          audio?.play(Sfx.dig, volume: _vol(x, y) * 0.7);
           _fx.add(FxRequest.chips(x, y, color, amount: 4));
         }
       }
@@ -173,6 +204,13 @@ class GameController {
     }
 
     bombs = s.bombs;
+    monsters = s.monsters;
+    mysteries = s.mysteries;
+    final ev = s.worldEvent;
+    hud.value = ev == null
+        ? hud.value.copyWith(clearEvent: true, worldEventLeft: 0)
+        : hud.value.copyWith(worldEvent: ev, worldEventLeft: s.worldEventLeft);
+    if (ev == WorldEventKind.earthquake) _fx.add(const FxRequest.shake(3));
     final seen = <String>{};
     for (final p in s.players) {
       seen.add(p.id);
@@ -192,6 +230,12 @@ class GameController {
 
     final mine = me;
     if (mine != null) {
+      // Got hurt (spikes, falls, blasts…): sting + buzz.
+      if (mine.snap.alive && mine.snap.hp < _lastHp - 3) {
+        audio?.play(Sfx.hurt);
+        audio?.buzz(Haptic.medium);
+      }
+      _lastHp = mine.snap.alive ? mine.snap.hp : Balance.maxHealth;
       if (!_hasPrediction || !mine.snap.alive) {
         predX = mine.snap.x;
         predY = mine.snap.y;
@@ -240,6 +284,7 @@ class GameController {
           _fx.add(FxRequest(who.rx, who.ry - 0.6, '+${ore.value} ${ore.name}', _rarityColor(ore.rarity)));
         }
         if (!isMe && ore.type == OreType.moneyBag) _pushFeed('$name found a ${ore.name}!');
+        if (isMe) audio?.play(ore.rarity.index >= Rarity.epic.index ? Sfx.gem : Sfx.coin);
       case GameEventKind.treasureRevealed:
         _pushFeed(isMe ? 'You spotted the TREASURE! Dig it out!' : 'Someone spotted the treasure near $name!');
         treasureSpotted = true;
@@ -253,7 +298,10 @@ class GameController {
         }
       case GameEventKind.died:
         _pushFeed(isMe ? 'You were killed by ${_cause(ev.text)}!' : '$name was killed by ${_cause(ev.text)}');
-        if (isMe) _fx.add(const FxRequest.shake(10));
+        if (isMe) {
+          _fx.add(const FxRequest.shake(10));
+          audio?.buzz(Haptic.heavy);
+        }
       case GameEventKind.upgraded:
         if (isMe) _pushFeed('Equipped ${UpgradeKind.values[ev.value].levels[who?.snap.upgrades[ev.value] ?? 0].name}');
       case GameEventKind.joined:
@@ -261,13 +309,16 @@ class GameController {
       case GameEventKind.left:
         _pushFeed('${ev.text} left');
       case GameEventKind.botJoined:
-        _pushFeed('${ev.text} joined');
+        _pushFeed('${ev.text} (bot) joined');
       case GameEventKind.botLeft:
-        _pushFeed('${ev.text} left');
+        _pushFeed('${ev.text} (bot) left');
       case GameEventKind.chat:
         _pushFeed('$name: ${ev.text}');
       case GameEventKind.explosion:
         if (ev.x != null) {
+          final v = _vol(ev.x!, ev.y!);
+          audio?.play(ev.value == ItemKind.dynamite.index ? Sfx.explosion : Sfx.smallBlast, volume: 0.3 + 0.7 * v);
+          if (v > 0.5) audio?.buzz(Haptic.heavy);
           _fx
             ..add(FxRequest.burst(ev.x!, ev.y!, 0xFFFFB13B))
             ..add(FxRequest.chips(ev.x!, ev.y!, 0xFF6E655E, amount: 24))
@@ -275,6 +326,8 @@ class GameController {
         }
       case GameEventKind.volcano:
         if (ev.x != null) {
+          audio?.play(Sfx.lava, volume: _vol(ev.x!, ev.y!));
+          audio?.play(Sfx.smallBlast, volume: _vol(ev.x!, ev.y!) * 0.8);
           _fx
             ..add(FxRequest.burst(ev.x!, ev.y!, 0xFFFF5A1F))
             ..add(FxRequest.chips(ev.x!, ev.y!, 0xFFFF7A1F, amount: 30))
@@ -285,6 +338,81 @@ class GameController {
         if (isMe) _pushFeed('Bought ${itemDefs[ItemKind.values[ev.value]]!.name}');
       case GameEventKind.respawned:
         if (isMe) _hasPrediction = false;
+      case GameEventKind.mysteryFound:
+        final near = ev.x != null && _vol(ev.x!, ev.y!) > 0.2;
+        if (isMe || near) {
+          _banner('MYSTERY BOMB DISCOVERED!', isMe ? 'Rarity: UNKNOWN… stand back!' : '$name cracked one open nearby', 0xFFB06BFF);
+          _fx.add(const FxRequest.shake(5));
+          audio?.play(Sfx.gem, volume: isMe ? 1 : 0.6);
+          audio?.buzz(Haptic.medium);
+        } else {
+          _pushFeed('$name found a Mystery Bomb!');
+        }
+      case GameEventKind.mysteryOpened:
+        final rarity = MysteryRarity.values[(ev.value ~/ 100).clamp(0, MysteryRarity.values.length - 1)];
+        final reward = MysteryReward.values[(ev.value % 100).clamp(0, MysteryReward.values.length - 1)];
+        final color = _mysteryColor(rarity);
+        if (ev.x != null) {
+          _fx
+            ..add(FxRequest.burst(ev.x!, ev.y!, color))
+            ..add(FxRequest.burst(ev.x!, ev.y!, 0xFFFFFFFF))
+            ..add(FxRequest.chips(ev.x!, ev.y!, color, amount: 26))
+            ..add(FxRequest(ev.x!, ev.y! - 0.8, '${rarity.label.toUpperCase()}!', color))
+            ..add(FxRequest.shake(rarity.index >= MysteryRarity.legendary.index ? 12 : 6));
+        }
+        final high = rarity.index >= MysteryRarity.legendary.index;
+        if (isMe) {
+          _banner('${rarity.label.toUpperCase()} MYSTERY BOMB', ev.text ?? reward.label, color);
+          audio?.play(high || reward == MysteryReward.jackpot ? Sfx.victory : (reward == MysteryReward.monster ? Sfx.hurt : Sfx.gem));
+        } else {
+          audio?.play(Sfx.smallBlast, volume: ev.x == null ? 0 : _vol(ev.x!, ev.y!) * 0.7);
+        }
+        if (high || reward == MysteryReward.jackpot) {
+          _pushFeed('$name opened a ${rarity.label.toUpperCase()} Mystery Bomb: ${reward.label}!');
+        }
+      case GameEventKind.monsterKilled:
+        final def = monsterDefs[MonsterKind.values[ev.value.clamp(0, MonsterKind.values.length - 1)]]!;
+        if (ev.x != null) {
+          _fx
+            ..add(FxRequest.chips(ev.x!, ev.y!, ev.value == MonsterKind.golem.index ? 0xFF8A8079 : 0xFF3A2F45, amount: 18))
+            ..add(FxRequest(ev.x!, ev.y! - 0.6, isMe ? '+${def.loot} ${def.name}' : def.name, 0xFFFF8A5B));
+          audio?.play(Sfx.rockBreak, volume: _vol(ev.x!, ev.y!));
+        }
+        _pushFeed(isMe ? 'You defeated a ${def.name}!' : '$name defeated a ${def.name}');
+      case GameEventKind.worldEvent:
+        final k = WorldEventKind.values[ev.value.clamp(0, WorldEventKind.values.length - 1)];
+        _banner(k.label.toUpperCase(), k.blurb, k == WorldEventKind.earthquake ? 0xFFFF8A5B : (k == WorldEventKind.goldRush ? 0xFFFFD34D : 0xFFB06BFF));
+        _pushFeed('EVENT: ${k.label}! ${k.blurb}');
+        audio?.play(k == WorldEventKind.earthquake ? Sfx.explosion : Sfx.victory, volume: 0.7);
+        if (k == WorldEventKind.earthquake) _fx.add(const FxRequest.shake(12));
+      case GameEventKind.worldEventEnded:
+        _pushFeed('${WorldEventKind.values[ev.value.clamp(0, WorldEventKind.values.length - 1)].label} is over');
+    }
+  }
+
+  void _banner(String title, String subtitle, int color) {
+    _bannerLeft = 3.2;
+    hud.value = hud.value.copyWith(banner: HudBanner(title, subtitle, color, ++_bannerSeq));
+  }
+
+  static int _mysteryColor(MysteryRarity r) => switch (r) {
+    MysteryRarity.common => 0xFF7EE08A,
+    MysteryRarity.rare => 0xFF4DA3FF,
+    MysteryRarity.epic => 0xFFB06BFF,
+    MysteryRarity.legendary => 0xFFFFC233,
+    MysteryRarity.mythic => 0xFFFF4D6A,
+  };
+
+  /// Marks tiles inside your helmet light as explored.
+  void _explore(GameMap m, double x, double y, double radius) {
+    final r = radius.ceil();
+    final cx = x.floor(), cy = y.floor();
+    for (var ty = cy - r; ty <= cy + r; ty++) {
+      for (var tx = cx - r; tx <= cx + r; tx++) {
+        if (!m.inBounds(tx, ty)) continue;
+        if ((tx - cx) * (tx - cx) + (ty - cy) * (ty - cy) > r * r) continue;
+        explored[m.indexOf(tx, ty)] = true;
+      }
     }
   }
 
@@ -325,6 +453,17 @@ class GameController {
     if (mine == null) return;
     final input = _readInput(dt);
 
+    if (_bannerLeft > 0) {
+      _bannerLeft -= dt;
+      if (_bannerLeft <= 0) hud.value = hud.value.copyWith(clearBanner: true);
+    }
+    _minimapClock += dt;
+    if (_minimapClock > 0.25 && explored.isNotEmpty) {
+      _minimapClock = 0;
+      if (mine.snap.alive) _explore(m, predX, predY, mine.snap.vision * 0.8);
+      minimapTick.value++;
+    }
+
     // Predict your own movement with the shared gravity physics.
     final s = mine.snap;
     if (s.alive && _hasPrediction) {
@@ -340,8 +479,15 @@ class GameController {
         dt: dt,
         jump: input.jump,
         up: input.up,
+        jet: input.jet && s.fuel > 1,
         jumpBoost: Physics.jumpBoostFor(boots),
       );
+      if (input.jump && !input.jet && predVy >= -0.01 && mv.vy < -5) audio?.play(Sfx.jump, volume: 0.6);
+      if (mv.impact > 10) {
+        audio?.play(Sfx.land, volume: (mv.impact / 20).clamp(0.3, 1.0));
+        if (mv.impact > Balance.safeFallSpeed) audio?.buzz(Haptic.medium);
+      }
+      if (input.jet && s.fuel > 1) audio?.play(Sfx.jet, volume: 0.5);
       predX = mv.x;
       predY = mv.y;
       predVx = mv.vx;
@@ -382,6 +528,7 @@ class GameController {
         input.dy != _lastSent.dy ||
         input.mine != _lastSent.mine ||
         input.jump != _lastSent.jump ||
+        input.jet != _lastSent.jet ||
         input.fx != _lastSent.fx ||
         input.fy != _lastSent.fy;
     if ((changed && _sendTimer >= 0.05) || _sendTimer >= 0.5) {
@@ -431,6 +578,7 @@ class GameController {
       fy: _fy0,
       mine: mining,
       jump: jump,
+      jet: jetHeld || keys.contains(LogicalKeyboardKey.shiftLeft) || keys.contains(LogicalKeyboardKey.shiftRight) || keys.contains(LogicalKeyboardKey.keyK),
     );
   }
 
@@ -453,5 +601,6 @@ class GameController {
     await _session.leave();
     hud.dispose();
     result.dispose();
+    minimapTick.dispose();
   }
 }

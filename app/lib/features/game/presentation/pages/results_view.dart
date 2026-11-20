@@ -111,8 +111,13 @@ class _ResultsViewState extends State<ResultsView> with SingleTickerProviderStat
                           leading: p.playerId == r.winnerId
                               ? const IconTile(CupertinoIcons.star_fill, color: MMColors.gold, size: 32)
                               : Text('${p.rank}', style: MMText.headline.copyWith(color: p.rank <= 3 ? MMColors.amber : MMColors.muted)),
-                          title: p.playerId == widget.youId ? '${p.name} (you)' : p.name,
-                          subtitle: p.playerId == r.winnerId ? 'Found the treasure' : '${p.oresMined} finds',
+                          title: p.playerId == widget.youId ? '${p.name} (you)' : (p.isBot ? '${p.name} · BOT' : p.name),
+                          subtitle: [
+                            if (p.playerId == r.winnerId) 'Found the treasure' else '${p.oresMined} finds',
+                            if (p.mysteriesOpened > 0) '${p.mysteriesOpened} mystery',
+                            if (p.monstersKilled > 0) '${p.monstersKilled} monsters',
+                            if (p.bonusGems > 0) '+${p.bonusGems} gems',
+                          ].join(' · '),
                           highlight: p.playerId == widget.youId,
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,

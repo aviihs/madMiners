@@ -61,6 +61,7 @@ abstract final class Physics {
     required double dt,
     bool jump = false,
     bool up = false,
+    bool jet = false,
     double jumpBoost = 1,
   }) {
     final grounded = onGround(map, x, y);
@@ -69,7 +70,10 @@ abstract final class Physics {
     // In a shaft you can kick off the walls, so jumping works there too.
     final chimney = inChimney(map, x, y);
     var climbing = false;
-    if (jump && (grounded || chimney) && vy >= -0.01) {
+    if (jet) {
+      // Jetpack: thrust beats gravity, up to a capped climb rate.
+      vy = max(vy - (Balance.jetThrust - Balance.gravity) * dt, -Balance.jetMaxRise);
+    } else if (jump && (grounded || chimney) && vy >= -0.01) {
       vy = -Balance.jumpSpeed * jumpBoost;
     } else if (chimney && up) {
       climbing = true;
@@ -106,7 +110,7 @@ abstract final class Physics {
     // Hole assist: blocked vertically but the tile straight ahead (above
     // when jumping, below when standing) is open → slide toward its centre,
     // so dug shafts are easy to drop into and jump up through.
-    final goingUp = jump || climbing;
+    final goingUp = jump || climbing || jet;
     if (vy.abs() < 0.01 && moveX.abs() < 0.35) {
       final col = x.floor();
       final row = goingUp ? (y - _r - 0.1).floor() : (y + _r + 0.1).floor();

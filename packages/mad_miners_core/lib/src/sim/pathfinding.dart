@@ -16,6 +16,8 @@ class DigPathfinder {
     TileType.bedrock => double.infinity,
     TileType.lava => double.infinity,
     TileType.gas => 25,
+    TileType.spikes => 18,
+    TileType.explosive => 40,
     TileType.empty || TileType.depot => 1,
     // Digging under a boulder is asking for a headache.
     TileType.boulder => 2 + (hp / damage).ceil() * 0.9,

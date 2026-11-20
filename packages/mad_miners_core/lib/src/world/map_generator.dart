@@ -60,7 +60,7 @@ class MapGenerator {
           map.setTile(x, y, TileType.empty);
         } else {
           final d = (y - surfaceRows) / (lavaTop - surfaceRows);
-          map.setTile(x, y, d > 0.45 ? TileType.hardRock : TileType.rock);
+          map.setTile(x, y, d > 0.45 ? TileType.hardRock : (d < 0.18 ? TileType.dirt : TileType.rock));
         }
       }
     }
@@ -87,6 +87,38 @@ class MapGenerator {
         if ((t == TileType.rock || t == TileType.hardRock) && rng.nextDouble() < def.boulders) {
           map.setTile(x, y, TileType.boulder);
         }
+      }
+    }
+
+    // 3c. Traps: spikes on cave floors, explosive crates in the rock.
+    for (var y = surfaceRows + 4; y < lavaTop - 3; y++) {
+      final d = (y - surfaceRows) / (lavaTop - surfaceRows);
+      for (var x = 2; x < width - 2; x++) {
+        final t = map.tileAt(x, y);
+        if (t == TileType.empty && map.isSolid(x, y + 1) && map.tileAt(x, y + 1) != TileType.boulder && rng.nextDouble() < 0.05 + d * 0.08) {
+          map.setTile(x, y, TileType.spikes);
+        } else if ((t == TileType.rock || t == TileType.hardRock) && rng.nextDouble() < 0.004 + d * 0.004) {
+          map.setTile(x, y, TileType.explosive);
+        }
+      }
+    }
+
+    // 3d. Mystery Bombs, more of them deeper down.
+    var mysteries = 0, mtries = 0;
+    while (mysteries < def.mysteryBombs && mtries++ < 3000) {
+      final x = 2 + rng.nextInt(width - 4);
+      final f = sqrt(rng.nextDouble()); // skew deeper
+      final y = surfaceRows + 4 + ((lavaTop - surfaceRows - 8) * f).floor();
+      final t = map.tileAt(x, y);
+      if (t != TileType.rock && t != TileType.hardRock && t != TileType.dirt) continue;
+      map.setTile(x, y, TileType.mystery);
+      mysteries++;
+    }
+
+    // 3e. Obsidian crust just above the lava.
+    for (var y = lavaTop - (lavaTop - surfaceRows) ~/ 8; y < lavaTop; y++) {
+      for (var x = 1; x < width - 1; x++) {
+        if (map.tileAt(x, y) == TileType.hardRock && rng.nextDouble() < 0.10) map.setTile(x, y, TileType.obsidian);
       }
     }
 
@@ -120,11 +152,19 @@ class MapGenerator {
   TileType? _pickLoot(double roll, double d, double boost) {
     final moneyBag = d < 0.4 ? 0.0 : 0.010 * d * boost;
     final diamond = d < 0.3 ? 0.0 : 0.018 * d * d * boost;
+    final ruby = d < 0.6 ? 0.0 : 0.010 * d * boost;
+    final emerald = d < 0.5 ? 0.0 : 0.010 * d * boost;
+    final silver = d < 0.15 ? 0.0 : 0.022 * (1 - (d - 0.45).abs());
     final gold = 0.028 * d * boost;
     final iron = 0.040 * (0.3 + d * 0.7);
     final copper = 0.050 * (1.1 - d);
+    final coal = d > 0.5 ? 0.0 : 0.045 * (1 - d * 2);
     var acc = moneyBag;
     if (roll < acc) return TileType.moneyBag;
+    if (roll < (acc += ruby)) return TileType.ruby;
+    if (roll < (acc += emerald)) return TileType.emerald;
+    if (roll < (acc += silver)) return TileType.silver;
+    if (roll < (acc += coal)) return TileType.coal;
     if (roll < (acc += diamond)) return TileType.diamond;
     if (roll < (acc += gold)) return TileType.gold;
     if (roll < (acc += iron)) return TileType.iron;

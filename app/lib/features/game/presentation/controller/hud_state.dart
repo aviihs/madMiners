@@ -2,6 +2,17 @@ import 'package:mad_miners_core/mad_miners_core.dart';
 
 import '../../domain/entities/session_event.dart';
 
+/// A short-lived headline, e.g. "MYSTERY BOMB DISCOVERED!".
+class HudBanner {
+  const HudBanner(this.title, this.subtitle, this.color, this.id);
+  final String title;
+  final String subtitle;
+  final int color;
+
+  /// Changes for every new banner so the UI can re-animate.
+  final int id;
+}
+
 class ScoreLine {
   const ScoreLine({
     required this.id,
@@ -41,7 +52,15 @@ class HudState {
     this.warmup = 0,
     this.lobbyTarget = 8,
     this.hint = TreasureHint.none,
+    this.banner,
+    this.worldEvent,
+    this.worldEventLeft = 0,
   });
+
+  /// Big centre-screen announcement (Mystery Bomb, world event…).
+  final HudBanner? banner;
+  final WorldEventKind? worldEvent;
+  final double worldEventLeft;
 
   final PlayerSnapshot? me;
   final double timeLeft;
@@ -85,7 +104,15 @@ class HudState {
     double? warmup,
     int? lobbyTarget,
     TreasureHint? hint,
+    HudBanner? banner,
+    bool clearBanner = false,
+    WorldEventKind? worldEvent,
+    bool clearEvent = false,
+    double? worldEventLeft,
   }) => HudState(
+    banner: clearBanner ? null : (banner ?? this.banner),
+    worldEvent: clearEvent ? null : (worldEvent ?? this.worldEvent),
+    worldEventLeft: worldEventLeft ?? this.worldEventLeft,
     me: me ?? this.me,
     timeLeft: timeLeft ?? this.timeLeft,
     scoreboard: scoreboard ?? this.scoreboard,

@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Scaffold;
 import 'package:mad_miners_core/mad_miners_core.dart';
 
+import '../../../../app/audio.dart';
 import '../../../../app/di.dart';
 import '../../../../app/theme.dart';
 import '../../../../app/ui/ui.dart';
@@ -26,13 +27,14 @@ class GamePage extends StatefulWidget {
 }
 
 class _GamePageState extends State<GamePage> {
-  late final GameController _controller = GameController(sl<OpenGameSession>()(widget.target));
+  late final GameController _controller = GameController(sl<OpenGameSession>()(widget.target), audio: sl<GameAudio>());
   late final MadMinersGame _game = MadMinersGame(_controller);
 
   @override
   void initState() {
     super.initState();
     _controller.start();
+    sl<GameAudio>().music(on: true);
   }
 
   Future<void> _confirmExit() async {
@@ -48,6 +50,7 @@ class _GamePageState extends State<GamePage> {
 
   @override
   void dispose() {
+    sl<GameAudio>().music(on: false);
     _controller.dispose();
     super.dispose();
   }

@@ -17,7 +17,8 @@ void main() {
 
     expect(controller.ready, isTrue);
     expect(controller.miners.length, greaterThan(2), reason: 'miners trickle into the lobby');
-    expect(controller.miners.values.any((m) => m.snap.isBot), isFalse, reason: 'everyone looks like a player');
+    expect(controller.miners.values.where((m) => m.snap.isBot), isNotEmpty, reason: 'practice bots are labelled as bots');
+    expect(controller.miners[controller.youId]!.snap.isBot, isFalse);
     expect(controller.hud.value.me?.name, 'Tester');
     expect(controller.hud.value.warmup, greaterThan(0));
 

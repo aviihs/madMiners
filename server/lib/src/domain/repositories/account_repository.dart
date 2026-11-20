@@ -5,6 +5,38 @@ import '../entities/player_account.dart';
 
 enum PurchaseError { alreadyOwned, insufficientCoins, insufficientGems }
 
+/// Result of looking at (or claiming) the daily reward.
+class DailyStatus {
+  const DailyStatus({required this.available, required this.streak, required this.coins, required this.gems});
+
+  /// Can be claimed now.
+  final bool available;
+
+  /// The streak day that is (or was just) claimed.
+  final int streak;
+  final int coins;
+  final int gems;
+
+  Map<String, dynamic> toJson() => {'available': available, 'streak': streak, 'coins': coins, 'gems': gems};
+
+  /// What [lastDay]/[lastStreak] mean for [today] (all UTC dates).
+  static DailyStatus compute(DateTime? lastDay, int lastStreak, DateTime today) {
+    final t = DateTime.utc(today.year, today.month, today.day);
+    if (lastDay != null && lastDay == t) {
+      final r = dailyReward(lastStreak);
+      return DailyStatus(available: false, streak: lastStreak, coins: r.coins, gems: r.gems);
+    }
+    final continues = lastDay != null && lastDay == t.subtract(const Duration(days: 1));
+    final next = continues ? lastStreak + 1 : 1;
+    final r = dailyReward(next);
+    return DailyStatus(available: true, streak: next, coins: r.coins, gems: r.gems);
+  }
+}
+
+class DailyClaimedException implements Exception {
+  const DailyClaimedException();
+}
+
 class PurchaseException implements Exception {
   const PurchaseException(this.error);
   final PurchaseError error;
@@ -31,6 +63,13 @@ abstract interface class AccountRepository {
   /// Throws [PurchaseException].
   Future<PlayerAccount> purchase(String userId, CosmeticDef item, String requestId);
   Future<PlayerAccount> equip(String userId, CosmeticDef item);
+
+  /// Daily reward state for [today] (UTC).
+  Future<DailyStatus> dailyStatus(String userId, DateTime today);
+
+  /// Credits today's reward once. Throws [DailyClaimedException] if already
+  /// claimed today. Atomic: the wallet and the claim change together.
+  Future<(PlayerAccount, DailyStatus)> claimDaily(String userId, DateTime today);
 
   Future<List<PlayerAccount>> topByCoins(int limit);
   Future<List<PlayerAccount>> topToday(int limit);

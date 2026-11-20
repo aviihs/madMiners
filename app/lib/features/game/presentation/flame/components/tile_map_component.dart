@@ -59,6 +59,9 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
         switch (t) {
           case TileType.empty:
             _drawBackWall(canvas, map, r, x, y, h, d);
+          case TileType.spikes:
+            _drawBackWall(canvas, map, r, x, y, h, d);
+            _drawSpikes(canvas, r, h);
           case TileType.boulder:
             _drawBackWall(canvas, map, r, x, y, h, d);
             _drawBoulder(canvas, map, r, x, y, h, d);
@@ -93,7 +96,7 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
   /// Dug-out space: the darker rock face behind the tunnel, with ambient
   /// occlusion where it meets solid rock.
   void _drawBackWall(Canvas canvas, GameMap map, Rect r, int x, int y, int h, double d) {
-    final base = MinePalette.shade(MinePalette.tunnel(d), ((h % 9) - 4) / 110);
+    final base = MinePalette.tinted(MinePalette.shade(MinePalette.tunnel(d), ((h % 9) - 4) / 110), d);
     _p.color = base;
     canvas.drawRect(r, _p);
     // Faint stones in the back wall.
@@ -117,6 +120,71 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
       canvas.drawOval(Rect.fromLTWH(r.left + (h % 14) + 2, r.bottom - 4, 6, 4), _p);
       canvas.drawOval(Rect.fromLTWH(r.left + (h >> 4) % 12 + 16, r.bottom - 3, 4, 3), _p);
     }
+  }
+
+  /// Mystery Bomb: metal shell, pulsing violet core, strange glyphs. Every
+  /// rarity looks the same until it's opened.
+  void _drawMystery(Canvas canvas, Rect r, int h) {
+    final pulse = 0.5 + 0.5 * sin(_t * 3.2 + h % 7);
+    final c = r.center;
+    _p.shader = Gradient.radial(c, ts * 0.9, [Color.fromRGBO(176, 107, 255, 0.55 * pulse + 0.2), const Color(0x00B06BFF)]);
+    canvas.drawCircle(c, ts * 0.9, _p);
+    _p.shader = null;
+    _p.color = const Color(0xFF3A3F4A);
+    canvas.drawCircle(c, ts * 0.36, _p);
+    _p.color = const Color(0xFF6B7280);
+    canvas.drawCircle(c + const Offset(-3, -3), ts * 0.14, _p);
+    _p.color = Color.lerp(const Color(0xFF7B4FD6), const Color(0xFFE0B3FF), pulse)!;
+    canvas.drawCircle(c, ts * 0.17, _p);
+    // Glowing cracks / glyphs around the shell.
+    _crack.color = Color.fromRGBO(224, 179, 255, 0.5 + 0.5 * pulse);
+    for (var i = 0; i < 4; i++) {
+      final a = i * pi / 2 + _t * 0.8;
+      canvas.drawLine(c + Offset(cos(a), sin(a)) * ts * 0.2, c + Offset(cos(a + 0.3), sin(a + 0.3)) * ts * 0.34, _crack);
+    }
+    _crack.color = const Color(0xCC140E0B);
+    _signText.render(canvas, '?', Vector2(c.dx, c.dy - ts * 0.62), anchor: Anchor.center);
+  }
+
+  /// Rusty floor spikes.
+  void _drawSpikes(Canvas canvas, Rect r, int h) {
+    _p.color = const Color(0xFF3A3530);
+    canvas.drawRect(Rect.fromLTWH(r.left + 1, r.bottom - 4, ts - 2, 4), _p);
+    for (var i = 0; i < 4; i++) {
+      final x = r.left + 4 + i * 8.0;
+      final tall = 12.0 + (h >> i) % 5;
+      final spike = Path()
+        ..moveTo(x - 3.5, r.bottom - 3)
+        ..lineTo(x, r.bottom - 3 - tall)
+        ..lineTo(x + 3.5, r.bottom - 3)
+        ..close();
+      _p.color = const Color(0xFF9AA3AD);
+      canvas.drawPath(spike, _p);
+      _p.color = const Color(0xFF5E6670);
+      canvas.drawPath(Path()..moveTo(x, r.bottom - 3 - tall)..lineTo(x + 3.5, r.bottom - 3)..lineTo(x, r.bottom - 3)..close(), _p);
+      _p.color = const Color(0x99A0522D); // rust / old blood
+      canvas.drawCircle(Offset(x, r.bottom - 3 - tall + 3), 1.2, _p);
+    }
+  }
+
+  /// Wooden TNT crate with a hazard stripe.
+  void _drawCrate(Canvas canvas, Rect r) {
+    final box = r.deflate(2);
+    _p.color = const Color(0xFF9C2A1E);
+    canvas.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(3)), _p);
+    _p.color = const Color(0xFF6E1A12);
+    canvas.drawRect(Rect.fromLTWH(box.left, box.top, box.width, 3), _p);
+    canvas.drawRect(Rect.fromLTWH(box.left, box.bottom - 3, box.width, 3), _p);
+    _p.color = const Color(0xFFFFC233);
+    canvas.drawRect(Rect.fromLTWH(box.left, box.center.dy - 4, box.width, 8), _p);
+    _p.color = const Color(0xFF1E1E22);
+    for (var i = 0; i < 4; i++) {
+      final x = box.left + i * 7.0;
+      canvas.drawPath(Path()..moveTo(x, box.center.dy + 4)..lineTo(x + 4, box.center.dy - 4)..lineTo(x + 7, box.center.dy - 4)..lineTo(x + 3, box.center.dy + 4)..close(), _p);
+    }
+    final blink = sin(_t * 5) > 0.7;
+    _p.color = blink ? const Color(0xFFFF453A) : const Color(0x88FF453A);
+    canvas.drawCircle(Offset(box.right - 4, box.top + 6), 1.8, _p);
   }
 
   /// A loose boulder: round, heavy, and wobbling when nothing holds it up.
@@ -221,7 +289,11 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
 
   void _drawSolid(Canvas canvas, GameMap map, Rect r, int x, int y, TileType t, int h, double d) {
     final hard = t == TileType.hardRock || t == TileType.diamond || t == TileType.treasure || (d > 0.5 && t.ore != null);
-    final base = MinePalette.shade(MinePalette.rock(d, hard: hard), ((h % 11) - 5) / 90);
+    final base = t == TileType.dirt
+        ? MinePalette.shade(MinePalette.dirt, ((h % 11) - 5) / 70)
+        : t == TileType.obsidian
+        ? MinePalette.shade(const Color(0xFF221A2E), ((h % 11) - 5) / 120)
+        : MinePalette.tinted(MinePalette.shade(MinePalette.rock(d, hard: hard), ((h % 11) - 5) / 90), d);
     _p.color = base;
     canvas.drawRect(r, _p);
 
@@ -235,6 +307,19 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     canvas.drawOval(Rect.fromLTWH(r.left + (h % 13) + 3, r.top + (h >> 4) % 12 + 4, 9, 6), _p);
     _p.color = MinePalette.shade(base, -0.12);
     canvas.drawOval(Rect.fromLTWH(r.left + (h >> 7) % 14 + 12, r.top + (h >> 3) % 10 + 16, 7, 5), _p);
+
+    if (t == TileType.dirt) {
+      // Loose soil: grainy specks and the odd root.
+      for (var i = 0; i < 6; i++) {
+        _p.color = MinePalette.shade(base, i.isEven ? -0.18 : 0.12);
+        canvas.drawCircle(Offset(r.left + 3 + (h >> (i * 2)) % 26, r.top + 3 + (h >> (i * 3 + 1)) % 26), 1.3, _p);
+      }
+      if (h % 5 == 0) {
+        _crack.color = const Color(0xFF5A3A22);
+        canvas.drawLine(Offset(r.left + 4, r.top + 6 + h % 10), Offset(r.left + 18, r.top + 12 + h % 12), _crack);
+        _crack.color = const Color(0xCC140E0B);
+      }
+    }
 
     // Edge lighting against open space.
     final openAbove = !map.isSolid(x, y - 1) && map.tileAt(x, y - 1) != TileType.bedrock;
@@ -254,14 +339,25 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     if (!map.isSolid(x + 1, y)) canvas.drawRect(Rect.fromLTWH(r.right - 3, r.top, 3, ts), _shadow);
 
     switch (t) {
-      case TileType.copper || TileType.iron || TileType.gold:
-        _drawNuggets(canvas, r, h, MinePalette.ore[t]!, sparkle: t == TileType.gold);
+      case TileType.copper || TileType.iron || TileType.gold || TileType.coal || TileType.silver:
+        _drawNuggets(canvas, r, h, MinePalette.ore[t]!, sparkle: t == TileType.gold || t == TileType.silver);
       case TileType.diamond:
         _drawGems(canvas, r, h);
+      case TileType.emerald || TileType.ruby:
+        _drawGems(canvas, r, h, color: MinePalette.ore[t]!);
+      case TileType.obsidian:
+        _p.color = const Color(0x55B06BFF);
+        canvas.drawPath(Path()..moveTo(r.left + 6, r.top + 4)..lineTo(r.left + 14, r.top + 4)..lineTo(r.left + 8, r.top + 16)..close(), _p);
+        _p.color = const Color(0x33FFFFFF);
+        canvas.drawLine(Offset(r.left + 18, r.top + 8), Offset(r.left + 26, r.top + 22), _p..strokeWidth = 1.5);
+      case TileType.mystery:
+        _drawMystery(canvas, r, h);
       case TileType.moneyBag:
         _drawCoins(canvas, r);
       case TileType.treasure:
         _drawChest(canvas, r);
+      case TileType.explosive:
+        _drawCrate(canvas, r);
       default:
         break;
     }
@@ -286,8 +382,8 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     if (sparkle) _twinkle(canvas, r, h, const Color(0xFFFFF6C8));
   }
 
-  void _drawGems(Canvas canvas, Rect r, int h) {
-    const c = Color(0xFF8AF0FF);
+  void _drawGems(Canvas canvas, Rect r, int h, {Color color = const Color(0xFF8AF0FF)}) {
+    final c = color;
     for (var i = 0; i < 3; i++) {
       final ox = r.left + 7 + ((h >> (i * 4)) % 17);
       final oy = r.top + 7 + ((h >> (i * 4 + 2)) % 17);

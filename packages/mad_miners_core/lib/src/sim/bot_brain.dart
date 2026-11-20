@@ -246,7 +246,8 @@ class BotBrain {
     }
     if (dirY < 0) {
       // Up into open space: jump (or climb a shaft).
-      return PlayerInput(dx: steer, dy: -1, fx: 0, fy: -1, jump: me.onGround || centre.abs() < 0.3);
+      // Up into open space: jump, then jetpack the rest of the way.
+      return PlayerInput(dx: steer, dy: -1, fx: 0, fy: -1, jump: me.onGround, jet: !me.onGround && me.fuel > 15 && me.vy > -2);
     }
     if (dirY > 0) return PlayerInput(dx: steer, fx: 0, fy: 1);
     // Sideways: walk, hop up if there's a lip in the way.

@@ -48,6 +48,8 @@ abstract final class MinerArt {
     bool airborne = false,
     double vy = 0,
     double time = 0,
+    bool jetpack = false,
+    bool jetting = false,
   }) {
     final outfit = look.def(CosmeticSlot.outfit);
     final helmet = look.def(CosmeticSlot.helmet);
@@ -110,6 +112,8 @@ abstract final class MinerArt {
 
     canvas.save();
     canvas.translate(0, -bob.abs());
+
+    if (jetpack) _drawJetpack(canvas, dir, jetting, time, opacity);
 
     // Pickaxe pose: swinging toward the aim while digging, carried on the
     // shoulder otherwise, raised overhead mid-air.
@@ -605,13 +609,46 @@ abstract final class MinerArt {
     // Shine on the metal.
     _p.color = Color.fromRGBO(255, 255, 255, 0.5 * opacity);
     canvas.drawCircle(head + perp * 3 + d * 1.2, 0.9, _p);
-    if (pick.isPremium || pick.power >= 3) {
+    if (pick.isPremium || pick.price >= 1400) {
       final tw = (sin(t * 3.3 + pick.id.length) + 1) / 2;
       if (tw > 0.5) {
         _p.color = Color.fromRGBO(255, 255, 255, (tw - 0.5) * 2 * opacity);
         _sparkle(canvas, head + perp * 6, 3 * tw);
       }
     }
+  }
+
+  /// Twin-tank jetpack on the back; a flickering flame while it fires.
+  static void _drawJetpack(Canvas canvas, double dir, bool firing, double t, double opacity) {
+    final x = -9.5 * dir;
+    if (firing) {
+      final f = 0.75 + 0.25 * sin(t * 40);
+      _p.shader = Gradient.linear(Offset(x, 4), Offset(x, 4 + 13 * f), [
+        Color.fromRGBO(255, 248, 200, opacity),
+        Color.fromRGBO(255, 150, 40, 0.9 * opacity),
+        const Color(0x00FF5A1F),
+      ], const [0, 0.4, 1]);
+      canvas.drawPath(
+        Path()
+          ..moveTo(x - 3.2, 3)
+          ..quadraticBezierTo(x, 4 + 14 * f, x + 3.2, 3)
+          ..close(),
+        _p,
+      );
+      _p.shader = null;
+    }
+    final tank = RRect.fromRectAndRadius(Rect.fromLTWH(x - 3.5, -11, 7, 14), const Radius.circular(3));
+    _p.shader = Gradient.linear(Offset(x - 3.5, 0), Offset(x + 3.5, 0), [
+      Color.fromRGBO(190, 200, 212, opacity),
+      Color.fromRGBO(120, 130, 145, opacity),
+    ]);
+    canvas.drawRRect(tank, _p);
+    _p.shader = null;
+    canvas.drawRRect(tank, _line);
+    _p.color = Color.fromRGBO(229, 57, 53, opacity);
+    canvas.drawRect(Rect.fromLTWH(x - 3.5, -6, 7, 2), _p);
+    _p.color = Color.fromRGBO(60, 60, 66, opacity);
+    canvas.drawRect(Rect.fromLTWH(x - 2.2, 3, 4.4, 2), _p);
   }
 
   static void _sparkle(Canvas canvas, Offset o, double s) {

@@ -7,6 +7,7 @@ import 'package:flame/game.dart';
 import '../controller/game_controller.dart';
 import 'components/effects_components.dart';
 import 'components/miners_component.dart';
+import 'components/monsters_component.dart';
 import 'components/tile_map_component.dart';
 
 /// Flame view of the match. Pure rendering — all game state comes from the
@@ -33,6 +34,8 @@ class MadMinersGame extends FlameGame {
       TileMapComponent(controller),
       particles,
       BombsComponent(controller),
+      MonstersComponent(controller),
+      MysteryOpeningsComponent(controller),
       MinersComponent(controller),
       DarknessComponent(controller),
     ]);
