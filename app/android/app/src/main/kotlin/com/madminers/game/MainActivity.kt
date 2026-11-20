@@ -1,4 +1,4 @@
-package com.madminers.mad_miners
+package com.madminers.game
 
 import io.flutter.embedding.android.FlutterActivity
 

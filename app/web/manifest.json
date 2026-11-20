@@ -1,6 +1,6 @@
 {
-    "name": "mad_miners",
-    "short_name": "mad_miners",
+    "name": "Mad Miners: Dig & Treasure",
+    "short_name": "Mad Miners",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
