@@ -11,6 +11,7 @@ import 'bot_brain.dart';
 import 'physics.dart';
 import 'sim_player.dart';
 
+part 'hazards.dart';
 part 'world_systems.dart';
 
 /// Authoritative game state for one room: a race to dig down and break the
@@ -30,8 +31,18 @@ class GameSimulation {
        map = generator.generate(settings.mapId, seed),
        timeLeft = settings.durationSeconds.toDouble() {
     treasure = map.treasure!;
+    final door = List.generate(map.width * map.height, (i) => i).where((i) => map.tileAtIndex(i) == TileType.ancientDoor);
+    _chamberDoor = door.isEmpty ? null : door.first;
     _initWorld();
   }
+
+  // Traps and fluids (see hazards.dart).
+  final Map<int, double> _launchArm = {};
+  final Map<int, double> _launchCd = {};
+  final Map<int, double> _plateCd = {};
+  final Map<int, PlateTrap> _plateTrap = {};
+  double _fluidClock = 0;
+  int? _chamberDoor;
 
   // Mystery Bombs, monsters, world events (see world_systems.dart).
   final List<_Monster> _monsters = [];
@@ -46,6 +57,9 @@ class GameSimulation {
   double worldEventLeft = 0;
 
   int get monsterCount => _monsters.length;
+
+  /// Tests only: light TNT at (x, y) as if a miner had broken it.
+  void activateTntForTest(int x, int y, TntKind kind) => _activateTnt(x, y, kind, null);
 
   /// Tests only: put a monster at (x, y).
   void spawnMonsterForTest(MonsterKind kind, double x, double y) => _spawnMonster(kind, x, y);
@@ -264,6 +278,8 @@ class GameSimulation {
     _updateMonsters(dt);
     _updateOpenings(dt);
     _updateWorldEvent(dt);
+    _updateTraps(dt);
+    _updateFluids(dt);
     if (winnerId != null) return;
 
     final claimed = <TilePos>{
@@ -371,6 +387,16 @@ class GameSimulation {
       _hurt(p, fall, 'a long fall', armored: false);
       if (!p.alive) return;
     }
+    p.launched = max(0, p.launched - dt);
+    final crash = p.launched > 0 ? Physics.impactDamage(mv.wallImpact) : 0.0;
+    if (crash > 0) {
+      _hurt(p, crash, 'a crash into the rock', armored: false);
+      if (!p.alive) return;
+    }
+    if (!isWarmup) {
+      _checkTraps(p);
+      _checkUnstable(p);
+    }
     final depth = max(0, p.y.floor() - MapGenerator.surfaceRows + 1);
     if (depth > p.maxDepth) p.maxDepth = depth;
     if (depth > p.bestDepth) p.bestDepth = depth;
@@ -405,7 +431,8 @@ class GameSimulation {
     final under = map.tileAt(p.x.floor(), p.y.floor());
     p.inDepot = under == TileType.depot;
     if (p.inDepot) p.hp = min(Balance.maxHealth, p.hp + Balance.depotHeal * dt);
-    if (under == TileType.lava) _hurt(p, Balance.lavaDamage * dt, 'lava', armored: false);
+    final feetTile = map.tileAt(p.x.floor(), (p.y + Balance.playerRadius - 0.05).floor());
+    if (under == TileType.lava || feetTile == TileType.lava) _hurt(p, Balance.lavaDamage * dt, 'lava', armored: false);
     if (under == TileType.gas) _hurt(p, Balance.gasDamage * dt, 'toxic gas');
     // Spike traps: stepping (or landing) on them hurts and bounces you up.
     final feet = map.tileAt(p.x.floor(), (p.y + Balance.playerRadius - 0.05).floor());
@@ -422,10 +449,13 @@ class GameSimulation {
     if (!p.alive) return;
     p.hp -= armored ? amount * (1 - p.armor) : amount;
     if (p.hp > 0) return;
+    // Death penalty: drop part of your unspent match coins (score and gear stay).
+    final lost = (p.coins * Balance.deathCoinLoss).floor();
     p
       ..hp = 0
+      ..coins -= lost
       ..respawnIn = Balance.respawnSeconds;
-    _events.add(GameEvent(GameEventKind.died, playerId: p.id, text: cause));
+    _events.add(GameEvent(GameEventKind.died, playerId: p.id, text: cause, value: lost));
   }
 
   void _kill(SimPlayer p, String cause) => _hurt(p, 9999, cause, armored: false);
@@ -437,9 +467,10 @@ class GameSimulation {
       b.fuse -= dt;
       _moveBomb(b, dt);
     }
-    // Explosions can chain, so loop until nothing new goes off.
+    // Explosions can chain, so loop until nothing new goes off. TNT goes off
+    // on its exact server tick; thrown bombs on their fuse.
     while (true) {
-      final due = _bombs.where((b) => b.fuse <= 0).toList();
+      final due = _bombs.where((b) => b.dueTick != null ? tick >= b.dueTick! : b.fuse <= 0).toList();
       if (due.isEmpty) break;
       for (final b in due) {
         _bombs.remove(b);
@@ -472,10 +503,6 @@ class GameSimulation {
     if (b.vx.abs() < 0.05) b.vx = 0;
   }
 
-  /// A broken (or blasted) crate is lit and goes off a moment later.
-  void _armCrate(int x, int y, String? ownerId) {
-    _bombs.add(_Bomb(x + 0.5, y + 0.5, ItemKind.dynamite, crateBlast.fuse, ownerId ?? '', crateBlast));
-  }
 
   void _explode(_Bomb b) {
     final def = b.def;
@@ -496,18 +523,16 @@ class GameSimulation {
           continue;
         }
         if (!t.isMinable) continue;
-        if (t == TileType.explosive) {
-          map.setTile(x, y, TileType.empty);
-          _dirtyTiles.add(map.indexOf(x, y));
-          _armCrate(x, y, b.ownerId);
+        if (t.tnt != null) {
+          _activateTnt(x, y, t.tnt!, owner?.id);
           continue;
         }
         if (t == TileType.mystery) {
           _crackMystery(x, y, owner?.id);
           continue;
         }
-        if (t == TileType.obsidian) {
-          // Too tough for one blast: it only cracks.
+        if (t == TileType.obsidian && b.tnt != TntKind.mining) {
+          // Too tough for one blast: it only cracks (Mining TNT breaks it).
           map.damage(x, y, 4);
           _dirtyTiles.add(map.indexOf(x, y));
           continue;
@@ -517,13 +542,16 @@ class GameSimulation {
           continue;
         }
         if (t == TileType.treasure) {
-          if (map.damage(x, y, 3) != null && owner != null) _treasureFound(owner);
+          // Only a miner's blast can crack it open; trap TNT can't destroy it.
+          if (owner == null) continue;
+          if (map.damage(x, y, 3) != null) _treasureFound(owner);
           _dirtyTiles.add(map.indexOf(x, y));
           continue;
         }
         map.damage(x, y, 999);
         _dirtyTiles.add(map.indexOf(x, y));
         if (t.ore case final o? when owner != null) _collect(owner, o);
+        if (t == TileType.chest) _openChest(x, y, owner);
       }
     }
     if (winnerId != null) return;
@@ -541,8 +569,9 @@ class GameSimulation {
         ..vy = min(p.vy, 0) + (ny * 0.6 - 0.5) * push;
       if (d > r + 0.5) continue;
       final falloff = 1 - (d / (r + 0.5)) * 0.5;
-      _hurt(p, def.damage * falloff, identical(def, crateBlast) ? 'an explosive crate' : (b.kind == ItemKind.bomb ? 'a bomb' : 'dynamite'));
+      _hurt(p, def.damage * falloff, b.tnt != null ? b.tnt!.label : (b.kind == ItemKind.bomb ? 'a bomb' : 'dynamite'));
     }
+    _afterTnt(b);
     for (final m in _monsters.toList()) {
       final d = sqrt(pow(m.x - b.x, 2) + pow(m.y - b.y, 2));
       if (d <= r + 0.5) _damageMonster(m, def.damage * 1.5 * (1 - (d / (r + 0.5)) * 0.5), owner?.id);
@@ -552,7 +581,7 @@ class GameSimulation {
       final dx = other.x - b.x, dy = other.y - b.y;
       final d2 = dx * dx + dy * dy;
       if (d2 <= r * r) {
-        other.fuse = min(other.fuse, 0.15);
+        if (other.dueTick == null) other.fuse = min(other.fuse, 0.15);
       } else if (d2 <= (r + 2) * (r + 2)) {
         final d = sqrt(d2);
         other
@@ -625,7 +654,7 @@ class GameSimulation {
         if (map.tileAt(x, y) != TileType.boulder) continue;
         final i = map.indexOf(x, y);
         final below = map.tileAt(x, y + 1);
-        if (below.isSolid || below == TileType.depot) continue;
+        if (below.isSolid || below == TileType.depot || below.isFloorDevice) continue;
         final loose = (_loose[i] ?? 0) + step;
         if (loose < Balance.boulderWobble) {
           next[i] = loose;
@@ -668,18 +697,27 @@ class GameSimulation {
 
   // ---- hints ------------------------------------------------------------------
 
-  /// Vague "treasure sense" for one miner. Better helmets sense farther.
-  /// Never reveals the exact spot.
+  /// Private treasure signal for one miner: once you're within signal
+  /// range (better helmets reach farther) or deep enough, you get a compass
+  /// with direction and distance computed from real map coordinates.
   TreasureHint hintFor(String id) {
     final p = players[id];
     if (p == null || !p.alive || isWarmup || ended) return TreasureHint.none;
     final dx = treasure.cx - p.x, dy = treasure.cy - p.y;
     final d = sqrt(dx * dx + dy * dy);
     final scale = 1 + p.upgrades[UpgradeKind.helmet.index] * 0.2;
-    if (d <= Balance.hintHot * scale) return const TreasureHint(3, 0);
-    if (d <= Balance.hintWarm * scale) return TreasureHint(2, dx.abs() < 2.5 ? 0 : dx.sign.toInt());
-    if (d <= Balance.hintFaint * scale) return const TreasureHint(1, 0);
-    return TreasureHint.none;
+    final lavaTop = map.height - 1 - settings.mapId.def.lavaRows;
+    final depth = (p.y - MapGenerator.surfaceRows) / (lavaTop - MapGenerator.surfaceRows);
+    final level = d <= Balance.hintHot * scale
+        ? 3
+        : d <= Balance.hintWarm * scale
+        ? 2
+        : (d <= Balance.treasureSignalRange * scale || depth >= Balance.treasureSignalDepth)
+        ? 1
+        : 0;
+    if (level == 0) return TreasureHint.none;
+    final deg = (atan2(dy, dx) * 180 / pi / 10).round() * 10;
+    return TreasureHint(level, dx.abs() < 2.5 ? 0 : dx.sign.toInt(), distance: d.round(), angle: (deg + 360) % 360);
   }
 
   void _hit(SimPlayer p, TilePos t) {
@@ -695,7 +733,8 @@ class GameSimulation {
 
     if (broken == TileType.treasure) return _treasureFound(p);
     if (broken == TileType.volcano) return _erupt(t.x, t.y, culprit: p);
-    if (broken == TileType.explosive) return _armCrate(t.x, t.y, p.id);
+    if (broken.tnt != null) return _activateTnt(t.x, t.y, broken.tnt!, p.id);
+    if (broken == TileType.chest) return _openChest(t.x, t.y, p);
     if (broken == TileType.mystery) {
       // damage() already emptied the tile; put it back so _crackMystery owns it.
       map.setTile(t.x, t.y, TileType.mystery);
@@ -739,6 +778,7 @@ class GameSimulation {
 
   /// Snapshot since the previous call: drains tile changes and events.
   WorldSnapshot takeSnapshot() {
+    _processReveals();
     final hide = !treasureRevealed;
     final tiles = [
       for (final i in _dirtyTiles)
@@ -755,7 +795,10 @@ class GameSimulation {
       events: events,
       teamScores: teamScores,
       warmup: warmup,
-      bombs: [for (final b in _bombs) BombSnapshot(b.x, b.y, b.kind, b.fuse)],
+      bombs: [
+        for (final b in _bombs)
+          BombSnapshot(b.x, b.y, b.kind, b.dueTick != null ? max(0, b.dueTick! - tick) / Balance.tickRate : b.fuse, tnt: b.tnt),
+      ],
       monsters: [
         for (final m in _monsters)
           MonsterSnapshot(id: m.id, kind: m.kind, x: m.x, y: m.y, hp: (m.hp / m.def.hp).clamp(0, 1), left: m.left, attacking: m.attackFlash > 0),
@@ -814,6 +857,10 @@ class GameSimulation {
 class _Bomb {
   _Bomb(this.x, this.y, this.kind, this.fuse, this.ownerId, this.def);
   final ItemDef def;
+
+  /// Lit TNT: which kind, and the exact server tick it goes off on.
+  TntKind? tnt;
+  int? dueTick;
   double x;
   double y;
   double vx = 0;

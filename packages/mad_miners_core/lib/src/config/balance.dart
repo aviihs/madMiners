@@ -138,7 +138,13 @@ const Map<MonsterKind, MonsterDef> monsterDefs = {
 enum WorldEventKind {
   goldRush('Gold Rush', 'All ore pays double!', 25),
   earthquake('Earthquake', 'Rocks are falling, watch your head!', 9),
-  mysteryRain('Mystery Bomb Rain', 'New Mystery Bombs appeared in the rock!', 4);
+  mysteryRain('Mystery Bomb Rain', 'New Mystery Bombs appeared in the rock!', 4),
+  caveCollapse('Cave Collapse', 'The ceiling is coming down!', 4),
+  lavaBreakthrough('Lava Breakthrough', 'Lava is breaking into the tunnels!', 6),
+  rareOreSurge('Rare Ore Surge', 'Rare ore has surfaced nearby!', 5),
+  monsterInvasion('Monster Invasion', 'Monsters are swarming the mine!', 5),
+  tntChain('TNT Chain Reaction', 'Hidden TNT is going off!', 5),
+  hiddenTreasure('Hidden Treasure', 'Treasure chests appeared in the rock!', 4);
 
   const WorldEventKind(this.label, this.blurb, this.seconds);
   final String label;
@@ -214,7 +220,45 @@ const Map<ItemKind, ItemDef> itemDefs = {
 };
 
 /// What an explosive crate does when it goes off (not sold in the shop).
-const ItemDef crateBlast = ItemDef('Explosive Crate', 0, 2.0, 70, 0.8);
+const ItemDef crateBlast = ItemDef('Explosive Crate', 0, 2.0, 70, 3.0);
+
+/// Hidden TNT found in the rock. Every kind goes off exactly
+/// [Balance.tntFuseTicks] server ticks (3 s) after it's activated.
+enum TntKind {
+  basic('TNT', ItemDef('TNT', 0, 2.0, 70, 3)),
+  powerful('Powerful TNT', ItemDef('Powerful TNT', 0, 3.2, 110, 3)),
+  /// Big blast for rock (even obsidian), gentle on miners.
+  mining('Mining TNT', ItemDef('Mining TNT', 0, 2.6, 22, 3)),
+  /// Sets off every other TNT within reach.
+  chain('Chain TNT', ItemDef('Chain TNT', 0, 2.0, 70, 3)),
+  /// Small blast that leaves rare ore behind.
+  treasure('Treasure TNT', ItemDef('Treasure TNT', 0, 1.6, 30, 3)),
+  /// Goes off if you even walk next to it.
+  unstable('Unstable TNT', ItemDef('Unstable TNT', 0, 2.2, 80, 3));
+
+  const TntKind(this.label, this.blast);
+  final String label;
+  final ItemDef blast;
+}
+
+/// Launcher pad directions: (vx, vy) in tiles / second.
+enum LaunchKind {
+  up('Vertical Launcher', 0, -17),
+  left('Left Launcher', -16, -7),
+  right('Right Launcher', 16, -7),
+  upLeft('Diagonal Launcher', -11, -14),
+  upRight('Diagonal Launcher', 11, -14),
+  heavy('Heavy Launcher', 0, -23),
+  random('Random Launcher', 0, 0);
+
+  const LaunchKind(this.label, this.vx, this.vy);
+  final String label;
+  final double vx;
+  final double vy;
+}
+
+/// What a pressure plate sets off.
+enum PlateTrap { collapse, spikes, tnt }
 
 extension UpgradeKindX on UpgradeKind {
   List<UpgradeLevel> get levels => upgradeTracks[this]!;
@@ -306,6 +350,41 @@ abstract final class Balance {
   static const double eventGapMin = 60;
   static const double eventGapMax = 100;
 
+  // ---- hidden hazards, TNT, launchers, fluids ----
+  /// TNT fuse: exactly 3 s of server ticks.
+  static const int tntFuseTicks = 3 * tickRate;
+  static const double launcherWarning = 0.3;
+  static const double launcherCooldown = 3;
+  static const double plateCooldown = 10;
+
+  /// Hitting a wall or ceiling faster than this hurts.
+  static const double safeImpactSpeed = 11;
+  static const double impactDamagePerSpeed = 6;
+
+  /// Fluids move one tile per step.
+  static const double fluidStepSeconds = 0.2;
+
+  /// In water / lava you move slower and sink slowly.
+  static const double fluidDrag = 0.6;
+  static const double fluidGravity = 0.3;
+  static const double fluidMaxSink = 3;
+  static const double swimSpeed = 4.5;
+
+  /// Hidden traps on cave floors show up when a miner comes this close.
+  static const double revealRadius = 1.8;
+
+  /// The sealed treasure chamber opens when someone gets this close.
+  static const double chamberOpenRadius = 4.5;
+
+  /// Treasure signal range in tiles (scaled by helmet), or anywhere below
+  /// this depth fraction.
+  static const double treasureSignalRange = 22;
+  static const double treasureSignalDepth = 0.72;
+
+  /// Share of your spendable match coins dropped when you die.
+  static const double deathCoinLoss = 0.2;
+  static const int chestHardness = 3;
+
   // ---- blocks and traps ----
   static const int dirtHardness = 1;
   static const int crateHardness = 2;
@@ -317,7 +396,8 @@ abstract final class Balance {
   static const double staminaPerHit = 4;
   static const double staminaRegen = 16;
 
-  static const double lavaDamage = 250; // basically instant
+  /// Per second while touching lava: deadly if you stay in (~1.3 s).
+  static const double lavaDamage = 75;
   static const double gasDamage = 12;
   static const double depotHeal = 20;
 

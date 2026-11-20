@@ -50,6 +50,9 @@ class SimPlayer {
   /// Brief immunity after a boulder hit, so one rock doesn't hit twice.
   double crushCooldown = 0;
   double spikeCooldown = 0;
+
+  /// Seconds left of a launcher flight (only then do wall crashes hurt).
+  double launched = 0;
   double throwCooldown = 0;
 
   double fuel = Balance.jetFuelMax;

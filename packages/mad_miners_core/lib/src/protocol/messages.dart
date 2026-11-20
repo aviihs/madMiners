@@ -105,7 +105,12 @@ sealed class ServerMessage {
         'snap' => SnapshotMessage(WorldSnapshot.fromJson(j['s'] as Map<String, dynamic>)),
         'end' => MatchEndMessage(MatchResult.fromJson(j['r'] as Map<String, dynamic>)),
         'pong' => PongMessage((j['c'] as num).toInt()),
-        'hint' => HintMessage(TreasureHint((j['l'] as num).toInt(), (j['s'] as num).toInt())),
+        'hint' => HintMessage(TreasureHint(
+          (j['l'] as num).toInt(),
+          (j['s'] as num).toInt(),
+          distance: (j['d'] as num?)?.toInt() ?? 0,
+          angle: (j['a'] as num?)?.toInt() ?? 0,
+        )),
         'err' => ErrorMessage(j['code'] as String, j['message'] as String),
         _ => null,
       };
@@ -163,7 +168,13 @@ class HintMessage extends ServerMessage {
   const HintMessage(this.hint);
   final TreasureHint hint;
   @override
-  Map<String, dynamic> toJson() => {'t': 'hint', 'l': hint.level, 's': hint.side};
+  Map<String, dynamic> toJson() => {
+    't': 'hint',
+    'l': hint.level,
+    's': hint.side,
+    if (hint.level > 0) 'd': hint.distance,
+    if (hint.level > 0) 'a': hint.angle,
+  };
 }
 
 class PongMessage extends ServerMessage {

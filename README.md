@@ -110,11 +110,57 @@ loot coins. Lava kills them. Bots defend themselves too.
   **Earthquake** (chunks of ceiling turn into falling rocks above miners), **Mystery Bomb Rain** (new
   Mystery Bombs appear in the rock near players). Each one gets a banner, a countdown chip and sound.
 
+### Hidden hazards and traps
+
+Nothing dangerous is shown up front. The server keeps a "disguise" for every hidden tile and clients
+only ever receive the disguise (the real tile never goes over the wire) until it is discovered:
+
+- **Behind the rock** (lava pockets, lava rivers, water pockets, toxic gas, obsidian streaks, TNT):
+  looks like plain rock until you dig the tile in front of it. A breached pocket is revealed all at
+  once, and every client gets the same tile update.
+- **On cave floors** (spike traps, pressure plates, launcher pads): look like empty floor until a
+  miner walks within about 2 tiles.
+
+| Hazard | What it does |
+|---|---|
+| **Lava** | 75 damage per second while touching: a quick dip hurts, staying in kills. Thick: slow to move and sink in. |
+| **Water** | Flows downhill and spreads, slows you, you can swim up. Water meeting lava turns the lava into obsidian. |
+| **Obsidian** | 12 hits (4× hard rock). Normal blasts only crack it; Mining TNT breaks it. |
+| **TNT** (6 kinds) | Lit by digging it, a blast, a plate or an event. Goes off **exactly 90 server ticks (3.0 s)** later with a 3-2-1 over it. Basic, Powerful (big), Mining (breaks obsidian, gentle on miners), Chain (lights nearby TNT), Treasure (leaves rare ore), Unstable (goes off if you walk next to it). |
+| **Launcher pads** (7 kinds) | Click, then throw you up, left, right, diagonally, extra high (Heavy) or a random way. Placed only where there is room to fly. Crashing into rock mid-flight hurts; landing in lava kills. 3 s cooldown. |
+| **Pressure plates** | Spring a cave collapse, a ring of spikes, or drop TNT from the ceiling. Reset after 10 s. |
+| **Trap chambers** | Small rooms with a plate, TNT in the walls and a chest at the end. |
+| **Chests** | Break for 40 to 120 coins (sometimes gems), paid once by the server. |
+
+### Treasure chamber and compass
+
+The treasure sits in a **sealed, hidden chamber** (obsidian walls, rare ore, two chests) just above
+the lava. Its **ancient door** can't be dug; it slides open when a miner gets close
+("SECRET CHAMBER OPENED!"). Once you're within signal range (farther with a better helmet) or deep
+enough, you get **TREASURE SIGNAL DETECTED!** and a private **gold compass** under the timer: real
+direction and distance computed from map coordinates, signal strength, and the treasure's zone. The
+mini-map draws a gold arrow the same way.
+
+### More world events
+
+Besides Gold Rush, Earthquake and Mystery Bomb Rain, the server can start **Cave Collapse**,
+**Lava Breakthrough**, **Rare Ore Surge**, **Monster Invasion**, **TNT Chain Reaction** and
+**Hidden Treasure** (chests appear in the rock). On-screen alerts: TNT ACTIVATED!, LAVA DISCOVERED!,
+CAVE COLLAPSE!, MONSTER NEARBY!, TREASURE SIGNAL DETECTED!
+
+### Death
+
+The death screen shows the cause (burned, crushed, spiked, blown up…) and how many coins you dropped:
+**20% of your unspent match coins**. Score, gear, upgrades and anything bought are kept. Respawn is
+automatic after 3 seconds at the surface.
+
 ### Navigation
 
-A **fog-of-war mini-map** (top right) shows only the tiles your light has reached: tunnels, ores,
-Mystery Bombs you've found, lava, other miners (bots in blue), monsters you can currently see, and a
-green arrow back to the surface shop. Your depth and current zone are always shown top left.
+A **fog-of-war mini-map** (top right) shows only the tiles your light has reached, and only what has
+been discovered: you (yellow), teammates (green), bots (blue), monsters you can currently see (red),
+lava (orange), TNT (red), Mystery Bombs (purple), water, traps, chests, ores in their own colours, a
+gold arrow toward the treasure once you have the signal, and a green arrow back to the surface shop.
+What you've explored is kept if you reconnect to the same match. Your depth and current zone are always shown top left.
 
 ### Sound, vibration and settings
 
@@ -258,7 +304,7 @@ Gameplay uses a WebSocket at `/ws/game?room=<id>&token=<accessToken>`.
 - Tournament mode.
 - From the big "3D adventure" spec, still missing: a 3D client, a walkable lobby hub, parties and
   friends, player-to-player trading, a persistent backpack/selling economy, quests and missions,
-  revive-by-teammate, scanners, flashlight/oxygen gear, chat moderation tools, and a persistent shared
+  revive-by-teammate (death screen has no revive option yet), scanners, flashlight/oxygen gear, chat moderation tools, and a persistent shared
   world (each match is still its own mine).
 - Graphics are side-view 2D (Flame), not realistic 3D. The core and server don't depend on the client, so
   a 3D client could reuse them.

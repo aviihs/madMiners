@@ -34,6 +34,10 @@ class GameAudio {
     Sfx.lava: 'lava.wav',
     Sfx.victory: 'victory.wav',
     Sfx.defeat: 'defeat.wav',
+    Sfx.tick: 'tick.wav',
+    Sfx.spring: 'spring.wav',
+    Sfx.alarm: 'alarm.wav',
+    Sfx.chest: 'chest.wav',
   };
 
   /// Shortest gap between two plays of the same sound, so a busy mine
@@ -43,6 +47,7 @@ class GameAudio {
     Sfx.rockBreak: Duration(milliseconds: 60),
     Sfx.coin: Duration(milliseconds: 50),
     Sfx.jet: Duration(milliseconds: 420),
+    Sfx.alarm: Duration(milliseconds: 1500),
   };
 
   Future<void> init() async {
@@ -97,6 +102,6 @@ class GameAudio {
   }
 }
 
-enum Sfx { dig, rockBreak, coin, gem, explosion, smallBlast, jump, land, jet, hurt, lava, victory, defeat }
+enum Sfx { dig, rockBreak, coin, gem, explosion, smallBlast, jump, land, jet, hurt, lava, victory, defeat, tick, spring, alarm, chest }
 
 enum Haptic { light, medium, heavy }

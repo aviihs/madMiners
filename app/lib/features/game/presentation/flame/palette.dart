@@ -38,6 +38,8 @@ abstract final class MinePalette {
     TileType.ruby: Color(0xFFE0115F),
     TileType.mystery: Color(0xFFB06BFF),
     TileType.obsidian: Color(0xFF2A1F3A),
+    TileType.water: Color(0xFF4DA3FF),
+    TileType.chest: Color(0xFFFFC233),
   };
 
   /// Each depth zone has its own mood: warm gold mine, blue diamond cave,

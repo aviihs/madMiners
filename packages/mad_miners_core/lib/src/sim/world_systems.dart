@@ -321,7 +321,11 @@ extension _WorldSystems on GameSimulation {
     worldEvent = kind;
     worldEventLeft = kind.seconds;
     _events.add(GameEvent(GameEventKind.worldEvent, value: kind.index, text: kind.label));
-    if (kind == WorldEventKind.mysteryRain) _mysteryRain();
+    if (kind == WorldEventKind.mysteryRain) {
+      _mysteryRain();
+    } else {
+      _startHazardEvent(kind);
+    }
   }
 
   /// Earthquake: a chunk of ceiling above a miner turns into a falling rock.

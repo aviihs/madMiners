@@ -5,7 +5,7 @@ import '../world/game_map.dart';
 
 /// Result of one [Physics.move] step.
 class MoveResult {
-  const MoveResult(this.x, this.y, this.vx, this.vy, {required this.onGround, required this.impact, required this.climbing});
+  const MoveResult(this.x, this.y, this.vx, this.vy, {required this.onGround, required this.impact, required this.climbing, this.wallImpact = 0});
   final double x;
   final double y;
   final double vx;
@@ -15,6 +15,9 @@ class MoveResult {
   /// Downward speed at the moment of landing this step (0 if no landing).
   final double impact;
   final bool climbing;
+
+  /// Speed of hitting a wall or ceiling this step (0 if none).
+  final double wallImpact;
 }
 
 /// Shared side-view movement rules: gravity, running, jumping, climbing
@@ -65,12 +68,21 @@ abstract final class Physics {
     double jumpBoost = 1,
   }) {
     final grounded = onGround(map, x, y);
+    // Water and lava are thick: slower, you sink slowly and can swim up.
+    final fluid = map.tileAt(x.floor(), y.floor()).isFluid;
+    if (fluid) speed *= Balance.fluidDrag;
     vx = _approach(vx, moveX * speed, (grounded ? Balance.groundAccel : Balance.airAccel) * dt);
 
     // In a shaft you can kick off the walls, so jumping works there too.
     final chimney = inChimney(map, x, y);
     var climbing = false;
-    if (jet) {
+    if (fluid && !jet) {
+      if (jump || up) {
+        vy = max(vy - Balance.gravity * dt * 2, -Balance.swimSpeed);
+      } else {
+        vy = min(vy + Balance.gravity * Balance.fluidGravity * dt, Balance.fluidMaxSink);
+      }
+    } else if (jet) {
       // Jetpack: thrust beats gravity, up to a capped climb rate.
       vy = max(vy - (Balance.jetThrust - Balance.gravity) * dt, -Balance.jetMaxRise);
     } else if (jump && (grounded || chimney) && vy >= -0.01) {
@@ -87,9 +99,11 @@ abstract final class Physics {
     final steps = max(1, (dist / 0.2).ceil());
     final h = dt / steps;
     var impact = 0.0;
+    var wall = 0.0;
     for (var i = 0; i < steps; i++) {
       final nx = x + vx * h;
       if (collides(map, nx, y)) {
+        wall = max(wall, vx.abs());
         final snapped = vx > 0 ? (nx + _r).floor() - _r - _eps : (nx - _r).floor() + 1 + _r + _eps;
         x = collides(map, snapped, y) ? x : snapped;
         vx = 0;
@@ -100,6 +114,7 @@ abstract final class Physics {
       if (collides(map, x, ny)) {
         final snapped = vy > 0 ? (ny + _r).floor() - _r - _eps : (ny - _r).floor() + 1 + _r + _eps;
         if (vy > 0) impact = max(impact, vy);
+        if (vy < 0) wall = max(wall, -vy * 0.5); // bumping your head hurts less
         y = collides(map, x, snapped) ? y : snapped;
         vy = 0;
       } else {
@@ -123,7 +138,7 @@ abstract final class Physics {
       }
     }
 
-    return MoveResult(x, y, vx, vy, onGround: onGround(map, x, y), impact: impact, climbing: climbing);
+    return MoveResult(x, y, vx, vy, onGround: onGround(map, x, y), impact: impact, climbing: climbing, wallImpact: wall);
   }
 
   static double speedFor(double stamina, {double boots = 1}) =>
@@ -131,6 +146,10 @@ abstract final class Physics {
 
   /// Better boots also jump a bit higher.
   static double jumpBoostFor(double boots) => sqrt(boots);
+
+  /// Damage for slamming into a wall or ceiling (launchers, blasts).
+  static double impactDamage(double speed) =>
+      speed <= Balance.safeImpactSpeed ? 0 : (speed - Balance.safeImpactSpeed) * Balance.impactDamagePerSpeed;
 
   /// Fall damage for a landing at [impact] tiles / second.
   static double fallDamage(double impact) =>

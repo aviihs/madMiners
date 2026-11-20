@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Theme;
@@ -50,7 +52,12 @@ class _HudOverlayState extends State<HudOverlay> {
                 Positioned(top: 10, left: 0, right: 0, child: Center(child: _TopBar(hud: hud, onExit: widget.onExit))),
                 if (me != null) Positioned(right: 12, top: 10, child: MiniMap(controller: c, width: touch ? 112 : 132, height: touch ? 120 : 150)),
                 if (hud.worldEvent != null)
-                  Positioned(top: touch ? 96 : 60, left: 0, right: 0, child: Center(child: _EventChip(kind: hud.worldEvent!, left: hud.worldEventLeft))),
+                  Positioned(
+                    top: (touch ? 54 : 60) + (hud.hint.level >= 1 ? 50 : 0),
+                    left: 0,
+                    right: 0,
+                    child: Center(child: _EventChip(kind: hud.worldEvent!, left: hud.worldEventLeft)),
+                  ),
                 if (hud.banner != null) Positioned(top: 0, bottom: 0, left: 0, right: 0, child: IgnorePointer(child: Center(child: _BannerView(banner: hud.banner!)))),
                 Positioned(
                   // Phones: left of the mini-map (clear of the bomb buttons). Desktop: under it.
@@ -80,8 +87,11 @@ class _HudOverlayState extends State<HudOverlay> {
                     _ActionSide(bottom: 140, inset: 30, child: _ItemBar(me: me, onUse: c.useItem, vertical: true))
                   else
                     Positioned(right: 12, bottom: 44, child: _ItemBar(me: me, onUse: c.useItem, vertical: false)),
-                if (hud.warmup > 0 && hud.link == LinkStatus.connected) Center(child: _Lobby(hud: hud)),
-                if (me != null && !me.alive) Center(child: _DeathBanner(seconds: me.respawnIn)),
+                if (hud.warmup > 0 && hud.link == LinkStatus.connected)
+                  Positioned(top: touch ? 54 : 60, left: 0, right: 0, child: Center(child: _Lobby(hud: hud))),
+                if (me != null && me.alive && hud.hint.level >= 1 && hud.warmup <= 0)
+                  Positioned(top: touch ? 54 : 60, left: 0, right: 0, child: Center(child: _TreasureCompass(hint: hud.hint, depth: hud.depth, lavaDepth: hud.lavaDepth))),
+                if (me != null && !me.alive) Center(child: _DeathBanner(seconds: me.respawnIn, cause: hud.deathCause, lost: hud.deathLost)),
                 if (hud.link != LinkStatus.connected) Center(child: _LinkBanner(hud: hud, onExit: widget.onExit)),
                 if (!hud.ready && hud.link == LinkStatus.connected) const Center(child: CupertinoActivityIndicator(radius: 14)),
                 if (touch) ...[
@@ -505,6 +515,8 @@ class _Feed extends StatelessWidget {
 }
 
 /// Pre-match lobby: miners trickle in, then 3‑2‑1.
+/// Pre-match lobby strip: sits under the timer (never over the miners),
+/// one compact row, and shrinks to fit any screen, so it can't overflow.
 class _Lobby extends StatelessWidget {
   const _Lobby({required this.hud});
   final HudState hud;
@@ -513,60 +525,84 @@ class _Lobby extends StatelessWidget {
   Widget build(BuildContext context) {
     final count = hud.scoreboard.length;
     final countdown = hud.warmup <= 3.2;
+    final maxW = (MediaQuery.sizeOf(context).width - 32).clamp(200.0, 460.0);
+    const shown = 7;
+    final people = hud.scoreboard.take(shown).toList();
+    final extra = count - people.length;
     return IgnorePointer(
-      child: GlassCard(
-        radius: 24,
-        color: const Color(0x99000000),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 22),
-        child: SizedBox(
-          width: 300,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (countdown) ...[
-                const Text('Get ready to dig', style: MMText.callout),
-                const SizedBox(height: 4),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
-                  child: Text(
-                    '${hud.warmup.ceil()}',
-                    key: ValueKey(hud.warmup.ceil()),
-                    style: const TextStyle(fontSize: 72, fontWeight: FontWeight.w800, color: MMColors.amber, height: 1.05),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxW, maxHeight: 96),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: GlassCard(
+            radius: 20,
+            color: const Color(0xB3000000),
+            padding: const EdgeInsets.fromLTRB(14, 10, 16, 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: Center(
+                    child: countdown
+                        ? AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 250),
+                            transitionBuilder: (c, a) => ScaleTransition(scale: a, child: c),
+                            child: Text(
+                              '${hud.warmup.ceil()}',
+                              key: ValueKey(hud.warmup.ceil()),
+                              style: MMText.number.copyWith(fontSize: 44, color: MMColors.amber, height: 1),
+                            ),
+                          )
+                        : const CupertinoActivityIndicator(radius: 13),
                   ),
                 ),
-              ] else ...[
-                const CupertinoActivityIndicator(radius: 12),
-                const SizedBox(height: 12),
-                const Text('Finding miners…', style: MMText.title),
-                const SizedBox(height: 4),
-                Text('$count / ${hud.lobbyTarget} joined · ${hud.mapName}', style: MMText.footnote),
-              ],
-              const SizedBox(height: 16),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final s in hud.scoreboard)
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
-                      decoration: BoxDecoration(
-                        color: s.isYou ? MMColors.amber.withValues(alpha: 0.2) : MMColors.glassStrong,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Avatar(s.name, size: 20, color: s.team >= 0 ? MMColors.teams[s.team] : null),
-                          const SizedBox(width: 6),
-                          Text(s.isYou ? 'You' : s.name, style: const TextStyle(fontSize: 12, color: MMColors.text)),
-                        ],
-                      ),
+                const SizedBox(width: 12),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(countdown ? 'Get ready to dig!' : 'Finding miners…', style: MMText.headline.copyWith(fontSize: 17)),
+                    const SizedBox(height: 2),
+                    Text('$count / ${hud.lobbyTarget} miners · ${hud.mapName}', style: MMText.caption),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final s in people)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: s.isYou ? MMColors.amber : const Color(0x00000000), width: 2),
+                                  ),
+                                  child: Avatar(s.isYou ? 'You' : s.name, size: 22, color: s.team >= 0 ? MMColors.teams[s.team] : null),
+                                ),
+                                if (s.isBot)
+                                  Positioned(
+                                    right: -3,
+                                    bottom: -3,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                                      decoration: BoxDecoration(color: MMColors.sky, borderRadius: BorderRadius.circular(4)),
+                                      child: const Text('BOT', style: TextStyle(fontSize: 6.5, fontWeight: FontWeight.w900, color: Color(0xFF0C1A2E))),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        if (extra > 0) Text('+$extra', style: MMText.caption.copyWith(color: MMColors.text)),
+                      ],
                     ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -574,26 +610,118 @@ class _Lobby extends StatelessWidget {
   }
 }
 
-class _DeathBanner extends StatelessWidget {
-  const _DeathBanner({required this.seconds});
-  final double seconds;
+/// Gold treasure compass: real direction, distance, signal strength and
+/// the zone the treasure is in. Only shown once you've picked up the signal.
+class _TreasureCompass extends StatelessWidget {
+  const _TreasureCompass({required this.hint, required this.depth, required this.lavaDepth});
+  final TreasureHint hint;
+  final int depth;
+  final int lavaDepth;
 
   @override
-  Widget build(BuildContext context) => GlassCard(
-    radius: 22,
-    color: const Color(0x99000000),
-    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(CupertinoIcons.flame_fill, color: MMColors.ember, size: 34),
-        const SizedBox(height: 8),
-        const Text('Burned!', style: MMText.title),
-        const SizedBox(height: 2),
-        Text('Back to the surface in ${seconds.ceil()}s', style: MMText.footnote),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final rad = hint.angle * pi / 180;
+    final treasureDepth = depth + (hint.distance * sin(rad)).round();
+    final zone = Zone.at(lavaDepth <= 0 ? 1 : (treasureDepth / lavaDepth).clamp(0.0, 1.0)).label;
+    return IgnorePointer(
+      child: GlassCard(
+        radius: 18,
+        color: const Color(0xB3000000),
+        borderColor: MMColors.gold.withValues(alpha: 0.7),
+        padding: const EdgeInsets.fromLTRB(8, 5, 14, 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: MMColors.gold.withValues(alpha: 0.18), border: Border.all(color: MMColors.gold)),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(end: rad),
+                duration: const Duration(milliseconds: 300),
+                builder: (_, a, child) => Transform.rotate(angle: a, child: child),
+                child: const Icon(CupertinoIcons.arrow_right, color: MMColors.gold, size: 20),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${hint.distance} m', style: MMText.number.copyWith(fontSize: 17, color: MMColors.gold)),
+                    const SizedBox(width: 8),
+                    for (var i = 1; i <= 3; i++)
+                      Container(
+                        width: 4,
+                        height: 5.0 + i * 3,
+                        margin: const EdgeInsets.only(right: 2),
+                        decoration: BoxDecoration(
+                          color: hint.level >= i ? MMColors.gold : const Color(0x33FFFFFF),
+                          borderRadius: BorderRadius.circular(1),
+                        ),
+                      ),
+                  ],
+                ),
+                Text('Treasure · $zone', style: MMText.caption.copyWith(fontSize: 10.5)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeathBanner extends StatelessWidget {
+  const _DeathBanner({required this.seconds, this.cause, this.lost = 0});
+  final double seconds;
+  final String? cause;
+  final int lost;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, title) = switch (cause) {
+      'lava' || 'a volcano' => (CupertinoIcons.flame_fill, 'Burned!'),
+      'a long fall' || 'a crash into the rock' => (CupertinoIcons.arrow_down_circle_fill, 'Splat!'),
+      'a falling boulder' => (CupertinoIcons.cube_fill, 'Crushed!'),
+      'spikes' => (CupertinoIcons.exclamationmark_triangle_fill, 'Spiked!'),
+      'toxic gas' => (CupertinoIcons.cloud_fill, 'Poisoned!'),
+      final c? when c.contains('TNT') || c.contains('bomb') || c.contains('dynamite') => (CupertinoIcons.burst_fill, 'Blown up!'),
+      final c? when c.contains('Spider') || c.contains('Golem') => (CupertinoIcons.ant_fill, 'Mauled!'),
+      _ => (CupertinoIcons.xmark_octagon_fill, 'Knocked out!'),
+    };
+    return GlassCard(
+      radius: 22,
+      color: const Color(0xB3000000),
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: MMColors.ember, size: 34),
+          const SizedBox(height: 8),
+          Text(title, style: MMText.title),
+          if (cause != null) ...[
+            const SizedBox(height: 2),
+            Text('Killed by $cause', style: MMText.callout.copyWith(color: MMColors.text)),
+          ],
+          const SizedBox(height: 6),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CoinIcon(size: 14),
+              const SizedBox(width: 4),
+              Text(lost > 0 ? 'Dropped $lost coins' : 'No coins lost', style: MMText.footnote),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text('Your gear is safe. Respawning at the surface in ${seconds.ceil()}s', style: MMText.caption),
+        ],
+      ),
+    );
+  }
 }
 
 class _LinkBanner extends StatelessWidget {
@@ -792,9 +920,10 @@ class _EventChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (kind) {
-      WorldEventKind.goldRush => MMColors.gold,
-      WorldEventKind.earthquake => MMColors.lava,
+      WorldEventKind.goldRush || WorldEventKind.rareOreSurge || WorldEventKind.hiddenTreasure => MMColors.gold,
+      WorldEventKind.earthquake || WorldEventKind.caveCollapse || WorldEventKind.lavaBreakthrough || WorldEventKind.tntChain => MMColors.lava,
       WorldEventKind.mysteryRain => MMColors.violet,
+      WorldEventKind.monsterInvasion => MMColors.health,
     };
     return GlassCard(
       radius: 16,

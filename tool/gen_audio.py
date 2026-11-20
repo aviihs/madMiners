@@ -190,11 +190,55 @@ def music():
     return out
 
 
+def tick():
+    """Sharp TNT countdown beep."""
+    n = int(SR * 0.12)
+    return [0.5 * (1 if math.sin(2 * math.pi * 1760 * i / SR) > 0 else -1) * env(i, n, 0.001, 4) for i in range(n)]
+
+
+def spring():
+    """Launcher: mechanical clunk + rising boing."""
+    n = int(SR * 0.45)
+    out, ph = [], 0
+    nz = noise_lp(n, 0.4)
+    for i in range(n):
+        t = i / SR
+        f = 120 + 500 * min(1, t / 0.25) + 40 * math.sin(2 * math.pi * 18 * t)
+        ph += 2 * math.pi * f / SR
+        out.append(0.45 * math.sin(ph) * env(i, n, 0.003, 1.5) + 0.5 * nz[i] * env(i, n, 0.001, 12))
+    return out
+
+
+def alarm():
+    """Two-tone warning siren (trap / collapse)."""
+    n = int(SR * 0.6)
+    out = []
+    for i in range(n):
+        t = i / SR
+        f = 880 if int(t * 8) % 2 == 0 else 660
+        out.append(0.3 * (1 if math.sin(2 * math.pi * f * t) > 0 else -1) * env(i, n, 0.005, 0.6))
+    return out
+
+
+def chest():
+    """Creaky lid + coin sparkle."""
+    n = int(SR * 0.5)
+    out, ph = [], 0
+    for i in range(n):
+        t = i / SR
+        ph += 2 * math.pi * (90 + 60 * math.sin(2 * math.pi * 7 * t)) / SR
+        creak = 0.25 * (1 if math.sin(ph) > 0 else -1) * (1 if t < 0.2 else 0)
+        ding = 0.35 * math.sin(2 * math.pi * 1568 * t) * math.exp(-(t - 0.22) * 8) if t > 0.22 else 0
+        out.append(creak * env(i, n, 0.005, 1) + ding)
+    return out
+
+
 SFX = {
     'dig.wav': dig, 'break.wav': rock_break, 'coin.wav': coin, 'gem.wav': gem,
     'explosion.wav': explosion, 'small_blast.wav': lambda: explosion(0.6, 0.12),
     'jump.wav': jump, 'land.wav': land, 'jet.wav': jet, 'hurt.wav': hurt, 'lava.wav': lava,
     'victory.wav': victory, 'defeat.wav': defeat, 'music.wav': music,
+    'tick.wav': tick, 'spring.wav': spring, 'alarm.wav': alarm, 'chest.wav': chest,
 }
 
 if __name__ == '__main__':

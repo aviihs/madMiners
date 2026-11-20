@@ -60,6 +60,13 @@ class _MiniMapPainter extends CustomPainter {
           TileType.gas => const Color(0xFF6FBF4A),
           TileType.depot => const Color(0xFF3DDC97),
           TileType.mystery => const Color(0xFFD08BFF),
+          TileType.water => const Color(0xFF4DA3FF),
+          TileType.chest => const Color(0xFFFFC233),
+          TileType.ancientDoor => const Color(0xFFFFE08A),
+          TileType.obsidian => const Color(0xFF3A2A55),
+          _ when t.tnt != null => const Color(0xFFFF2D2D),
+          _ when t.isLauncher => const Color(0xFF7FD3FF),
+          TileType.plate => const Color(0xFFFFE08A),
           TileType.bedrock => const Color(0xFF050404),
           _ when t.ore != null => MinePalette.ore[t] ?? const Color(0xFF8A7F77),
           _ => MinePalette.tinted(const Color(0xFF7A6E66), d),
@@ -86,7 +93,9 @@ class _MiniMapPainter extends CustomPainter {
     }
     for (final m in c.miners.values) {
       if (!m.snap.alive || m.snap.id == c.youId || !visible(m.ry)) continue;
-      p.color = m.snap.isBot ? const Color(0xFF8FC8FF) : const Color(0xFFFFFFFF);
+      final me0 = c.me?.snap;
+      final teammate = me0 != null && me0.team >= 0 && m.snap.team == me0.team;
+      p.color = teammate ? const Color(0xFF3DDC97) : (m.snap.isBot ? const Color(0xFF4DA3FF) : const Color(0xFFFFFFFF));
       canvas.drawCircle(at(m.rx, m.ry), 2, p);
     }
     // You: gold dot with a facing tick.
@@ -99,6 +108,23 @@ class _MiniMapPainter extends CustomPainter {
       ..strokeWidth = 1;
     canvas.drawCircle(you, 3.4, p);
     p.style = PaintingStyle.fill;
+
+    // Treasure direction (from your private signal): gold arrow from you.
+    final hint = c.hud.value.hint;
+    if (hint.level >= 1) {
+      final a = hint.angle * pi / 180;
+      final len = min(hint.distance * cell, size.height * 0.45);
+      final tip = you + Offset(cos(a), sin(a)) * max(len, 12);
+      p
+        ..color = const Color(0xFFFFC233)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5;
+      canvas.drawLine(you, tip, p);
+      p.style = PaintingStyle.fill;
+      final side = Offset(-sin(a), cos(a)) * 3.5;
+      final back = tip - Offset(cos(a), sin(a)) * 6;
+      canvas.drawPath(Path()..moveTo(tip.dx, tip.dy)..lineTo((back + side).dx, (back + side).dy)..lineTo((back - side).dx, (back - side).dy)..close(), p);
+    }
 
     // Way back up: arrow to the shop when it's off the top of the map.
     if (top > MapGenerator.surfaceRows && c.depotXs.isNotEmpty) {

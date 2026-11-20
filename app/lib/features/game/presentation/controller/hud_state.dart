@@ -55,7 +55,13 @@ class HudState {
     this.banner,
     this.worldEvent,
     this.worldEventLeft = 0,
+    this.deathCause,
+    this.deathLost = 0,
   });
+
+  /// Why you last died, and how many match coins you dropped.
+  final String? deathCause;
+  final int deathLost;
 
   /// Big centre-screen announcement (Mystery Bomb, world event…).
   final HudBanner? banner;
@@ -109,7 +115,11 @@ class HudState {
     WorldEventKind? worldEvent,
     bool clearEvent = false,
     double? worldEventLeft,
+    String? deathCause,
+    int? deathLost,
   }) => HudState(
+    deathCause: deathCause ?? this.deathCause,
+    deathLost: deathLost ?? this.deathLost,
     banner: clearBanner ? null : (banner ?? this.banner),
     worldEvent: clearEvent ? null : (worldEvent ?? this.worldEvent),
     worldEventLeft: worldEventLeft ?? this.worldEventLeft,

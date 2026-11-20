@@ -30,6 +30,7 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     ..color = const Color(0xE6FFFFFF)
     ..strokeWidth = 2
     ..style = PaintingStyle.stroke;
+  final _tinyText = TextPaint(style: const TextStyle(fontFamily: 'Lilita', fontSize: 8, color: Color(0xFFFFFFFF)));
   final _signText = TextPaint(style: const TextStyle(fontFamily: 'Lilita', fontSize: 14, color: Color(0xFF3A2414), letterSpacing: 1.2));
 
   @override
@@ -62,6 +63,15 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
           case TileType.spikes:
             _drawBackWall(canvas, map, r, x, y, h, d);
             _drawSpikes(canvas, r, h);
+          case TileType.water:
+            _drawBackWall(canvas, map, r, x, y, h, d);
+            _drawWater(canvas, r, h, map.tileAt(x, y - 1) != TileType.water);
+          case TileType.plate:
+            _drawBackWall(canvas, map, r, x, y, h, d);
+            _drawPlate(canvas, r);
+          case _ when t.isLauncher:
+            _drawBackWall(canvas, map, r, x, y, h, d);
+            _drawLauncher(canvas, r, t.launch!, controller.launcherFx[map.indexOf(x, y)] ?? 0);
           case TileType.boulder:
             _drawBackWall(canvas, map, r, x, y, h, d);
             _drawBoulder(canvas, map, r, x, y, h, d);
@@ -167,10 +177,18 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     }
   }
 
-  /// Wooden TNT crate with a hazard stripe.
-  void _drawCrate(Canvas canvas, Rect r) {
+  /// TNT crate; each kind has its own colour and label.
+  void _drawCrate(Canvas canvas, Rect r, TntKind kind) {
     final box = r.deflate(2);
-    _p.color = const Color(0xFF9C2A1E);
+    final (body, label) = switch (kind) {
+      TntKind.basic => (const Color(0xFF9C2A1E), 'TNT'),
+      TntKind.powerful => (const Color(0xFF5A1010), 'MEGA'),
+      TntKind.mining => (const Color(0xFF6B5A2A), 'MINE'),
+      TntKind.chain => (const Color(0xFF8A3A9C), 'CHAIN'),
+      TntKind.treasure => (const Color(0xFF8A6A10), r'$TNT'),
+      TntKind.unstable => (Color.lerp(const Color(0xFF9C2A1E), const Color(0xFFFF6A3D), (sin(_t * 9) + 1) / 2)!, '!!!'),
+    };
+    _p.color = body;
     canvas.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(3)), _p);
     _p.color = const Color(0xFF6E1A12);
     canvas.drawRect(Rect.fromLTWH(box.left, box.top, box.width, 3), _p);
@@ -185,6 +203,93 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     final blink = sin(_t * 5) > 0.7;
     _p.color = blink ? const Color(0xFFFF453A) : const Color(0x88FF453A);
     canvas.drawCircle(Offset(box.right - 4, box.top + 6), 1.8, _p);
+    _tinyText.render(canvas, label, Vector2(box.center.dx, box.top + 6), anchor: Anchor.center);
+  }
+
+  void _drawWater(Canvas canvas, Rect r, int h, bool surface) {
+    _p.color = const Color(0x994DA3FF);
+    final top = surface ? r.top + 4 + sin(_t * 2.5 + h % 9) * 1.5 : r.top;
+    canvas.drawRect(Rect.fromLTRB(r.left, top, r.right, r.bottom), _p);
+    if (surface) {
+      _p.color = const Color(0xCCBDE3FF);
+      canvas.drawRect(Rect.fromLTWH(r.left, top, ts, 2), _p);
+    }
+    _p.color = const Color(0x33FFFFFF);
+    final bub = (_t * 0.6 + (h % 50) / 50) % 1;
+    canvas.drawCircle(Offset(r.left + 6 + h % 20, r.bottom - bub * ts), 1.6, _p);
+  }
+
+  void _drawPlate(Canvas canvas, Rect r) {
+    _p.color = const Color(0xFF3A3F4A);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(r.left + 3, r.bottom - 6, ts - 6, 5), const Radius.circular(2)), _p);
+    _p.color = const Color(0xFF8A929C);
+    canvas.drawRect(Rect.fromLTWH(r.left + 5, r.bottom - 7, ts - 10, 2), _p);
+    _p.color = const Color(0xFFFFC233);
+    for (var i = 0; i < 3; i++) {
+      canvas.drawRect(Rect.fromLTWH(r.left + 8 + i * 6, r.bottom - 5, 3, 3), _p);
+    }
+  }
+
+  /// Spring pad with an arrow showing which way it throws.
+  void _drawLauncher(Canvas canvas, Rect r, LaunchKind k, double firing) {
+    final ext = firing > 0 ? 10 * firing : 0.0;
+    _p.color = const Color(0xFF2E3440);
+    canvas.drawRect(Rect.fromLTWH(r.left + 4, r.bottom - 4, ts - 8, 4), _p);
+    _crack.color = const Color(0xFFC9D1D9);
+    for (var i = 0; i < 3; i++) {
+      final y = r.bottom - 5 - i * (2.5 + ext / 3);
+      canvas.drawLine(Offset(r.left + 9, y), Offset(r.right - 9, y - 1.5), _crack);
+    }
+    _crack.color = const Color(0xCC140E0B);
+    final topY = r.bottom - 12 - ext;
+    _p.color = k == LaunchKind.heavy ? const Color(0xFFFF6A3D) : const Color(0xFF4DA3FF);
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(r.left + 5, topY, ts - 10, 4), const Radius.circular(2)), _p);
+    // Direction arrow.
+    final (ax, ay) = switch (k) {
+      LaunchKind.left => (-1.0, 0.0),
+      LaunchKind.right => (1.0, 0.0),
+      LaunchKind.upLeft => (-0.7, -0.7),
+      LaunchKind.upRight => (0.7, -0.7),
+      _ => (0.0, -1.0),
+    };
+    final c = Offset(r.center.dx, topY - 6);
+    _p.color = k == LaunchKind.random ? Color.lerp(const Color(0xFFB06BFF), const Color(0xFFFFC233), (sin(_t * 6) + 1) / 2)! : const Color(0xFFFFFFFF);
+    if (k == LaunchKind.random) {
+      _tinyText.render(canvas, '?', Vector2(c.dx, c.dy), anchor: Anchor.center);
+    } else {
+      final tip = c + Offset(ax, ay) * 6;
+      final side = Offset(-ay, ax) * 3.5;
+      canvas.drawPath(Path()..moveTo(tip.dx, tip.dy)..lineTo((c + side).dx, (c + side).dy)..lineTo((c - side).dx, (c - side).dy)..close(), _p);
+    }
+  }
+
+  void _drawTreasureChest(Canvas canvas, Rect r) {
+    final body = Rect.fromCenter(center: r.center + const Offset(0, 4), width: ts * 0.78, height: ts * 0.46);
+    _p.color = const Color(0xFF6B3E1A);
+    canvas.drawRRect(RRect.fromRectAndRadius(body, const Radius.circular(3)), _p);
+    _p.color = const Color(0xFF8C5A2B);
+    canvas.drawRRect(
+      RRect.fromRectAndCorners(Rect.fromLTWH(body.left, body.top - 7, body.width, 8), topLeft: const Radius.circular(7), topRight: const Radius.circular(7)),
+      _p,
+    );
+    _p.color = const Color(0xFFFFC233);
+    canvas.drawRect(Rect.fromLTWH(body.left, body.top - 1, body.width, 2.5), _p);
+    canvas.drawRect(Rect.fromLTWH(body.center.dx - 2, body.top - 7, 4, body.height + 7), _p);
+    _twinkle(canvas, r, 3, const Color(0xFFFFF6C8));
+  }
+
+  void _drawDoor(Canvas canvas, Rect r) {
+    _p.color = const Color(0xFF4A4038);
+    canvas.drawRect(r, _p);
+    _p.color = const Color(0xFF6E6152);
+    canvas.drawRRect(RRect.fromRectAndCorners(r.deflate(3), topLeft: const Radius.circular(12), topRight: const Radius.circular(12)), _p);
+    final glow = 0.5 + 0.5 * sin(_t * 2);
+    _p.color = Color.fromRGBO(255, 194, 51, 0.5 + 0.5 * glow);
+    canvas.drawCircle(r.center, 3, _p);
+    _crack.color = Color.fromRGBO(255, 194, 51, 0.4 + 0.4 * glow);
+    canvas.drawLine(r.center + const Offset(-7, -7), r.center + const Offset(7, 7), _crack);
+    canvas.drawLine(r.center + const Offset(7, -7), r.center + const Offset(-7, 7), _crack);
+    _crack.color = const Color(0xCC140E0B);
   }
 
   /// A loose boulder: round, heavy, and wobbling when nothing holds it up.
@@ -356,8 +461,12 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
         _drawCoins(canvas, r);
       case TileType.treasure:
         _drawChest(canvas, r);
-      case TileType.explosive:
-        _drawCrate(canvas, r);
+      case _ when t.tnt != null:
+        _drawCrate(canvas, r, t.tnt!);
+      case TileType.chest:
+        _drawTreasureChest(canvas, r);
+      case TileType.ancientDoor:
+        _drawDoor(canvas, r);
       default:
         break;
     }

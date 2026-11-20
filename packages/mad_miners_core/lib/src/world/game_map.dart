@@ -22,7 +22,8 @@ class TilePos {
 class GameMap {
   GameMap(this.width, this.height, {required this.spawn})
     : _tiles = List.filled(width * height, TileType.rock),
-      _hp = List.filled(width * height, TileType.rock.maxHp);
+      _hp = List.filled(width * height, TileType.rock.maxHp),
+      _disguise = List.filled(width * height, null);
 
   final int width;
   final int height;
@@ -32,7 +33,24 @@ class GameMap {
   final List<TileType> _tiles;
   final List<int> _hp;
 
-  static const _alphabet = '0123456789abcdefghijklmnopqrstuvwxyz';
+  /// Hidden tiles: what clients see instead (null = not hidden).
+  final List<TileType?> _disguise;
+
+  bool isHidden(int i) => _disguise[i] != null;
+  TileType? disguiseAt(int i) => _disguise[i];
+
+  /// Hide tile [i] from clients; they see [as] until it's revealed.
+  void hide(int i, TileType as) => _disguise[i] = as;
+
+  /// Returns true if it was hidden.
+  bool reveal(int i) {
+    if (_disguise[i] == null) return false;
+    _disguise[i] = null;
+    return true;
+  }
+
+  /// One char per tile type (62 possible). Old types keep their old char.
+  static const _alphabet = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
   bool inBounds(int x, int y) => x >= 0 && y >= 0 && x < width && y < height;
   int indexOf(int x, int y) => y * width + x;
@@ -49,6 +67,58 @@ class GameMap {
     final i = y * width + x;
     _tiles[i] = t;
     _hp[i] = t.maxHp;
+    _disguise[i] = null; // anything placed or changed is out in the open
+  }
+
+  /// Tile (x, y) just opened up: hidden neighbours that looked like rock
+  /// come into view. A hidden open pocket (lava, water, a sealed room) is
+  /// revealed all at once. Floor traps disguised as empty space stay hidden.
+  /// Returns the newly revealed indices.
+  List<int> exposeAround(int x, int y) {
+    final out = <int>[];
+    final queue = <int>[];
+    void consider(int nx, int ny) {
+      if (!inBounds(nx, ny)) return;
+      final i = indexOf(nx, ny);
+      final d = _disguise[i];
+      if (d == null || !d.isSolid) return;
+      _disguise[i] = null;
+      out.add(i);
+      if (!_tiles[i].isSolid) queue.add(i);
+    }
+
+    void around(int cx, int cy) {
+      consider(cx + 1, cy);
+      consider(cx - 1, cy);
+      consider(cx, cy + 1);
+      consider(cx, cy - 1);
+    }
+
+    around(x, y);
+    while (queue.isNotEmpty) {
+      final i = queue.removeLast();
+      around(i % width, i ~/ width);
+    }
+    return out;
+  }
+
+  /// Hidden floor traps within [r] tiles of (x, y) — what a miner notices
+  /// by walking past. Returns the newly revealed indices.
+  List<int> revealNear(double x, double y, double r) {
+    final out = <int>[];
+    for (var ty = (y - r).floor(); ty <= (y + r).floor(); ty++) {
+      for (var tx = (x - r).floor(); tx <= (x + r).floor(); tx++) {
+        if (!inBounds(tx, ty)) continue;
+        final i = indexOf(tx, ty);
+        final d = _disguise[i];
+        if (d == null || d.isSolid) continue;
+        final dx = tx + 0.5 - x, dy = ty + 0.5 - y;
+        if (dx * dx + dy * dy > r * r) continue;
+        _disguise[i] = null;
+        out.add(i);
+      }
+    }
+    return out;
   }
 
   /// Applies a server-authoritative tile state (client side).
@@ -68,6 +138,7 @@ class GameMap {
     if (_hp[i] > 0) return null;
     _tiles[i] = TileType.empty;
     _hp[i] = 0;
+    _disguise[i] = null;
     return t;
   }
 
@@ -92,6 +163,7 @@ class GameMap {
   /// revealed, look like hard rock.
   TileType publicTypeAt(int i, {required bool hideTreasure}) => switch (_tiles[i]) {
     TileType.volcano => TileType.hardRock,
+    _ when _disguise[i] != null => _disguise[i]!,
     TileType.treasure when hideTreasure => TileType.hardRock,
     final t => t,
   };

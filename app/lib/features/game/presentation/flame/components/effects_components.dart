@@ -211,7 +211,7 @@ class DarknessComponent extends Component with HasGameReference<MadMinersGame> {
   }
 }
 
-/// Lit bombs and dynamite with blinking fuses.
+/// Lit bombs and dynamite with blinking fuses; lit TNT with a 3-2-1.
 class BombsComponent extends Component {
   BombsComponent(this.controller) : super(priority: 12);
   final GameController controller;
@@ -221,10 +221,38 @@ class BombsComponent extends Component {
   @override
   void update(double dt) => _t += dt;
 
+  final _count = TextPaint(
+    style: const TextStyle(fontFamily: 'Lilita', fontSize: 30, color: Color(0xFFFFFFFF), shadows: [Shadow(blurRadius: 6, color: Color(0xFFFF1F1F))]),
+  );
+
+  void _litTnt(Canvas canvas, BombSnapshot b) {
+    const ts = MadMinersGame.tileSize;
+    final c = Offset(b.x * ts, b.y * ts);
+    final n = b.fuse.ceil().clamp(1, 3);
+    final beat = (b.fuse % 1); // 1 → 0 within each second
+    // Blast radius warning, pulsing harder as it gets closer.
+    _p.color = Color.fromRGBO(255, 69, 58, 0.10 + 0.18 * (1 - b.fuse / 3));
+    canvas.drawCircle(c, b.tnt!.blast.radius * ts, _p);
+    final box = Rect.fromCenter(center: c, width: ts * 0.86, height: ts * 0.86);
+    _p.color = sin(_t * (12 + 20 * (1 - b.fuse / 3))) > 0 ? const Color(0xFFFF2D2D) : const Color(0xFF9C2A1E);
+    canvas.drawRRect(RRect.fromRectAndRadius(box, const Radius.circular(4)), _p);
+    _p.color = const Color(0xFFFFC233);
+    canvas.drawRect(Rect.fromLTWH(box.left, c.dy - 3, box.width, 6), _p);
+    canvas.save();
+    canvas.translate(c.dx, c.dy - ts * 0.95);
+    canvas.scale(1 + 0.35 * beat);
+    _count.render(canvas, '$n', Vector2.zero(), anchor: Anchor.center);
+    canvas.restore();
+  }
+
   @override
   void render(Canvas canvas) {
     const ts = MadMinersGame.tileSize;
     for (final b in controller.bombs) {
+      if (b.tnt != null) {
+        _litTnt(canvas, b);
+        continue;
+      }
       final c = Offset(b.x * ts, b.y * ts - 1);
       final urgent = b.fuse < 0.8;
       final blink = urgent ? (sin(_t * 30) > 0) : (sin(_t * 10) > 0.6);

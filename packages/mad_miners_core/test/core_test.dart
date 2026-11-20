@@ -211,8 +211,9 @@ void main() {
         ..x = 10.5
         ..y = 20.6;
       sim.setInput('p', const PlayerInput(fy: 1, mine: true));
-      for (var i = 0; i < 30 * 3; i++) {
+      for (var i = 0; i < 30 * 5; i++) {
         sim.update(1 / 30);
+        if (sim.map.tileAt(10, 21) != TileType.explosive) sim.setInput('p', const PlayerInput()); // lit: stop digging
       }
       expect(sim.map.tileAt(11, 21), TileType.empty, reason: 'the crate blast cleared its neighbours');
       expect(p.hp, lessThan(Balance.maxHealth));
@@ -502,6 +503,261 @@ void main() {
       }
       expect(kinds, containsAll([GameEventKind.worldEvent, GameEventKind.worldEventEnded]));
     });
+  });
+
+  group('hazard expansion (acceptance)', () {
+    late GameSimulation sim;
+    late SimPlayer p;
+    // A sealed 13x11 test room of rock at x 4..16, y 15..25; miner at (10,20).
+    setUp(() {
+      sim = GameSimulation(settings: const MatchSettings(fillWithBots: false), seed: 3, warmup: 0);
+      p = sim.addHuman('p', 'P');
+      for (var x = 4; x <= 16; x++) {
+        for (var y = 15; y <= 25; y++) {
+          sim.map.setTile(x, y, TileType.rock);
+        }
+      }
+      sim.map.setTile(10, 20, TileType.empty);
+      p
+        ..x = 10.5
+        ..y = 20.6;
+    });
+
+    void run(double seconds) {
+      for (var i = 0; i < (seconds * 30).round(); i++) {
+        sim.update(1 / 30);
+      }
+    }
+
+    void hideAsRock(int x, int y, TileType t) {
+      sim.map.setTile(x, y, t);
+      sim.map.hide(sim.map.indexOf(x, y), TileType.rock);
+    }
+
+    test('hidden lava looks like rock until the rock in front of it is dug', () {
+      hideAsRock(12, 20, TileType.lava);
+      sim.takeSnapshot();
+      expect(sim.publicMap().tileAt(12, 20), TileType.rock, reason: 'invisible from the start');
+      expect(sim.map.tileAt(12, 20), TileType.lava, reason: 'but really there');
+      // Dig the rock between, the normal way.
+      sim.setInput('p', const PlayerInput(fx: 1, fy: 0, mine: true));
+      final events = <GameEvent>[];
+      final tiles = <TileChange>[];
+      for (var i = 0; i < 30 && sim.map.tileAt(11, 20) != TileType.empty; i++) {
+        sim.update(1 / 30);
+        final s = sim.takeSnapshot();
+        events.addAll(s.events);
+        tiles.addAll(s.tiles);
+      }
+      sim.setInput('p', const PlayerInput());
+      final last = sim.takeSnapshot();
+      events.addAll(last.events);
+      tiles.addAll(last.tiles);
+      final snap = WorldSnapshot(tick: 0, timeLeft: 0, players: const [], tiles: tiles, events: events, teamScores: const []);
+      expect(sim.publicMap().tileAt(12, 20), TileType.lava, reason: 'revealed once exposed');
+      expect(snap.events.where((e) => e.kind == GameEventKind.hazardRevealed && e.value == TileType.lava.index), hasLength(1));
+      expect(snap.tiles.any((t) => t.index == sim.map.indexOf(12, 20) && t.typeIndex == TileType.lava.index), isTrue,
+          reason: 'every client gets the same world update');
+    });
+
+    test('lava hurts on touch and kills if you stay in it', () {
+      sim.map.setTile(10, 21, TileType.lava);
+      sim.map.setTile(10, 22, TileType.rock);
+      run(0.3); // drop into it
+      expect(p.hp, lessThan(Balance.maxHealth), reason: 'touching hurts');
+      expect(p.alive, isTrue, reason: 'one touch is not instant death');
+      p
+        ..y = 21.5
+        ..hp = Balance.maxHealth;
+      run(2);
+      expect(p.alive, isFalse, reason: 'staying in lava kills');
+    });
+
+    test('obsidian is much harder than rock; only Mining TNT breaks it in one blast', () {
+      expect(TileType.obsidian.maxHp, greaterThan(TileType.hardRock.maxHp * 3));
+      sim.map.setTile(12, 20, TileType.obsidian);
+      sim.map.setTile(8, 20, TileType.obsidian);
+      sim.map.setTile(11, 20, TileType.explosive);
+      p.x = 6.5;
+      sim.map.setTile(6, 20, TileType.empty);
+      sim.map.setTile(7, 20, TileType.empty);
+      sim.activateTntForTest(11, 20, TntKind.basic);
+      run(3.5);
+      expect(sim.map.tileAt(12, 20), TileType.obsidian, reason: 'a normal blast only cracks it');
+      expect(sim.map.hpAt(12, 20), lessThan(TileType.obsidian.maxHp));
+      sim.activateTntForTest(9, 20, TntKind.mining);
+      run(3.5);
+      expect(sim.map.tileAt(8, 20), TileType.empty, reason: 'Mining TNT breaks obsidian');
+    });
+
+    test('TNT explodes exactly 3 seconds (90 server ticks) after activation', () {
+      p.x = 5.5;
+      sim.map.setTile(5, 20, TileType.empty);
+      sim.activateTntForTest(13, 20, TntKind.basic);
+      final lit = sim.tick;
+      final snap = sim.takeSnapshot();
+      expect(snap.bombs.single.tnt, TntKind.basic);
+      expect(snap.bombs.single.fuse, closeTo(3.0, 1e-9), reason: 'clients show the same 3-2-1');
+      int? boomAt;
+      for (var i = 0; i < 120 && boomAt == null; i++) {
+        sim.update(1 / 30);
+        if (sim.takeSnapshot().events.any((e) => e.kind == GameEventKind.explosion)) boomAt = sim.tick;
+      }
+      expect(boomAt! - lit, Balance.tntFuseTicks);
+      expect(Balance.tntFuseTicks / Balance.tickRate, 3.0);
+    });
+
+    test('TNT breaks rock around it but not bedrock, and hurts/knocks back only nearby miners', () {
+      final near = sim.addHuman('n', 'Near')
+        ..x = 12.5
+        ..y = 20.6;
+      sim.map.setTile(12, 20, TileType.empty);
+      sim.map.setTile(14, 21, TileType.bedrock);
+      p.x = 5.5;
+      sim.map.setTile(5, 20, TileType.empty);
+      sim.activateTntForTest(13, 21, TntKind.basic);
+      run(3.2);
+      expect(sim.map.tileAt(13, 22), TileType.empty);
+      expect(sim.map.tileAt(12, 21), TileType.empty);
+      expect(sim.map.tileAt(14, 21), TileType.bedrock, reason: 'bedrock is not eligible');
+      expect(near.hp < Balance.maxHealth || !near.alive, isTrue, reason: 'close miner got hit');
+      expect(p.hp, Balance.maxHealth, reason: 'far miner untouched');
+    });
+
+    test('chain TNT lights other TNT nearby', () {
+      p.x = 5.5;
+      sim.map.setTile(5, 20, TileType.empty);
+      sim.map.setTile(15, 18, TileType.explosive);
+      sim.activateTntForTest(13, 20, TntKind.chain);
+      run(3.2);
+      expect(sim.map.tileAt(15, 18), isNot(TileType.explosive), reason: 'chain-lit');
+      expect(sim.takeSnapshot().bombs.where((b) => b.tnt == TntKind.basic), hasLength(1), reason: 'now counting down its own 3 s');
+    });
+
+    test('launchers throw you in their direction, after a short warning', () {
+      for (var x = 6; x <= 15; x++) {
+        for (var y = 16; y <= 20; y++) {
+          sim.map.setTile(x, y, TileType.empty);
+        }
+      }
+      sim.map.setTile(10, 20, TileType.launcherRight);
+      p
+        ..x = 10.5
+        ..y = 20.6;
+      sim.map.setTile(10, 21, TileType.rock);
+      p.y = 20.6;
+      sim.update(1 / 30);
+      final armed = sim.takeSnapshot().events.where((e) => e.kind == GameEventKind.launcherArmed);
+      expect(armed, hasLength(1), reason: 'click before it fires');
+      expect(p.vx.abs(), lessThan(1), reason: 'not yet');
+      run(Balance.launcherWarning + 0.1);
+      expect(p.vx, greaterThan(8), reason: 'thrown right');
+      expect(p.vy, lessThan(0), reason: 'and up');
+    });
+
+    test('a launcher that throws you into a wall hurts; into lava is deadly', () {
+      sim.map.setTile(11, 20, TileType.empty);
+      sim.map.setTile(9, 20, TileType.launcherRight); // pad, then 2 tiles of air, then rock
+      sim.map.setTile(10, 20, TileType.empty);
+      p
+        ..x = 9.5
+        ..y = 20.6;
+      run(1.2);
+      expect(p.hp, lessThan(Balance.maxHealth), reason: 'crashed into the rock');
+      expect(Physics.impactDamage(16), greaterThan(0));
+      expect(Physics.impactDamage(Balance.safeImpactSpeed), 0);
+    });
+
+    test('floor traps in caves look empty until a miner walks close', () {
+      for (var x = 6; x <= 15; x++) {
+        sim.map.setTile(x, 20, TileType.empty);
+      }
+      sim.map.setTile(15, 20, TileType.spikes);
+      sim.map.hide(sim.map.indexOf(15, 20), TileType.empty);
+      sim.takeSnapshot();
+      expect(sim.publicMap().tileAt(15, 20), TileType.empty, reason: 'hidden');
+      p.x = 14.2;
+      sim.takeSnapshot();
+      expect(sim.publicMap().tileAt(15, 20), TileType.spikes, reason: 'noticed up close');
+    });
+
+    test('treasure compass gives real direction and distance, updated as you move', () {
+      final t = sim.treasure;
+      p
+        ..x = t.cx - 12
+        ..y = t.cy - 9;
+      final h = sim.hintFor('p');
+      expect(h.level, greaterThanOrEqualTo(1), reason: 'signal detected within range');
+      expect(h.distance, 15, reason: 'sqrt(12² + 9²) = 15 tiles');
+      expect(h.angle, 40, reason: 'atan2(9, 12) ≈ 37° → rounded to 40°');
+      p.x = t.cx + 12;
+      final h2 = sim.hintFor('p');
+      expect(h2.angle, 140, reason: 'now the treasure is down-left');
+      p
+        ..x = t.cx
+        ..y = t.cy - 40;
+      expect(sim.hintFor('p').level, 0, reason: 'too far and too shallow: no signal');
+    });
+
+    test('dying drops 20% of your unspent coins, and the cause is reported', () {
+      p.coins = 100;
+      sim.map.setTile(10, 21, TileType.lava);
+      sim.map.setTile(10, 22, TileType.lava);
+      final events = <GameEvent>[];
+      for (var i = 0; i < 90; i++) {
+        sim.update(1 / 30);
+        events.addAll(sim.takeSnapshot().events);
+      }
+      final died = events.firstWhere((e) => e.kind == GameEventKind.died);
+      expect(died.text, 'lava');
+      expect(died.value, 20);
+      expect(p.coins, 80);
+    });
+
+    test('a chest pays exactly once', () {
+      sim.map.setTile(10, 21, TileType.chest);
+      sim.setInput('p', const PlayerInput(fy: 1, mine: true));
+      final events = <GameEvent>[];
+      for (var i = 0; i < 30 * 3; i++) {
+        sim.update(1 / 30);
+        events.addAll(sim.takeSnapshot().events);
+      }
+      final opened = events.where((e) => e.kind == GameEventKind.chestOpened).toList();
+      expect(opened, hasLength(1));
+      expect(p.coins, opened.single.value);
+    });
+
+    test('water flows down and turns lava into obsidian', () {
+      for (var y = 16; y <= 20; y++) {
+        sim.map.setTile(7, y, TileType.empty);
+      }
+      sim.map.setTile(7, 16, TileType.water);
+      sim.map.setTile(7, 21, TileType.lava);
+      run(2);
+      expect(sim.map.tileAt(7, 16), TileType.empty, reason: 'water ran down');
+      expect(sim.map.tileAt(7, 21), TileType.obsidian, reason: 'lava cooled');
+    });
+  });
+
+  test('the sealed treasure chamber opens when a miner gets close', () {
+    final sim = GameSimulation(settings: const MatchSettings(fillWithBots: false), seed: 7, warmup: 0);
+    final p = sim.addHuman('p', 'P');
+    final t = sim.treasure;
+    sim.takeSnapshot();
+    expect(sim.publicMap().tileAt(t.x, t.y - 3), isNot(TileType.ancientDoor), reason: 'the chamber is hidden');
+    expect(sim.map.tileAt(t.x, t.y - 3), TileType.ancientDoor);
+    expect(sim.map.tileAt(t.x, t.y - 3).isMinable, isFalse);
+    p
+      ..x = t.cx
+      ..y = t.cy - 6.5;
+    sim.map.setTile(t.x, t.y - 7, TileType.empty);
+    sim.map.setTile(t.x, t.y - 6, TileType.empty);
+    sim.map.setTile(t.x, t.y - 5, TileType.rock);
+    sim.update(1 / 30);
+    final snap = sim.takeSnapshot();
+    expect(snap.events.any((e) => e.kind == GameEventKind.chamberOpened), isTrue);
+    expect(sim.map.tileAt(t.x, t.y - 3), TileType.empty, reason: 'door opened');
+    expect(sim.publicMap().tileAt(t.x, t.y - 1), TileType.empty, reason: 'the room inside is revealed');
   });
 
   test('treasure is hidden from clients until revealed', () {

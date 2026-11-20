@@ -219,6 +219,19 @@ enum GameEventKind {
   /// value = WorldEventKind index.
   worldEvent,
   worldEventEnded,
+  /// A hidden hazard came into view: value = TileType index, playerId = who found it.
+  hazardRevealed,
+  /// TNT lit (x,y): value = TntKind index. Goes off in exactly 3 s.
+  tntActivated,
+  /// Launcher pad clicked (warning) / fired: value = LaunchKind index.
+  launcherArmed,
+  launcherFired,
+  /// Pressure plate stepped on: value = PlateTrap index.
+  plateTriggered,
+  /// Chest broken: value = coins.
+  chestOpened,
+  /// The sealed treasure chamber opened (x,y = its door).
+  chamberOpened,
 }
 
 class GameEvent {
@@ -414,16 +427,24 @@ class MatchResult {
 }
 
 class BombSnapshot {
-  const BombSnapshot(this.x, this.y, this.kind, this.fuse);
+  const BombSnapshot(this.x, this.y, this.kind, this.fuse, {this.tnt});
+
+  /// Set when this is a lit TNT block (shows a 3-2-1 countdown).
+  final TntKind? tnt;
 
   final double x;
   final double y;
   final ItemKind kind;
   final double fuse;
 
-  List<Object> toJson() => [_r2(x), _r2(y), kind.index, _r2(fuse)];
-  factory BombSnapshot.fromJson(List<dynamic> l) =>
-      BombSnapshot((l[0] as num).toDouble(), (l[1] as num).toDouble(), ItemKind.values[(l[2] as num).toInt()], (l[3] as num).toDouble());
+  List<Object> toJson() => [_r2(x), _r2(y), kind.index, _r2(fuse), ?tnt?.index];
+  factory BombSnapshot.fromJson(List<dynamic> l) => BombSnapshot(
+    (l[0] as num).toDouble(),
+    (l[1] as num).toDouble(),
+    ItemKind.values[(l[2] as num).toInt()],
+    (l[3] as num).toDouble(),
+    tnt: l.length > 4 ? TntKind.values[(l[4] as num).toInt()] : null,
+  );
 }
 
 /// Status effect bits on [PlayerSnapshot.effects].
@@ -471,17 +492,23 @@ class MysterySnapshot {
 
 /// Private "treasure sense" for one miner. Never broadcast to others.
 class TreasureHint {
-  const TreasureHint(this.level, this.side);
+  const TreasureHint(this.level, this.side, {this.distance = 0, this.angle = 0});
   static const none = TreasureHint(0, 0);
 
-  /// 0 nothing, 1 faint, 2 warm, 3 hot.
+  /// 0 nothing, 1 signal detected, 2 warm, 3 hot.
   final int level;
 
-  /// Rough horizontal direction at level 2: -1 left, 1 right, 0 straight down/up.
+  /// Rough horizontal direction: -1 left, 1 right, 0 straight down/up.
   final int side;
 
+  /// Treasure compass (level ≥ 1): distance in whole tiles (= metres) and
+  /// direction in degrees (0 = right, 90 = straight down), rounded to 10°.
+  final int distance;
+  final int angle;
+
   @override
-  bool operator ==(Object other) => other is TreasureHint && other.level == level && other.side == side;
+  bool operator ==(Object other) =>
+      other is TreasureHint && other.level == level && other.side == side && other.distance == distance && other.angle == angle;
   @override
-  int get hashCode => level * 3 + side;
+  int get hashCode => Object.hash(level, side, distance, angle);
 }

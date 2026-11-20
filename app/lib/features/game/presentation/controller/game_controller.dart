@@ -80,6 +80,12 @@ class GameController {
   int _bannerSeq = 0;
   double _bannerLeft = 0;
 
+  /// Launcher pads that just fired (tile index → animation 1..0).
+  final Map<int, double> launcherFx = {};
+  final Map<String, int> _tntBeat = {};
+  double _monsterWarnCd = 0;
+  double _lavaWarnCd = 0;
+
   /// Columns of the surface shop.
   List<int> depotXs = const [];
 
@@ -139,9 +145,12 @@ class GameController {
         _hasPrediction = false;
         mapVersion++;
         depotXs = (e.map.depotTiles.map((t) => t.x).toSet().toList()..sort());
-        explored = List.filled(e.map.width * e.map.height, false);
-        for (var i = 0; i < e.map.width * (MapGenerator.surfaceRows + 1); i++) {
-          explored[i] = true; // the surface is common knowledge
+        // Keep what you've explored if you reconnect to the same mine.
+        if (!(e.reconnected && explored.length == e.map.width * e.map.height)) {
+          explored = List.filled(e.map.width * e.map.height, false);
+          for (var i = 0; i < e.map.width * (MapGenerator.surfaceRows + 1); i++) {
+            explored[i] = true; // the surface is common knowledge
+          }
         }
         hud.value = hud.value.copyWith(
           roomCode: e.roomCode,
@@ -160,6 +169,10 @@ class GameController {
       case SessionHint(:final hint):
         final old = hud.value.hint;
         hud.value = hud.value.copyWith(hint: hint);
+        if (old.level == 0 && hint.level >= 1) {
+          _banner('TREASURE SIGNAL DETECTED!', 'Follow the gold compass: ${hint.distance} m away', 0xFFFFC233);
+          audio?.play(Sfx.gem);
+        }
         if (hint.level > old.level) {
           _pushFeed(switch (hint.level) {
             1 => 'You sense something glittering deep below…',
@@ -204,6 +217,27 @@ class GameController {
     }
 
     bombs = s.bombs;
+    // TNT countdown beeps, one per second, for TNT near you.
+    final live = <String>{};
+    for (final b in bombs.where((b) => b.tnt != null)) {
+      final key = '${b.x.toStringAsFixed(1)},${b.y.floor()}';
+      live.add(key);
+      final n = b.fuse.ceil();
+      if (_tntBeat[key] != n) {
+        _tntBeat[key] = n;
+        audio?.play(Sfx.tick, volume: _vol(b.x, b.y));
+      }
+    }
+    _tntBeat.removeWhere((k, _) => !live.contains(k));
+    // Monster warning.
+    if (_monsterWarnCd <= 0 && me != null && me!.snap.alive) {
+      final close = s.monsters.where((m) => pow(m.x - predX, 2) + pow(m.y - predY, 2) < 25).firstOrNull;
+      if (close != null) {
+        _monsterWarnCd = 20;
+        _banner('MONSTER NEARBY!', '${monsterDefs[close.kind]!.name}: fight with your pickaxe or run', 0xFFFF4D6A);
+        audio?.play(Sfx.alarm, volume: 0.6);
+      }
+    }
     monsters = s.monsters;
     mysteries = s.mysteries;
     final ev = s.worldEvent;
@@ -298,6 +332,7 @@ class GameController {
         }
       case GameEventKind.died:
         _pushFeed(isMe ? 'You were killed by ${_cause(ev.text)}!' : '$name was killed by ${_cause(ev.text)}');
+        if (isMe) hud.value = hud.value.copyWith(deathCause: _cause(ev.text), deathLost: ev.value);
         if (isMe) {
           _fx.add(const FxRequest.shake(10));
           audio?.buzz(Haptic.heavy);
@@ -385,6 +420,60 @@ class GameController {
         _pushFeed('EVENT: ${k.label}! ${k.blurb}');
         audio?.play(k == WorldEventKind.earthquake ? Sfx.explosion : Sfx.victory, volume: 0.7);
         if (k == WorldEventKind.earthquake) _fx.add(const FxRequest.shake(12));
+      case GameEventKind.hazardRevealed:
+        final t = TileType.values[ev.value.clamp(0, TileType.values.length - 1)];
+        final near = ev.x != null && _vol(ev.x!, ev.y!) > 0.45;
+        if (near && t == TileType.lava && _lavaWarnCd <= 0) {
+          _lavaWarnCd = 12;
+          _banner('LAVA DISCOVERED!', 'Hot rock ahead, don\'t touch it', 0xFFFF6A3D);
+          audio?.play(Sfx.lava);
+        } else if (near && t.isLauncher) {
+          _pushFeed('A launcher pad! Step on it and you fly.');
+        } else if (near && t.tnt != null) {
+          _pushFeed('You uncovered ${t.tnt!.label}. Careful!');
+        } else if (near && t == TileType.water) {
+          _pushFeed('Underground water broke loose!');
+        }
+      case GameEventKind.tntActivated:
+        final kind = TntKind.values[ev.value.clamp(0, TntKind.values.length - 1)];
+        if (ev.x != null && _vol(ev.x!, ev.y!) > 0.35) {
+          _banner('TNT ACTIVATED!', '${kind.label}: 3 seconds, get clear!', 0xFFFF453A);
+          audio?.play(Sfx.alarm, volume: _vol(ev.x!, ev.y!));
+          audio?.buzz(Haptic.medium);
+        }
+      case GameEventKind.launcherArmed:
+        if (ev.x != null) audio?.play(Sfx.dig, volume: _vol(ev.x!, ev.y!));
+      case GameEventKind.launcherFired:
+        final m = map;
+        if (ev.x != null && m != null) {
+          launcherFx[m.indexOf(ev.x!.floor(), ev.y!.floor())] = 1;
+          audio?.play(Sfx.spring, volume: _vol(ev.x!, ev.y!));
+          _fx.add(FxRequest.chips(ev.x!, ev.y! + 0.3, 0xFFC9D1D9, amount: 8));
+        }
+      case GameEventKind.plateTriggered:
+        final trap = PlateTrap.values[ev.value.clamp(0, PlateTrap.values.length - 1)];
+        if (ev.x != null && _vol(ev.x!, ev.y!) > 0.35) {
+          final (title, sub) = switch (trap) {
+            PlateTrap.collapse => ('CAVE COLLAPSE!', 'A pressure plate brought the ceiling down'),
+            PlateTrap.spikes => ('SPIKE TRAP!', 'Spikes shot up from the floor'),
+            PlateTrap.tnt => ('TNT TRAP!', 'Something dropped from the ceiling…'),
+          };
+          _banner(title, sub, 0xFFFF8A5B);
+          audio?.play(Sfx.alarm);
+          _fx.add(const FxRequest.shake(6));
+        }
+      case GameEventKind.chestOpened:
+        if (ev.x != null) {
+          _fx
+            ..add(FxRequest(ev.x!, ev.y! - 0.6, isMe ? '+${ev.value} coins${ev.text != null ? ' ${ev.text}' : ''}' : 'Chest!', 0xFFFFC233))
+            ..add(FxRequest.burst(ev.x!, ev.y!, 0xFFFFC233));
+          audio?.play(Sfx.chest, volume: _vol(ev.x!, ev.y!));
+        }
+      case GameEventKind.chamberOpened:
+        _banner('SECRET CHAMBER OPENED!', isMe ? 'An ancient door slid open below you' : '$name opened the treasure chamber!', 0xFFFFC233);
+        _pushFeed('The sealed treasure chamber is open!');
+        audio?.play(Sfx.victory, volume: 0.8);
+        _fx.add(const FxRequest.shake(8));
       case GameEventKind.worldEventEnded:
         _pushFeed('${WorldEventKind.values[ev.value.clamp(0, WorldEventKind.values.length - 1)].label} is over');
     }
@@ -453,6 +542,10 @@ class GameController {
     if (mine == null) return;
     final input = _readInput(dt);
 
+    launcherFx.updateAll((_, v) => v - dt * 2.5);
+    launcherFx.removeWhere((_, v) => v <= 0);
+    _monsterWarnCd = max(0, _monsterWarnCd - dt);
+    _lavaWarnCd = max(0, _lavaWarnCd - dt);
     if (_bannerLeft > 0) {
       _bannerLeft -= dt;
       if (_bannerLeft <= 0) hud.value = hud.value.copyWith(clearBanner: true);
