@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 /** Drop-down link list for small screens (opened from the Navbar). */
 export function MobileMenu({ pathname }: { pathname: string }) {
   return (
-    <ul id="mobile-menu" className="border-t border-hairline px-5 py-4 md:hidden">
+    <ul id="mobile-menu" className="border-hairline border-t px-5 py-4 md:hidden">
       {NAV_LINKS.map((link) => (
         <li key={link.href}>
           <Link
@@ -15,7 +15,7 @@ export function MobileMenu({ pathname }: { pathname: string }) {
             aria-current={pathname === link.href ? "page" : undefined}
             className={cn(
               "block rounded-xl px-4 py-3 text-lg font-extrabold",
-              pathname === link.href ? "bg-white/6 text-gold" : "text-text",
+              pathname === link.href ? "text-gold bg-white/6" : "text-text",
             )}
           >
             {link.label}
@@ -27,7 +27,7 @@ export function MobileMenu({ pathname }: { pathname: string }) {
           href={site.playStoreUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="block rounded-xl bg-gold px-4 py-3 text-center font-display text-lg text-on-gold"
+          className="bg-gold font-display text-on-gold block rounded-xl px-4 py-3 text-center text-lg"
         >
           Play free on Google Play
         </a>

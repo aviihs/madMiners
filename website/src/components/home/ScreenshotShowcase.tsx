@@ -22,9 +22,17 @@ export function ScreenshotShowcase({ items }: { items: Screenshot[] }) {
   );
 }
 
-function Shot({ screenshot, sizes, priority }: { screenshot: Screenshot; sizes: string; priority?: boolean }) {
+function Shot({
+  screenshot,
+  sizes,
+  priority,
+}: {
+  screenshot: Screenshot;
+  sizes: string;
+  priority?: boolean;
+}) {
   return (
-    <figure className="overflow-hidden rounded-3xl border border-hairline bg-surface shadow-2xl shadow-black/40">
+    <figure className="border-hairline bg-surface overflow-hidden rounded-3xl border shadow-2xl shadow-black/40">
       <Image
         src={screenshot.src}
         alt={screenshot.alt}
@@ -34,7 +42,7 @@ function Shot({ screenshot, sizes, priority }: { screenshot: Screenshot; sizes: 
         priority={priority}
         className="aspect-video w-full object-cover"
       />
-      <figcaption className="px-5 py-3 text-sm text-muted">{screenshot.caption}</figcaption>
+      <figcaption className="text-muted px-5 py-3 text-sm">{screenshot.caption}</figcaption>
     </figure>
   );
 }

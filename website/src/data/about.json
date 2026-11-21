@@ -15,10 +15,26 @@
   "values": {
     "title": "What we care about",
     "items": [
-      { "icon": "shield", "title": "Fair play", "text": "No pay-to-win. Everything you can buy only changes how your miner looks." },
-      { "icon": "eye", "title": "Honesty", "text": "Bots are always labelled. Rewards are decided by the server, never faked." },
-      { "icon": "lock", "title": "Privacy", "text": "No ads, no tracking, no selling data. We only keep what the game needs to work." },
-      { "icon": "gauge", "title": "Smooth on any phone", "text": "Built to run well on mid-range Android phones, with a graphics setting for older devices." }
+      {
+        "icon": "shield",
+        "title": "Fair play",
+        "text": "No pay-to-win. Everything you can buy only changes how your miner looks."
+      },
+      {
+        "icon": "eye",
+        "title": "Honesty",
+        "text": "Bots are always labelled. Rewards are decided by the server, never faked."
+      },
+      {
+        "icon": "lock",
+        "title": "Privacy",
+        "text": "No ads, no tracking, no selling data. We only keep what the game needs to work."
+      },
+      {
+        "icon": "gauge",
+        "title": "Smooth on any phone",
+        "text": "Built to run well on mid-range Android phones, with a graphics setting for older devices."
+      }
     ]
   }
 }

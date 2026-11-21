@@ -1,9 +1,7 @@
 import type { IconCard, PageHeroContent } from "./Content";
 
 export type PolicyBlock =
-  | { type: "paragraph"; text: string }
-  | { type: "heading"; text: string }
-  | { type: "list"; items: string[] };
+  { type: "paragraph"; text: string } | { type: "heading"; text: string } | { type: "list"; items: string[] };
 
 export type PolicySectionContent = {
   id: string;

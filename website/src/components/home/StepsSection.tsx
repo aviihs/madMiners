@@ -7,12 +7,12 @@ export function StepsSection({ items }: { items: Step[] }) {
     <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
       {items.map((step, index) => (
         <Reveal key={step.title} delay={index * 80}>
-          <li className="relative h-full rounded-3xl border border-hairline bg-surface/60 p-6">
-            <span className="flex size-11 items-center justify-center rounded-full bg-gold font-display text-xl text-on-gold">
+          <li className="border-hairline bg-surface/60 relative h-full rounded-3xl border p-6">
+            <span className="bg-gold font-display text-on-gold flex size-11 items-center justify-center rounded-full text-xl">
               {index + 1}
             </span>
             <h3 className="mt-5 text-2xl">{step.title}</h3>
-            <p className="mt-2 text-muted">{step.text}</p>
+            <p className="text-muted mt-2">{step.text}</p>
           </li>
         </Reveal>
       ))}

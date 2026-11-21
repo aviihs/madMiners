@@ -59,36 +59,87 @@
     "title": "A look underground",
     "subtitle": "Real screenshots from the game.",
     "items": [
-      { "src": "/screenshots/deep-mine.jpg", "alt": "A miner digging deep in the Gold Mine zone next to a TNT crate, with the mini-map and touch controls", "caption": "Deep in the Gold Mine, right next to a TNT crate" },
-      { "src": "/screenshots/surface-shop.jpg", "alt": "The surface camp with the upgrade shop open", "caption": "Gear up at the surface shop" },
-      { "src": "/screenshots/match-lobby.jpg", "alt": "Miners gathering at the surface camp before the match starts", "caption": "Miners gather before the dig begins" }
+      {
+        "src": "/screenshots/deep-mine.jpg",
+        "alt": "A miner digging deep in the Gold Mine zone next to a TNT crate, with the mini-map and touch controls",
+        "caption": "Deep in the Gold Mine, right next to a TNT crate"
+      },
+      {
+        "src": "/screenshots/surface-shop.jpg",
+        "alt": "The surface camp with the upgrade shop open",
+        "caption": "Gear up at the surface shop"
+      },
+      {
+        "src": "/screenshots/match-lobby.jpg",
+        "alt": "Miners gathering at the surface camp before the match starts",
+        "caption": "Miners gather before the dig begins"
+      }
     ]
   },
   "steps": {
     "title": "How a match works",
     "items": [
-      { "title": "Drop in", "text": "Join a Quick Match, a private room, or practice offline. Everyone starts at the surface camp." },
-      { "title": "Dig down", "text": "Tunnel through six zones, grab ore for coins, and upgrade your pickaxe, helmet, boots and armor at the shop." },
-      { "title": "Survive", "text": "Lava, TNT, launchers, spikes and monsters stand between you and the bottom. Die and you're back at the top." },
-      { "title": "Find the treasure", "text": "Follow the treasure signal, open the sealed chamber and break the treasure first to win." }
+      {
+        "title": "Drop in",
+        "text": "Join a Quick Match, a private room, or practice offline. Everyone starts at the surface camp."
+      },
+      {
+        "title": "Dig down",
+        "text": "Tunnel through six zones, grab ore for coins, and upgrade your pickaxe, helmet, boots and armor at the shop."
+      },
+      {
+        "title": "Survive",
+        "text": "Lava, TNT, launchers, spikes and monsters stand between you and the bottom. Die and you're back at the top."
+      },
+      {
+        "title": "Find the treasure",
+        "text": "Follow the treasure signal, open the sealed chamber and break the treasure first to win."
+      }
     ]
   },
   "fairPlay": {
     "title": "Fair by design",
     "items": [
-      { "icon": "shield", "title": "No pay-to-win", "text": "Everything in the Locker is cosmetic. Digging power only comes from the in-match shop, where everyone starts from zero." },
-      { "icon": "bot", "title": "Bots are labelled", "text": "When a room needs filling, computer miners join. They always carry a BOT tag, so you know who is real." },
-      { "icon": "server", "title": "Server decides", "text": "Every dig, blast and reward is checked by the game server, so cheats can't fake a win or a Mystery Bomb prize." }
+      {
+        "icon": "shield",
+        "title": "No pay-to-win",
+        "text": "Everything in the Locker is cosmetic. Digging power only comes from the in-match shop, where everyone starts from zero."
+      },
+      {
+        "icon": "bot",
+        "title": "Bots are labelled",
+        "text": "When a room needs filling, computer miners join. They always carry a BOT tag, so you know who is real."
+      },
+      {
+        "icon": "server",
+        "title": "Server decides",
+        "text": "Every dig, blast and reward is checked by the game server, so cheats can't fake a win or a Mystery Bomb prize."
+      }
     ]
   },
   "faq": {
     "title": "Questions",
     "items": [
-      { "question": "Is Mad Miners free?", "answer": "Yes. The game is free and has no ads. Coins and gems are earned by playing." },
-      { "question": "Can I play without internet?", "answer": "Yes. Practice Offline runs the whole game on your phone against computer miners. Online matches and your saved progress need an internet connection." },
-      { "question": "Do I need an account?", "answer": "No sign-up form. Play as a guest with just a username, and link Google later if you want to keep your progress on another device." },
-      { "question": "Are the other players real?", "answer": "Online matches are filled with real players first. If seats are left, computer miners join, and they are always labelled BOT." },
-      { "question": "How do I delete my account?", "answer": "See the Delete account page. We remove your account and all of its game data." }
+      {
+        "question": "Is Mad Miners free?",
+        "answer": "Yes. The game is free and has no ads. Coins and gems are earned by playing."
+      },
+      {
+        "question": "Can I play without internet?",
+        "answer": "Yes. Practice Offline runs the whole game on your phone against computer miners. Online matches and your saved progress need an internet connection."
+      },
+      {
+        "question": "Do I need an account?",
+        "answer": "No sign-up form. Play as a guest with just a username, and link Google later if you want to keep your progress on another device."
+      },
+      {
+        "question": "Are the other players real?",
+        "answer": "Online matches are filled with real players first. If seats are left, computer miners join, and they are always labelled BOT."
+      },
+      {
+        "question": "How do I delete my account?",
+        "answer": "See the Delete account page. We remove your account and all of its game data."
+      }
     ]
   },
   "cta": {

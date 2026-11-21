@@ -14,7 +14,11 @@ export function IconBadge({ icon, tone = "gold", className }: IconBadgeProps) {
   const Icon = ICONS[icon];
   return (
     <span
-      className={cn("inline-flex size-12 items-center justify-center rounded-2xl ring-1", TONE_CLASSES[tone], className)}
+      className={cn(
+        "inline-flex size-12 items-center justify-center rounded-2xl ring-1",
+        TONE_CLASSES[tone],
+        className,
+      )}
     >
       <Icon aria-hidden className="size-6" strokeWidth={2.2} />
     </span>

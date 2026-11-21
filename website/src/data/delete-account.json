@@ -6,8 +6,14 @@
   },
   "steps": [
     { "title": "Email us", "text": "Send an email to {email} with the subject \"Delete my account\"." },
-    { "title": "Tell us which account", "text": "Include your in-game username. If you linked Google, send the email from that Google address so we can confirm it's you." },
-    { "title": "We confirm and delete", "text": "We may reply to confirm the request, then delete the account within 30 days and email you when it's done." }
+    {
+      "title": "Tell us which account",
+      "text": "Include your in-game username. If you linked Google, send the email from that Google address so we can confirm it's you."
+    },
+    {
+      "title": "We confirm and delete",
+      "text": "We may reply to confirm the request, then delete the account within 30 days and email you when it's done."
+    }
   ],
   "deleted": {
     "title": "What gets deleted",

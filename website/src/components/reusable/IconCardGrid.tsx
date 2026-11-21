@@ -21,10 +21,10 @@ export function IconCardGrid({ items, columns = 3 }: IconCardGridProps) {
     <div className={cn("grid gap-5", COLUMN_CLASSES[columns])}>
       {items.map((item, index) => (
         <Reveal key={item.title} delay={index * 70}>
-          <article className="h-full rounded-3xl border border-hairline bg-surface/70 p-6 transition hover:-translate-y-1 hover:border-gold/30 hover:bg-surface-high/70">
+          <article className="border-hairline bg-surface/70 hover:border-gold/30 hover:bg-surface-high/70 h-full rounded-3xl border p-6 transition hover:-translate-y-1">
             <IconBadge icon={item.icon} tone={item.tone} />
             <h3 className="mt-5 text-2xl">{item.title}</h3>
-            <p className="mt-2 text-muted">{item.text}</p>
+            <p className="text-muted mt-2">{item.text}</p>
           </article>
         </Reveal>
       ))}
