@@ -94,6 +94,12 @@ class GameController {
 
   /// Bumped when tiles change so the map layer can repaint caches.
   int mapVersion = 0;
+
+  /// Bumped when a whole new map arrives (join / reconnect).
+  int mapEpoch = 0;
+
+  /// Tile indices changed since the map layer last looked (it clears this).
+  final List<int> changedTiles = [];
   final List<FxRequest> _fx = [];
 
   // Local prediction.
@@ -144,6 +150,7 @@ class GameController {
         miners.clear();
         _hasPrediction = false;
         mapVersion++;
+        mapEpoch++;
         depotXs = (e.map.depotTiles.map((t) => t.x).toSet().toList()..sort());
         // Keep what you've explored if you reconnect to the same mine.
         if (!(e.reconnected && explored.length == e.map.width * e.map.height)) {
@@ -200,6 +207,7 @@ class GameController {
         final oldHp = m.hpAtIndex(t.index);
         final nt = TileType.values[t.typeIndex];
         m.applyTile(t.index, nt, t.hp);
+        changedTiles.add(t.index);
         final x = t.index % m.width + 0.5, y = t.index ~/ m.width + 0.5;
         final d = ((y - MapGenerator.surfaceRows) / max(1, lavaTop - MapGenerator.surfaceRows)).clamp(0.0, 1.0);
         final color = MinePalette.chip(old, d).toARGB32();

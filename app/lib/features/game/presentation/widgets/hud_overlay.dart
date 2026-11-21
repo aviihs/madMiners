@@ -35,6 +35,13 @@ class _HudOverlayState extends State<HudOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    // Never blur over the live game: it's the single most expensive thing
+    // a HUD can do on Android. RepaintBoundary keeps HUD repaints (15/s)
+    // separate from the game's 60 fps canvas.
+    return GlassScope(blur: false, child: RepaintBoundary(child: _build(context)));
+  }
+
+  Widget _build(BuildContext context) {
     final c = widget.controller;
     return ValueListenableBuilder<HudState>(
       valueListenable: c.hud,
@@ -78,8 +85,9 @@ class _HudOverlayState extends State<HudOverlay> {
                   Positioned(left: 12, top: me == null ? 10 : 196, child: _Feed(lines: hud.feed)),
                 if (me != null && me.inDepot && me.alive && hud.warmup <= 0)
                   Positioned(
-                    right: touch ? 140 : 12,
-                    bottom: touch ? 20 : 44,
+                    // Phones: left of the jump / jetpack / dig buttons, never on top of them.
+                    right: touch ? 212 : 12,
+                    bottom: touch ? 12 : 44,
                     child: ShopPanel(me: me, onUpgrade: c.buy, onBuyItem: c.buyItem),
                   ),
                 if (me != null && me.alive && hud.warmup <= 0 && !me.inDepot)

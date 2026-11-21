@@ -254,6 +254,13 @@ class GameSimulation {
 
   void update(double dt) {
     if (ended) return;
+    _step(dt);
+    // Every tick (after everyone has dug), so what's revealed never depends
+    // on how often snapshots are taken.
+    _processReveals();
+  }
+
+  void _step(double dt) {
     tick++;
 
     // Bots trickle in, faster while the lobby is filling.
@@ -287,11 +294,13 @@ class GameSimulation {
         if (b.target != null) b.target!,
     };
 
+    var plans = 0; // at most 2 bot route plans per tick
     for (final p in players.values.toList()) {
       final brain = _bots[p.id];
       if (brain != null) {
         claimed.remove(brain.target);
-        final d = brain.think(map, p, dt, claimed, treasureRevealed ? treasure : null);
+        final d = brain.think(map, p, dt, claimed, treasureRevealed ? treasure : null, mayPlan: plans < 2);
+        if (brain.planned) plans++;
         p.input = _botSelfDefence(p) ?? d.input;
         if (d.upgrade != null) requestUpgrade(p.id, d.upgrade!);
         if (d.buyItem != null) buyItem(p.id, d.buyItem!);
@@ -778,7 +787,7 @@ class GameSimulation {
 
   /// Snapshot since the previous call: drains tile changes and events.
   WorldSnapshot takeSnapshot() {
-    _processReveals();
+    _processReveals(); // anything changed outside a tick (no-op otherwise)
     final hide = !treasureRevealed;
     final tiles = [
       for (final i in _dirtyTiles)

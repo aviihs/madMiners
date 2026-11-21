@@ -50,7 +50,14 @@ class BotBrain {
   int _tileKey = -1;
   double _tileStay = 0;
 
-  BotDecision think(GameMap map, SimPlayer me, double dt, Set<TilePos> claimed, TilePos? revealedTreasure) {
+  /// True if the last [think] ran the pathfinder (the expensive part).
+  bool planned = false;
+
+  /// [mayPlan] = false asks the bot to keep following its current route this
+  /// tick: the simulation lets only a couple of bots plan per tick so the
+  /// work is spread out instead of spiking.
+  BotDecision think(GameMap map, SimPlayer me, double dt, Set<TilePos> claimed, TilePos? revealedTreasure, {bool mayPlan = true}) {
+    planned = false;
     if (!me.alive) {
       _path = const [];
       _lane = null;
@@ -72,6 +79,11 @@ class BotBrain {
       if (buy == null && me.items[ItemKind.bomb.index] < 2 && me.coins >= itemDefs[ItemKind.bomb]!.cost && _rng.nextDouble() < 0.5) {
         buyItem = ItemKind.bomb;
       }
+    }
+
+    // Falling fast down a long shaft: brake with the jetpack, like a person would.
+    if (!me.onGround && me.vy > Balance.safeFallSpeed - 3 && me.fuel > 5) {
+      return BotDecision(const PlayerInput(jet: true), upgrade: buy, buyItem: buyItem);
     }
 
     // Running from our own bomb (jumping over bumps on the way).
@@ -141,7 +153,8 @@ class BotBrain {
     }
 
     _replanIn -= dt;
-    if (_replanIn <= 0 || _path.isEmpty) {
+    if ((_replanIn <= 0 || _path.isEmpty) && mayPlan) {
+      planned = true;
       if (goal != BotGoal.treasure && _rng.nextDouble() < 0.06 + (1 - skill) * 0.12) {
         _pause = 0.3 + _rng.nextDouble() * 1.4;
       }
@@ -154,7 +167,7 @@ class BotBrain {
   void _plan(GameMap map, SimPlayer me, Set<TilePos> claimed, TilePos? revealedTreasure) {
     final here = TilePos(me.x.floor(), me.y.floor());
     final damage = me.gear(UpgradeKind.pickaxe).stat.toInt();
-    final pf = DigPathfinder(map)..run(here, damage, budget: 2500);
+    final pf = DigPathfinder.forMap(map)..run(here, damage, budget: 2500);
 
     if (goal == BotGoal.treasure && revealedTreasure != null) {
       target = revealedTreasure;
@@ -247,7 +260,9 @@ class BotBrain {
     if (dirY < 0) {
       // Up into open space: jump (or climb a shaft).
       // Up into open space: jump, then jetpack the rest of the way.
-      return PlayerInput(dx: steer, dy: -1, fx: 0, fy: -1, jump: me.onGround, jet: !me.onGround && me.fuel > 15 && me.vy > -2);
+      // Only thrust until we're level with the tile we want: overshooting
+      // and running dry high up means a long, painful fall.
+      return PlayerInput(dx: steer, dy: -1, fx: 0, fy: -1, jump: me.onGround, jet: !me.onGround && me.fuel > 15 && me.vy > -2 && me.y > w.cy + 0.15);
     }
     if (dirY > 0) return PlayerInput(dx: steer, fx: 0, fy: 1);
     // Sideways: walk, hop up if there's a lip in the way.

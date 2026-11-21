@@ -13,7 +13,10 @@ import 'components/tile_map_component.dart';
 /// Flame view of the match. Pure rendering — all game state comes from the
 /// [GameController], which in turn comes from the authoritative simulation.
 class MadMinersGame extends FlameGame {
-  MadMinersGame(this.controller);
+  MadMinersGame(this.controller, {this.highQuality = true}) : particles = ParticlesComponent(highQuality: highQuality);
+
+  /// Phones default to fewer lights/particles (Settings → High quality graphics).
+  final bool highQuality;
 
   final GameController controller;
   static const double tileSize = 32;
@@ -21,7 +24,7 @@ class MadMinersGame extends FlameGame {
   /// Roughly how many tiles fit across the shorter screen edge.
   static const double tilesAcross = 13;
 
-  final particles = ParticlesComponent();
+  final ParticlesComponent particles;
   final _rng = Random();
   double _shake = 0;
 
@@ -37,7 +40,7 @@ class MadMinersGame extends FlameGame {
       MonstersComponent(controller),
       MysteryOpeningsComponent(controller),
       MinersComponent(controller),
-      DarknessComponent(controller),
+      DarknessComponent(controller, highQuality: highQuality),
     ]);
     camera.viewfinder.anchor = Anchor.center;
   }

@@ -20,6 +20,20 @@ class GameAudio {
   bool _wantMusic = false;
   final Map<Sfx, DateTime> _last = {};
 
+  /// Pre-built low-latency players per sound. Creating a fresh player for
+  /// every dig hit is what makes audio stutter on Android.
+  final Map<Sfx, AudioPool> _pools = {};
+
+  /// How many of each sound may overlap.
+  static const _voices = {
+    Sfx.dig: 3,
+    Sfx.rockBreak: 3,
+    Sfx.coin: 2,
+    Sfx.tick: 2,
+    Sfx.explosion: 2,
+    Sfx.smallBlast: 2,
+  };
+
   static const _files = {
     Sfx.dig: 'dig.wav',
     Sfx.rockBreak: 'break.wav',
@@ -43,9 +57,12 @@ class GameAudio {
   /// Shortest gap between two plays of the same sound, so a busy mine
   /// doesn't turn into noise.
   static const _minGap = {
-    Sfx.dig: Duration(milliseconds: 90),
-    Sfx.rockBreak: Duration(milliseconds: 60),
-    Sfx.coin: Duration(milliseconds: 50),
+    Sfx.dig: Duration(milliseconds: 130),
+    Sfx.rockBreak: Duration(milliseconds: 100),
+    Sfx.coin: Duration(milliseconds: 80),
+    Sfx.land: Duration(milliseconds: 150),
+    Sfx.hurt: Duration(milliseconds: 250),
+    Sfx.spring: Duration(milliseconds: 200),
     Sfx.jet: Duration(milliseconds: 420),
     Sfx.alarm: Duration(milliseconds: 1500),
   };
@@ -54,6 +71,9 @@ class GameAudio {
     if (!_enabled || _ready) return;
     try {
       await FlameAudio.audioCache.loadAll([..._files.values, 'music.wav']);
+      for (final e in _files.entries) {
+        _pools[e.key] = await FlameAudio.createPool(e.value, minPlayers: 1, maxPlayers: _voices[e.key] ?? 1);
+      }
       FlameAudio.bgm.initialize();
       _ready = true;
       _syncMusic();
@@ -63,12 +83,14 @@ class GameAudio {
   }
 
   void play(Sfx s, {double volume = 1}) {
-    if (!_ready || !settings.sfx.value || volume <= 0.02) return;
+    if (!_ready || !settings.sfx.value || volume <= 0.06) return; // too far away to matter
     final now = DateTime.now();
     final gap = _minGap[s];
     if (gap != null && now.difference(_last[s] ?? DateTime(0)) < gap) return;
     _last[s] = now;
-    unawaited(FlameAudio.play(_files[s]!, volume: volume.clamp(0, 1)).then((_) {}, onError: (_) {}));
+    final pool = _pools[s];
+    if (pool == null) return;
+    unawaited(pool.start(volume: volume.clamp(0, 1)).then((_) {}, onError: (_) {}));
   }
 
   /// Start or stop the soundtrack (e.g. on in matches, off in menus).

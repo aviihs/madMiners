@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Icons;
@@ -48,16 +47,13 @@ class _VirtualJoystickState extends State<VirtualJoystick> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            ClipOval(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0x33FFFFFF),
-                    border: Border.all(color: const Color(0x33FFFFFF), width: 1),
-                  ),
-                ),
+            // No blur here: it sits over the live game and would cost a full
+            // re-sample of the frame every frame.
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0x40FFFFFF),
+                border: Border.all(color: const Color(0x55FFFFFF), width: 1.5),
               ),
             ),
             Transform.translate(

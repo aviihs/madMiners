@@ -68,9 +68,11 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
   void render(Canvas canvas) {
     final you = controller.youId;
     final miners = controller.miners.values.toList()..sort((a, b) => a.ry.compareTo(b.ry));
+    final view = game.camera.visibleWorldRect.inflate(ts * 2);
     for (final m in miners) {
       final s = m.snap;
       if (!s.alive) continue;
+      if (!view.contains(Offset(m.rx * ts, m.ry * ts))) continue; // off screen
       final a = _anim[s.id];
       final isYou = s.id == you;
       final c = Offset(m.rx * ts, m.ry * ts - 2);

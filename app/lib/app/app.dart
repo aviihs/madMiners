@@ -6,7 +6,9 @@ import '../features/auth/presentation/cubit/auth_cubit.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/lobby/presentation/pages/lobby_page.dart';
 import 'di.dart';
+import 'settings.dart';
 import 'theme.dart';
+import 'ui/ui.dart';
 
 class MadMinersApp extends StatelessWidget {
   const MadMinersApp({super.key});
@@ -18,6 +20,11 @@ class MadMinersApp extends StatelessWidget {
       title: 'Mad Miners',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
+      // Menu blur follows the "High quality graphics" setting.
+      builder: (context, child) => ValueListenableBuilder<bool>(
+        valueListenable: sl<GameSettings>().highGraphics,
+        builder: (context, hq, _) => GlassScope(blur: hq, child: child!),
+      ),
       home: BlocBuilder<AuthCubit, AuthState>(
         buildWhen: (a, b) => a.runtimeType != b.runtimeType || b is AuthSignedOut || b is AuthSignedIn,
         builder: (context, state) => switch (state) {

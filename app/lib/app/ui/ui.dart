@@ -149,7 +149,10 @@ class GlassCard extends StatelessWidget {
       ),
       child: Padding(padding: padding, child: child),
     );
-    if (translucent) {
+    // Frosted blur is beautiful but re-samples everything behind it every
+    // frame. Never over the live game (see [GlassScope]); in menus only with
+    // high-quality graphics on.
+    if (translucent && GlassScope.blurOf(context)) {
       card = ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: BackdropFilter(
@@ -160,6 +163,21 @@ class GlassCard extends StatelessWidget {
     }
     return onTap == null ? card : PressableScale(onTap: onTap!, child: card);
   }
+}
+
+/// Turns the frosted-glass blur of [GlassCard]s below it on or off.
+class GlassScope extends InheritedWidget {
+  const GlassScope({super.key, required this.blur, required super.child});
+  final bool blur;
+
+  /// App-wide default (set from the graphics setting).
+  static bool defaultBlur = true;
+
+  static bool blurOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<GlassScope>()?.blur ?? defaultBlur;
+
+  @override
+  bool updateShouldNotify(GlassScope old) => old.blur != blur;
 }
 
 /// Subtle press feedback.

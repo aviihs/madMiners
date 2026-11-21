@@ -5,6 +5,7 @@ import 'package:mad_miners_core/mad_miners_core.dart';
 
 import '../../../../app/audio.dart';
 import '../../../../app/di.dart';
+import '../../../../app/settings.dart';
 import '../../../../app/theme.dart';
 import '../../../../app/ui/ui.dart';
 import '../../domain/entities/game_target.dart';
@@ -28,7 +29,7 @@ class GamePage extends StatefulWidget {
 
 class _GamePageState extends State<GamePage> {
   late final GameController _controller = GameController(sl<OpenGameSession>()(widget.target), audio: sl<GameAudio>());
-  late final MadMinersGame _game = MadMinersGame(_controller);
+  late final MadMinersGame _game = MadMinersGame(_controller, highQuality: sl<GameSettings>().highGraphics.value);
 
   @override
   void initState() {

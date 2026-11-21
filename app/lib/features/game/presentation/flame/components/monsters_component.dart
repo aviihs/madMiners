@@ -8,7 +8,7 @@ import '../../controller/game_controller.dart';
 import '../mad_miners_game.dart';
 
 /// Cave spiders and stone golems, smoothed between snapshots.
-class MonstersComponent extends Component {
+class MonstersComponent extends Component with HasGameReference<MadMinersGame> {
   MonstersComponent(this.controller) : super(priority: 11);
   final GameController controller;
   static const double ts = MadMinersGame.tileSize;
@@ -39,9 +39,10 @@ class MonstersComponent extends Component {
 
   @override
   void render(Canvas canvas) {
+    final view = game.camera.visibleWorldRect.inflate(ts * 2);
     for (final m in controller.monsters) {
       final s = _pos[m.id];
-      if (s == null) continue;
+      if (s == null || !view.contains(Offset(s.x * ts, s.y * ts))) continue;
       canvas.save();
       canvas.translate(s.x * ts, s.y * ts);
       if (m.left) canvas.scale(-1, 1);

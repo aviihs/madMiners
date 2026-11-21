@@ -38,55 +38,97 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
 
   static int _hash(int x, int y) => ((x * 73856093) ^ (y * 19349663) ^ 0x5bd1e995) & 0x7fffffff;
 
+  // ---- chunk cache -----------------------------------------------------------
+  //
+  // The rock barely changes, so it is recorded once per 8x8-tile chunk into a
+  // Picture and replayed every frame (one draw call instead of hundreds).
+  // A chunk is re-recorded only when a tile in or next to it changes. Things
+  // that move (lava, water, gas, glints, TNT, mystery glow, launchers,
+  // boulders) are listed per chunk and drawn live on top.
+
+  static const int _cs = 8;
+  final Map<int, _Chunk> _chunks = {};
+  int _epoch = -1;
+  bool _recording = false;
+  List<int>? _animOut;
+
+  void _syncChunks(GameMap map) {
+    if (controller.mapEpoch != _epoch) {
+      _epoch = controller.mapEpoch;
+      for (final c in _chunks.values) {
+        c.picture?.dispose();
+      }
+      _chunks.clear();
+      controller.changedTiles.clear();
+      return;
+    }
+    if (controller.changedTiles.isEmpty) return;
+    final cw = (map.width + _cs - 1) ~/ _cs;
+    for (final i in controller.changedTiles) {
+      final x = i % map.width, y = i ~/ map.width;
+      // Neighbours too: edge shading depends on the tiles around.
+      for (final (dx, dy) in const [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)]) {
+        final nx = x + dx, ny = y + dy;
+        if (!map.inBounds(nx, ny)) continue;
+        _chunks[(ny ~/ _cs) * cw + nx ~/ _cs]?.dirty = true;
+      }
+    }
+    controller.changedTiles.clear();
+  }
+
+  void _recordChunk(GameMap map, _Chunk c, int cx, int cy, int lavaTop) {
+    final rec = PictureRecorder();
+    final canvas = Canvas(rec);
+    final anim = <int>[];
+    _recording = true;
+    _animOut = anim;
+    const surface = MapGenerator.surfaceRows;
+    for (var y = max(cy * _cs, surface - 1); y < min(map.height, (cy + 1) * _cs); y++) {
+      final d = ((y - surface) / max(1, lavaTop - surface)).clamp(0.0, 1.0);
+      for (var x = cx * _cs; x < min(map.width, (cx + 1) * _cs); x++) {
+        _drawTile(canvas, map, x, y, d);
+      }
+    }
+    _recording = false;
+    _animOut = null;
+    c.picture?.dispose();
+    c
+      ..picture = rec.endRecording()
+      ..animated = anim
+      ..dirty = false;
+  }
+
   @override
   void render(Canvas canvas) {
     final map = controller.map;
     if (map == null) return;
+    _syncChunks(map);
     final view = game.camera.visibleWorldRect;
-    final x0 = max(0, (view.left / ts).floor() - 1), x1 = min(map.width - 1, (view.right / ts).ceil() + 1);
-    final y0 = max(0, (view.top / ts).floor() - 1), y1 = min(map.height - 1, (view.bottom / ts).ceil() + 1);
     final lavaTop = map.height - 1 - controller.settings.mapId.def.lavaRows;
     const surface = MapGenerator.surfaceRows;
+    final y0 = max(0, (view.top / ts).floor() - 1), y1 = min(map.height - 1, (view.bottom / ts).ceil() + 1);
 
     if (y0 < surface) _drawSky(canvas, map, view);
 
-    for (var y = max(y0, surface - 1); y <= y1; y++) {
-      final d = ((y - surface) / max(1, lavaTop - surface)).clamp(0.0, 1.0);
-      for (var x = x0; x <= x1; x++) {
-        final t = map.tileAt(x, y);
-        if (y < surface && t != TileType.depot) continue;
-        final r = Rect.fromLTWH(x * ts, y * ts, ts, ts);
-        final h = _hash(x, y);
-        switch (t) {
-          case TileType.empty:
-            _drawBackWall(canvas, map, r, x, y, h, d);
-          case TileType.spikes:
-            _drawBackWall(canvas, map, r, x, y, h, d);
-            _drawSpikes(canvas, r, h);
-          case TileType.water:
-            _drawBackWall(canvas, map, r, x, y, h, d);
-            _drawWater(canvas, r, h, map.tileAt(x, y - 1) != TileType.water);
-          case TileType.plate:
-            _drawBackWall(canvas, map, r, x, y, h, d);
-            _drawPlate(canvas, r);
-          case _ when t.isLauncher:
-            _drawBackWall(canvas, map, r, x, y, h, d);
-            _drawLauncher(canvas, r, t.launch!, controller.launcherFx[map.indexOf(x, y)] ?? 0);
-          case TileType.boulder:
-            _drawBackWall(canvas, map, r, x, y, h, d);
-            _drawBoulder(canvas, map, r, x, y, h, d);
-          case TileType.depot:
-            _drawDepotFloor(canvas, r, h);
-          case TileType.lava:
-            _drawLava(canvas, r, h, map.tileAt(x, y - 1) != TileType.lava);
-          case TileType.gas:
-            _drawBackWall(canvas, map, r, x, y, h, d);
-            _drawGas(canvas, r, h);
-          case TileType.bedrock:
-            _p.color = const Color(0xFF0F0C0B);
-            canvas.drawRect(r, _p);
-          default:
-            _drawSolid(canvas, map, r, x, y, t, h, d);
+    final cw = (map.width + _cs - 1) ~/ _cs;
+    final cx0 = max(0, (view.left / ts).floor() ~/ _cs), cx1 = min(cw - 1, (view.right / ts).ceil() ~/ _cs);
+    final cy0 = max(0, y0 ~/ _cs), cy1 = (y1 ~/ _cs);
+    for (var cy = cy0; cy <= cy1; cy++) {
+      for (var cx = cx0; cx <= cx1; cx++) {
+        final c = _chunks.putIfAbsent(cy * cw + cx, _Chunk.new);
+        if (c.dirty || c.picture == null) _recordChunk(map, c, cx, cy, lavaTop);
+        canvas.drawPicture(c.picture!);
+      }
+    }
+    // Live layer: only the moving bits that are on screen.
+    for (var cy = cy0; cy <= cy1; cy++) {
+      for (var cx = cx0; cx <= cx1; cx++) {
+        for (final i in _chunks[cy * cw + cx]!.animated) {
+          final x = i % map.width, y = i ~/ map.width;
+          final r = Rect.fromLTWH(x * ts, y * ts, ts, ts);
+          if (!r.overlaps(view)) continue;
+          final d = ((y - surface) / max(1, lavaTop - surface)).clamp(0.0, 1.0);
+          _drawAnimated(canvas, map, x, y, r, d);
         }
       }
     }
@@ -99,6 +141,78 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
       _aim.color = Color.fromRGBO(255, 255, 255, 0.5 + 0.4 * pulse);
       canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(aim.x * ts + 1.5, aim.y * ts + 1.5, ts - 3, ts - 3), const Radius.circular(6)), _aim);
     }
+  }
+
+  void _markAnimated(GameMap map, int x, int y) => _animOut?.add(map.indexOf(x, y));
+
+  /// Static part of one tile (recorded into its chunk).
+  void _drawTile(Canvas canvas, GameMap map, int x, int y, double d) {
+    final t = map.tileAt(x, y);
+    if (y < MapGenerator.surfaceRows && t != TileType.depot) return;
+    final r = Rect.fromLTWH(x * ts, y * ts, ts, ts);
+    final h = _hash(x, y);
+    switch (t) {
+      case TileType.empty:
+        _drawBackWall(canvas, map, r, x, y, h, d);
+      case TileType.spikes:
+        _drawBackWall(canvas, map, r, x, y, h, d);
+        _drawSpikes(canvas, r, h);
+      case TileType.plate:
+        _drawBackWall(canvas, map, r, x, y, h, d);
+        _drawPlate(canvas, r);
+      case TileType.water || TileType.gas || TileType.boulder:
+        _drawBackWall(canvas, map, r, x, y, h, d);
+        _markAnimated(map, x, y);
+      case _ when t.isLauncher:
+        _drawBackWall(canvas, map, r, x, y, h, d);
+        _markAnimated(map, x, y);
+      case TileType.lava:
+        _markAnimated(map, x, y);
+      case TileType.depot:
+        _drawDepotFloor(canvas, r, h);
+      case TileType.bedrock:
+        _p.color = const Color(0xFF0F0C0B);
+        canvas.drawRect(r, _p);
+      default:
+        _drawSolid(canvas, map, r, x, y, t, h, d);
+    }
+  }
+
+  /// Moving part of one tile, drawn every frame.
+  void _drawAnimated(Canvas canvas, GameMap map, int x, int y, Rect r, double d) {
+    final t = map.tileAt(x, y);
+    final h = _hash(x, y);
+    switch (t) {
+      case TileType.lava:
+        _drawLava(canvas, r, h, map.tileAt(x, y - 1) != TileType.lava);
+      case TileType.water:
+        _drawWater(canvas, r, h, map.tileAt(x, y - 1) != TileType.water);
+      case TileType.gas:
+        _drawGas(canvas, r, h);
+      case TileType.boulder:
+        _drawBoulder(canvas, map, r, x, y, h, d); // draws its own cracks
+        return;
+      case _ when t.isLauncher:
+        _drawLauncher(canvas, r, t.launch!, controller.launcherFx[map.indexOf(x, y)] ?? 0);
+      case TileType.gold || TileType.silver:
+        _twinkle(canvas, r, h, const Color(0xFFFFF6C8));
+      case TileType.diamond || TileType.emerald || TileType.ruby:
+        _twinkle(canvas, r, h, const Color(0xFFFFFFFF));
+      case TileType.mystery:
+        _drawMystery(canvas, r, h);
+      case TileType.treasure:
+        _drawChest(canvas, r);
+      case _ when t.tnt != null:
+        _drawCrate(canvas, r, t.tnt!);
+      case TileType.chest:
+        _drawTreasureChest(canvas, r);
+      case TileType.ancientDoor:
+        _drawDoor(canvas, r);
+      default:
+        return;
+    }
+    final maxHp = t.maxHp, hp = map.hpAt(x, y);
+    if (t.isSolid && maxHp > 0 && hp < maxHp) _drawCracks(canvas, r, 1 - hp / maxHp, h);
   }
 
   // ---- pieces ---------------------------------------------------------------
@@ -446,27 +560,24 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     switch (t) {
       case TileType.copper || TileType.iron || TileType.gold || TileType.coal || TileType.silver:
         _drawNuggets(canvas, r, h, MinePalette.ore[t]!, sparkle: t == TileType.gold || t == TileType.silver);
+        if (t == TileType.gold || t == TileType.silver) _markAnimated(map, x, y);
       case TileType.diamond:
         _drawGems(canvas, r, h);
+        _markAnimated(map, x, y);
       case TileType.emerald || TileType.ruby:
         _drawGems(canvas, r, h, color: MinePalette.ore[t]!);
+        _markAnimated(map, x, y);
       case TileType.obsidian:
         _p.color = const Color(0x55B06BFF);
         canvas.drawPath(Path()..moveTo(r.left + 6, r.top + 4)..lineTo(r.left + 14, r.top + 4)..lineTo(r.left + 8, r.top + 16)..close(), _p);
         _p.color = const Color(0x33FFFFFF);
         canvas.drawLine(Offset(r.left + 18, r.top + 8), Offset(r.left + 26, r.top + 22), _p..strokeWidth = 1.5);
-      case TileType.mystery:
-        _drawMystery(canvas, r, h);
       case TileType.moneyBag:
         _drawCoins(canvas, r);
-      case TileType.treasure:
-        _drawChest(canvas, r);
+      case TileType.mystery || TileType.treasure || TileType.chest || TileType.ancientDoor:
+        _markAnimated(map, x, y); // glowing / pulsing: drawn live
       case _ when t.tnt != null:
-        _drawCrate(canvas, r, t.tnt!);
-      case TileType.chest:
-        _drawTreasureChest(canvas, r);
-      case TileType.ancientDoor:
-        _drawDoor(canvas, r);
+        _markAnimated(map, x, y); // blinking light: drawn live
       default:
         break;
     }
@@ -512,6 +623,7 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
   }
 
   void _twinkle(Canvas canvas, Rect r, int h, Color c) {
+    if (_recording) return; // glints are drawn live, not baked into the chunk
     final phase = (sin(_t * 3 + h % 17) + 1) / 2;
     if (phase < 0.75) return;
     final a = (phase - 0.75) * 4;
@@ -627,4 +739,10 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     canvas.drawRRect(RRect.fromRectAndRadius(sign, const Radius.circular(5)), _p);
     _signText.render(canvas, 'SHOP', Vector2(sign.center.dx, sign.center.dy), anchor: Anchor.center);
   }
+}
+
+class _Chunk {
+  Picture? picture;
+  bool dirty = true;
+  List<int> animated = const [];
 }

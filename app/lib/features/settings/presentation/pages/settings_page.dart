@@ -55,6 +55,23 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ]),
                     const SizedBox(height: 18),
+                    const SectionHeader('Graphics'),
+                    _Card(children: [
+                      _Toggle(
+                        icon: CupertinoIcons.sparkles,
+                        color: MMColors.violet,
+                        label: 'High quality graphics',
+                        value: st.highGraphics,
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(14, 0, 14, 12),
+                        child: Text(
+                          'More lights, particles and frosted-glass menus. Turn off if the game feels slow on your phone.',
+                          style: MMText.caption,
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 18),
                     const SectionHeader('Touch controls'),
                     _Card(children: [
                       ValueListenableBuilder<double>(

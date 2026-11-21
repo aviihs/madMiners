@@ -27,6 +27,14 @@ abstract final class MinerArt {
 
   static Color skinFor(String seed) => _skins[seed.codeUnits.fold<int>(0, (a, b) => a + b) % _skins.length];
 
+  /// Gradients only depend on the look (not position: the canvas is already
+  /// translated), so build each one once instead of every frame.
+  static final Map<Object, Shader> _shaders = {};
+  static Shader _cached(Object key, Shader Function() make) {
+    if (_shaders.length > 400) _shaders.clear();
+    return _shaders.putIfAbsent(key, make);
+  }
+
   static Color _shade(Color c, double amount) =>
       amount >= 0 ? Color.lerp(c, const Color(0xFFFFFFFF), amount)! : Color.lerp(c, const Color(0xFF000000), -amount)!;
 
@@ -174,12 +182,12 @@ abstract final class MinerArt {
   static void _drawTorso(Canvas canvas, CosmeticDef outfit, CosmeticDef ch, double dir, Color Function(int) c, double t, double opacity) {
     final body = RRect.fromRectAndRadius(Rect.fromCenter(center: const Offset(0, -3), width: 17, height: 15), const Radius.circular(5.5));
     final base = Color(outfit.primary);
-    _p.shader = Gradient.linear(
+    _p.shader = _cached(('torso', outfit.primary, opacity), () => Gradient.linear(
       const Offset(-8, -10),
       const Offset(8, 5),
       [_shade(base, 0.18).withValues(alpha: opacity), base.withValues(alpha: opacity), _shade(base, -0.3).withValues(alpha: opacity)],
       const [0, 0.5, 1],
-    );
+    ));
     canvas.drawRRect(body, _p);
     _p.shader = null;
 
@@ -291,7 +299,7 @@ abstract final class MinerArt {
         canvas.drawOval(Rect.fromCenter(center: Offset(-7 * dir, -11.5), width: 5, height: 10), _line);
       case Face.robot:
         final r = RRect.fromRectAndRadius(Rect.fromCenter(center: head, width: 15, height: 13.5), const Radius.circular(3.5));
-        _p.shader = Gradient.linear(const Offset(-7, -20), const Offset(7, -8), [_shade(Color(ch.primary), 0.3), Color(ch.primary), _shade(Color(ch.primary), -0.35)], const [0, 0.5, 1]);
+        _p.shader = _cached(('robot', ch.primary), () => Gradient.linear(const Offset(-7, -20), const Offset(7, -8), [_shade(Color(ch.primary), 0.3), Color(ch.primary), _shade(Color(ch.primary), -0.35)], const [0, 0.5, 1]));
         canvas.drawRRect(r, _p);
         _p.shader = null;
         canvas.drawRRect(r, _line);
@@ -313,7 +321,7 @@ abstract final class MinerArt {
     }
 
     // Head with soft shading.
-    _p.shader = Gradient.radial(head + Offset(2 * dir, -2), 8.5, [_shade(Color(ch.primary), 0.15), Color(ch.primary), _shade(Color(ch.primary), -0.25)], const [0, 0.6, 1]);
+    _p.shader = _cached(('head', ch.primary, dir), () => Gradient.radial(head + Offset(2 * dir, -2), 8.5, [_shade(Color(ch.primary), 0.15), Color(ch.primary), _shade(Color(ch.primary), -0.25)], const [0, 0.6, 1]));
     canvas.drawCircle(head, 6.8, _p);
     _p.shader = null;
     canvas.drawCircle(head, 6.8, _line);
@@ -419,11 +427,11 @@ abstract final class MinerArt {
 
   static void _drawHelmet(Canvas canvas, CosmeticDef h, double dir, Color Function(int) c, double t, double opacity) {
     final base = Color(h.primary);
-    Shader dome(Rect r) => Gradient.linear(r.topLeft, r.bottomRight, [
+    Shader dome(Rect r) => _cached(('dome', h.primary, opacity, r), () => Gradient.linear(r.topLeft, r.bottomRight, [
       _shade(base, 0.35).withValues(alpha: opacity),
       base.withValues(alpha: opacity),
       _shade(base, -0.3).withValues(alpha: opacity),
-    ], const [0, 0.45, 1]);
+    ], const [0, 0.45, 1]));
 
     switch (h.style) {
       case 1: // crown
@@ -506,7 +514,7 @@ abstract final class MinerArt {
         canvas.drawCircle(lamp, 2.6, _p);
         _p.color = c(h.secondary);
         canvas.drawCircle(lamp, 1.8, _p);
-        _p.shader = Gradient.radial(lamp, 7, [Color.fromRGBO(255, 247, 209, 0.55 * opacity), const Color(0x00FFF7D1)]);
+        _p.shader = _cached(('lamp', dir, opacity), () => Gradient.radial(lamp, 7, [Color.fromRGBO(255, 247, 209, 0.55 * opacity), const Color(0x00FFF7D1)]));
         canvas.drawCircle(lamp, 7, _p);
         _p.shader = null;
     }
@@ -638,10 +646,10 @@ abstract final class MinerArt {
       _p.shader = null;
     }
     final tank = RRect.fromRectAndRadius(Rect.fromLTWH(x - 3.5, -11, 7, 14), const Radius.circular(3));
-    _p.shader = Gradient.linear(Offset(x - 3.5, 0), Offset(x + 3.5, 0), [
+    _p.shader = _cached(('tank', x, opacity), () => Gradient.linear(Offset(x - 3.5, 0), Offset(x + 3.5, 0), [
       Color.fromRGBO(190, 200, 212, opacity),
       Color.fromRGBO(120, 130, 145, opacity),
-    ]);
+    ]));
     canvas.drawRRect(tank, _p);
     _p.shader = null;
     canvas.drawRRect(tank, _line);

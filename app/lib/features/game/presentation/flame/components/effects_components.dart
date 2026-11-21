@@ -51,14 +51,25 @@ class FloatingText extends Component {
 
 /// Lightweight particle system for rock chips and loot sparkles.
 class ParticlesComponent extends Component {
-  ParticlesComponent() : super(priority: 15);
+  ParticlesComponent({this.highQuality = true}) : super(priority: 15);
+
+  /// Phones get fewer particles (and a lower cap) to keep frames smooth.
+  final bool highQuality;
+  int get _cap => highQuality ? 700 : 260;
+  int _n(int n) => highQuality ? n : (n / 2).ceil();
 
   final _rng = Random();
   final List<_Particle> _ps = [];
   final _paint = Paint();
   static const double ts = MadMinersGame.tileSize;
 
+  void _trim() {
+    if (_ps.length > _cap) _ps.removeRange(0, _ps.length - _cap);
+  }
+
   void chips(double x, double y, Color c, int n) {
+    n = _n(n);
+    _trim();
     for (var i = 0; i < n; i++) {
       final a = _rng.nextDouble() * pi * 2;
       final sp = 40 + _rng.nextDouble() * 110;
@@ -67,7 +78,8 @@ class ParticlesComponent extends Component {
   }
 
   void burst(double x, double y, Color c) {
-    for (var i = 0; i < 18; i++) {
+    _trim();
+    for (var i = 0; i < _n(18); i++) {
       final a = _rng.nextDouble() * pi * 2;
       final sp = 30 + _rng.nextDouble() * 90;
       _ps.add(_Particle(x * ts, y * ts, cos(a) * sp, sin(a) * sp, 0.6 + _rng.nextDouble() * 0.5, 1.5 + _rng.nextDouble() * 2, c, gravity: -20, glow: true));
@@ -81,11 +93,12 @@ class ParticlesComponent extends Component {
           0.25 + _rng.nextDouble() * 0.2, 2 + _rng.nextDouble() * 2, i == 0 ? const Color(0xFFFFB13B) : const Color(0xFF9A8F88),
           gravity: -40, glow: i == 0, soft: i == 1));
     }
-    if (_ps.length > 900) _ps.removeRange(0, _ps.length - 900);
+    _trim();
   }
 
   /// Puff of dust kicked up by a hard landing.
   void dust(double x, double y, int n) {
+    n = _n(n);
     for (var i = 0; i < n; i++) {
       final side = _rng.nextBool() ? 1 : -1;
       _ps.add(_Particle(
@@ -146,8 +159,9 @@ class _Particle {
 /// Darkness hazard: the mine gets darker as you go down. Every miner's
 /// helmet lamp and the lava cut light into it.
 class DarknessComponent extends Component with HasGameReference<MadMinersGame> {
-  DarknessComponent(this.controller) : super(priority: 20);
+  DarknessComponent(this.controller, {this.highQuality = true}) : super(priority: 20);
   final GameController controller;
+  final bool highQuality;
   final _dark = Paint();
   final _cut = Paint()..blendMode = BlendMode.dstOut;
   final _glow = Paint()..blendMode = BlendMode.plus;
@@ -191,19 +205,23 @@ class DarknessComponent extends Component with HasGameReference<MadMinersGame> {
     final flicker = 1 + sin(_t * 9) * 0.015;
     for (final m in controller.miners.values) {
       if (!m.snap.alive) continue;
+      if (!view.inflate(m.snap.vision * ts).contains(Offset(m.rx * ts, m.ry * ts))) continue; // light can't reach the screen
       final isMe = m.snap.id == controller.youId;
       final r = m.snap.vision * ts * (isMe ? flicker : 0.75);
       light(Offset(m.rx * ts, m.ry * ts - 6), r, isMe ? 1 : 0.8);
     }
 
-    // Lava lights its surroundings.
+    // Lava lights its surroundings. Each light is a gradient draw, so only
+    // the lava surface gets one, spaced out and capped.
     final x0 = max(0, (view.left / ts).floor()), x1 = min(map.width - 1, (view.right / ts).ceil());
     final y0 = max(0, (view.top / ts).floor()), y1 = min(map.height - 1, (view.bottom / ts).ceil());
-    for (var y = y0; y <= y1; y++) {
-      for (var x = x0; x <= x1; x++) {
-        if (map.tileAt(x, y) != TileType.lava) continue;
-        if (map.tileAt(x, y - 1) == TileType.lava && (x + y).isOdd) continue; // fewer cuts inside the sea
-        light(Offset((x + 0.5) * ts, (y + 0.5) * ts), ts * 2.2, 0.9);
+    var budget = highQuality ? 24 : 10;
+    for (var y = y0; y <= y1 && budget > 0; y++) {
+      for (var x = x0; x <= x1 && budget > 0; x++) {
+        if (map.tileAt(x, y) != TileType.lava || map.tileAt(x, y - 1) == TileType.lava) continue;
+        if (x % 2 == 1) continue;
+        light(Offset((x + 0.5) * ts, (y + 0.5) * ts), ts * 2.6, 0.9);
+        budget--;
       }
     }
     _cut.shader = null;

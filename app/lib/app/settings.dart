@@ -9,7 +9,9 @@ class GameSettings {
       sfx = ValueNotifier(_prefs.getBool(_kSfx) ?? true),
       vibration = ValueNotifier(_prefs.getBool(_kVibe) ?? true),
       controlScale = ValueNotifier((_prefs.getDouble(_kScale) ?? 1.0).clamp(minScale, maxScale)),
-      leftHanded = ValueNotifier(_prefs.getBool(_kLeft) ?? false) {
+      leftHanded = ValueNotifier(_prefs.getBool(_kLeft) ?? false),
+      highGraphics = ValueNotifier(_prefs.getBool(_kGfx) ?? !_isMobile) {
+    highGraphics.addListener(() => _prefs.setBool(_kGfx, highGraphics.value));
     music.addListener(() => _prefs.setBool(_kMusic, music.value));
     sfx.addListener(() => _prefs.setBool(_kSfx, sfx.value));
     vibration.addListener(() => _prefs.setBool(_kVibe, vibration.value));
@@ -23,6 +25,10 @@ class GameSettings {
   static const _kVibe = 'settings.vibration';
   static const _kScale = 'settings.controlScale';
   static const _kLeft = 'settings.leftHanded';
+  static const _kGfx = 'settings.highGraphics';
+
+  static bool get _isMobile =>
+      !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
 
   static const double minScale = 0.75;
   static const double maxScale = 1.35;
@@ -36,4 +42,8 @@ class GameSettings {
 
   /// Swap sides: buttons on the left, joystick on the right.
   final ValueNotifier<bool> leftHanded;
+
+  /// Extra effects (menu blur, more lights and particles). Off by default on
+  /// phones so the game stays smooth on mid-range devices.
+  final ValueNotifier<bool> highGraphics;
 }

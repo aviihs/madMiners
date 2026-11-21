@@ -13,6 +13,7 @@ import 'package:mad_miners/app/theme.dart';
 import 'package:mad_miners/features/auth/domain/entities/session.dart';
 import 'package:mad_miners/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:mad_miners/features/auth/presentation/pages/login_page.dart';
+import 'package:mad_miners/features/game/data/datasources/local_game_session.dart';
 import 'package:mad_miners/features/game/domain/entities/game_target.dart';
 import 'package:mad_miners/features/game/presentation/pages/game_page.dart';
 import 'package:mad_miners/features/auth/domain/entities/player_profile.dart';
@@ -26,6 +27,13 @@ const shots = String.fromEnvironment('SHOTS');
 const fonts = String.fromEnvironment('FONTS');
 const cupertinoIcons = String.fromEnvironment('CI_FONT');
 
+/// Match screenshots: logical size and pixel ratio. Defaults to a small
+/// phone; `--dart-define=HD=true` renders 1920x1080 (16:9, Play Store ready).
+const hd = bool.fromEnvironment('HD');
+const gameSize = hd ? Size(800, 450) : Size(844, 390);
+const gameDpr = hd ? 2.4 : 1.0;
+double _snapRatio = 1;
+
 Future<void> _loadFont(String family, String path) async {
   final f = File(path);
   if (!f.existsSync()) return;
@@ -36,7 +44,7 @@ Future<void> _loadFont(String family, String path) async {
 Future<void> _snap(WidgetTester tester, String name) async {
   final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('shot')));
   final bytes = await tester.runAsync(() async {
-    final img = await boundary.toImage(pixelRatio: 1);
+    final img = await boundary.toImage(pixelRatio: _snapRatio);
     return (await img.toByteData(format: ui.ImageByteFormat.png))!;
   });
   File('$shots/$name.png').writeAsBytesSync(bytes!.buffer.asUint8List());
@@ -68,6 +76,7 @@ void main() {
   });
 
   testWidgets('screens', skip: shots.isEmpty, (tester) async {
+    LocalGameSession.runOnMainThread = true; // fake clock: keep the sim on this thread
     final cubit = sl<AuthCubit>();
 
     // Phone portrait.
@@ -112,7 +121,10 @@ void main() {
     await _snap(tester, '2c_profile');
 
     // Phone landscape, in a match.
-    tester.view.physicalSize = const Size(844, 390);
+    tester.view
+      ..physicalSize = gameSize * gameDpr
+      ..devicePixelRatio = gameDpr;
+    _snapRatio = gameDpr;
     await tester.pumpWidget(
       _host(
         const GamePage(target: OfflineTarget(playerName: 'Shiva', settings: MatchSettings(mapId: MapId.lavaMine))),
