@@ -1,0 +1,152 @@
+{
+  "hero": {
+    "eyebrow": "Privacy Policy",
+    "title": "Your privacy in Mad Miners",
+    "subtitle": "Plain language, no surprises: what the game collects, why, who can see it, and how to delete it."
+  },
+  "highlights": [
+    { "icon": "ban", "title": "No ads, no tracking", "text": "No advertising or analytics SDKs, and no advertising ID." },
+    { "icon": "user", "title": "Just a username", "text": "Play as a guest. Google sign-in is optional." },
+    { "icon": "hand", "title": "We never sell data", "text": "Your information is not sold or shared for marketing." },
+    { "icon": "trash", "title": "Delete anytime", "text": "Ask us and we remove your account and its game data." }
+  ],
+  "sections": [
+    {
+      "id": "who-we-are",
+      "title": "Who we are",
+      "blocks": [
+        { "type": "paragraph", "text": "Mad Miners (Android package com.madminers.game) is developed by {developer}, {location}. In this policy, \"we\" and \"us\" mean {developer}, and \"the game\" means the Mad Miners app and the game servers it connects to." },
+        { "type": "paragraph", "text": "If you have any question about this policy or your data, email us at {email}." }
+      ]
+    },
+    {
+      "id": "what-we-collect",
+      "title": "Information we collect",
+      "blocks": [
+        { "type": "heading", "text": "Your account" },
+        { "type": "list", "items": [
+          "Username: the name you choose when you start. It is shown to other players.",
+          "Account ID: a random identifier we create for your account.",
+          "Google sign-in (optional): if you choose to link Google, we receive your Google account identifier and email address from Google, which we use only to let you sign in again and recover your progress. We never see your Google password."
+        ] },
+        { "type": "heading", "text": "Your game progress" },
+        { "type": "list", "items": [
+          "Statistics: level, XP, matches played, treasures found, best score, deepest dig, ores mined and lifetime coins.",
+          "Wallet: your coin and gem balances, plus a history of how they changed (match rewards, Locker purchases with in-game currency, daily rewards).",
+          "Locker: the cosmetic items you own and wear.",
+          "Match history: for each online match, your rank, score, depth, rewards and the match winner's username.",
+          "Daily rewards: the last day you claimed a reward and your streak."
+        ] },
+        { "type": "heading", "text": "While you play online" },
+        { "type": "list", "items": [
+          "Gameplay input (movement, digging, items) is sent to the game server in real time so it can run the match. It is not saved after the match, apart from the results listed above.",
+          "Chat: messages you send in a match are delivered to the other players in that match. We do not store chat messages.",
+          "Session token: when you sign in, the app gets a token so you stay signed in. Our server stores only a one-way hash of it, never the token itself.",
+          "IP address: our server sees your IP address when you connect, as every internet service does. We use it only in memory, briefly, to limit abuse (rate limiting). We do not write it to our database."
+        ] },
+        { "type": "heading", "text": "On your device only" },
+        { "type": "list", "items": [
+          "Settings (music, sound effects, vibration, button size, left-handed layout, graphics quality) and your sign-in session are saved in the app's private storage on your phone.",
+          "Practice Offline runs entirely on your device. Nothing from offline matches is sent to us.",
+          "Local network: to find a Mad Miners server on the same Wi-Fi (for example at home or at an event), the app listens for the server's announcement on your local network. It does not scan, collect or send information about other devices."
+        ] }
+      ]
+    },
+    {
+      "id": "what-we-dont-collect",
+      "title": "What we don't collect",
+      "blocks": [
+        { "type": "list", "items": [
+          "No location, contacts, photos, files, camera or microphone access.",
+          "No advertising ID, no ads and no third-party analytics or tracking.",
+          "No payment information. The game has no real-money purchases; coins and gems are earned by playing."
+        ] }
+      ]
+    },
+    {
+      "id": "how-we-use",
+      "title": "How we use your information",
+      "blocks": [
+        { "type": "list", "items": [
+          "To run matches, keep your progress, coins, gems and Locker items, and restore them when you sign in again.",
+          "To show leaderboards, match results and your profile.",
+          "To keep the game fair and safe: checking moves and rewards on the server, preventing duplicate rewards, and limiting spam or abuse.",
+          "To answer you when you contact us."
+        ] },
+        { "type": "paragraph", "text": "We do not use your information for advertising, profiling or automated decisions about you." }
+      ]
+    },
+    {
+      "id": "who-can-see",
+      "title": "What other players can see",
+      "blocks": [
+        { "type": "paragraph", "text": "Your username, your miner's look, and your score, depth and position during a match are visible to the other players in that match. Your username and scores can also appear on the public Today and All-time leaderboards. Please don't use your real name or personal details as your username." }
+      ]
+    },
+    {
+      "id": "sharing",
+      "title": "Sharing",
+      "blocks": [
+        { "type": "paragraph", "text": "We do not sell your information or share it with anyone for marketing. We only share it:" },
+        { "type": "list", "items": [
+          "With service providers that host our game servers and database, who process it only to run the game for us.",
+          "With Google, only if you choose Google sign-in (Google's own privacy policy applies to your Google account).",
+          "If the law requires it, or to protect players, the game or others from fraud, cheating or harm."
+        ] }
+      ]
+    },
+    {
+      "id": "security",
+      "title": "How we protect it",
+      "blocks": [
+        { "type": "list", "items": [
+          "Connections between the app and our servers are encrypted (HTTPS / secure WebSockets).",
+          "Session tokens are stored only as one-way hashes on the server.",
+          "Coin and gem changes happen in database transactions with unique request IDs, so a reward or purchase can't be applied twice."
+        ] },
+        { "type": "paragraph", "text": "No system is perfectly secure, but we work to keep your information safe and to keep only what the game needs." }
+      ]
+    },
+    {
+      "id": "retention",
+      "title": "How long we keep it",
+      "blocks": [
+        { "type": "paragraph", "text": "We keep your account and game data while your account exists so your progress is there when you come back. When you ask us to delete your account, we delete your account and its game data within 30 days. Uninstalling the app removes the data stored on your phone, but not your account on our servers. To remove that, follow the steps on our Delete account page." }
+      ]
+    },
+    {
+      "id": "your-rights",
+      "title": "Your choices and rights",
+      "blocks": [
+        { "type": "list", "items": [
+          "Play without an account link: Google sign-in is optional.",
+          "Turn sounds, music and vibration on or off in Settings.",
+          "Ask us for a copy of your data, to correct it, or to delete it, by emailing {email}.",
+          "Delete your account at any time: see the Delete account page."
+        ] },
+        { "type": "paragraph", "text": "Depending on where you live, you may have further rights under local law. Contact us and we will help." }
+      ]
+    },
+    {
+      "id": "children",
+      "title": "Children",
+      "blocks": [
+        { "type": "paragraph", "text": "Mad Miners is not directed at children under 13, and we do not knowingly collect personal information from them. If you believe a child under 13 has given us personal information, contact us at {email} and we will delete it." }
+      ]
+    },
+    {
+      "id": "changes",
+      "title": "Changes to this policy",
+      "blocks": [
+        { "type": "paragraph", "text": "If we change this policy, we will update the date at the top of this page, and for important changes we will let you know in the game or on our Google Play listing." }
+      ]
+    },
+    {
+      "id": "contact",
+      "title": "Contact us",
+      "blocks": [
+        { "type": "paragraph", "text": "Questions or requests about your privacy: {email}. {developer}, {location}." }
+      ]
+    }
+  ]
+}

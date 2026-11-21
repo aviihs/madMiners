@@ -1,0 +1,29 @@
+{
+  "hero": {
+    "eyebrow": "Account deletion",
+    "title": "Delete your Mad Miners account",
+    "subtitle": "You can ask us to delete your account and all of its game data at any time."
+  },
+  "steps": [
+    { "title": "Email us", "text": "Send an email to {email} with the subject \"Delete my account\"." },
+    { "title": "Tell us which account", "text": "Include your in-game username. If you linked Google, send the email from that Google address so we can confirm it's you." },
+    { "title": "We confirm and delete", "text": "We may reply to confirm the request, then delete the account within 30 days and email you when it's done." }
+  ],
+  "deleted": {
+    "title": "What gets deleted",
+    "items": [
+      "Your account, username and sign-in methods (guest and Google).",
+      "All sessions (you'll be signed out everywhere).",
+      "Statistics, coins, gems, wallet history, Locker items and daily reward progress.",
+      "Your entries in match history and on the leaderboards."
+    ]
+  },
+  "kept": {
+    "title": "What may be kept",
+    "items": [
+      "Results of past matches other players took part in may still show your username as the winner, without any link to your account.",
+      "Information we must keep by law, only for as long as the law requires."
+    ]
+  },
+  "deviceNote": "Uninstalling the app clears the data stored on your phone (settings and sign-in), but it does not delete your account on our servers. Use the steps above for that."
+}

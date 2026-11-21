@@ -1,0 +1,18 @@
+{
+  "hero": {
+    "eyebrow": "Contact",
+    "title": "Say hello",
+    "subtitle": "Found a bug, have an idea, or need help with your account? Send us a message."
+  },
+  "channels": [
+    { "icon": "mail", "title": "Email", "text": "The fastest way to reach us. We usually reply within a few days.", "kind": "email" },
+    { "icon": "trash", "title": "Delete your account", "text": "Want your account and game data removed? Here's how.", "kind": "deletion" },
+    { "icon": "shield", "title": "Privacy", "text": "What the game collects and why.", "kind": "privacy" }
+  ],
+  "form": {
+    "title": "Send a message",
+    "note": "This opens your email app with the message ready to send. Nothing is stored on this website.",
+    "topics": ["Bug report", "Account help", "Delete my account", "Feedback or idea", "Something else"],
+    "submit": "Open in my email app"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "Mad Miners",
+  "storeTitle": "Mad Miners: Dig & Treasure",
+  "tagline": "Dig deeper. Risk more. Find the treasure.",
+  "description": "A real-time multiplayer mining game. Dig through rock, dodge TNT, lava and monsters, crack open Mystery Bombs and race other miners to a treasure sealed deep underground.",
+  "developer": "Yantrakshetra Labs",
+  "location": "Kathmandu, Nepal",
+  "contactEmail": "support@example.com",
+  "packageName": "com.madminers.game",
+  "playStoreUrl": "https://play.google.com/store/apps/details?id=com.madminers.game",
+  "policyLastUpdated": "2026-11-21",
+  "keywords": [
+    "mining game",
+    "multiplayer mining",
+    "treasure hunt game",
+    "dig game",
+    "arcade game",
+    "Mad Miners"
+  ]
+}
