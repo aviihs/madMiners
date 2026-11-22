@@ -26,7 +26,7 @@ export default function PrivacyPolicyPage() {
       <PolicyHighlights items={highlights} />
       <Section className="grid gap-12 lg:grid-cols-[220px_1fr] lg:gap-16">
         <PolicyToc sections={sections.map(({ id, title }) => ({ id, title }))} />
-        <div className="max-w-[44rem]">
+        <div className="max-w-176">
           <article className="space-y-8 text-[1rem] leading-[1.75]">
             {sections.map((section, index) => (
               <PolicySection key={section.id} section={section} number={index + 1} />
