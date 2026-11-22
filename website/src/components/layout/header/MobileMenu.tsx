@@ -64,16 +64,16 @@ export function MobileMenu({ pathname }: { pathname: string }) {
         aria-expanded={isOpen}
         aria-controls="mobile-menu"
         onClick={() => setIsOpen(true)}
-        className="text-ink hover:bg-paper-deep -ml-2 flex size-10 flex-col items-center justify-center gap-[5px] rounded-full transition-colors md:hidden"
+        className="text-ink hover:bg-paper-deep -ml-2 flex size-10 flex-col items-center justify-center gap-1.25 rounded-full transition-colors md:hidden"
       >
-        <span className="h-[1.5px] w-[18px] rounded-full bg-current" />
-        <span className="h-[1.5px] w-[12px] self-center rounded-full bg-current" />
+        <span className="h-[1.5px] w-4.5 rounded-full bg-current" />
+        <span className="h-[1.5px] w-3 self-center rounded-full bg-current" />
       </button>
 
       {isClient &&
         createPortal(
           <div
-            className={cn("fixed inset-0 z-[100] md:hidden", !isOpen && "pointer-events-none")}
+            className={cn("fixed inset-0 z-100 md:hidden", !isOpen && "pointer-events-none")}
             inert={!isOpen}
           >
             <div
@@ -92,7 +92,7 @@ export function MobileMenu({ pathname }: { pathname: string }) {
               aria-label="Main menu"
               className={cn(
                 "bg-paper absolute inset-y-0 left-0 flex w-[84%] max-w-sm flex-col shadow-black/30",
-                "transition-[translate,visibility,box-shadow] duration-[400ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+                "transition-[translate,visibility,box-shadow] duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
                 isOpen ? "visible translate-x-0 shadow-2xl" : "invisible -translate-x-full shadow-none",
               )}
             >
@@ -145,7 +145,7 @@ export function MobileMenu({ pathname }: { pathname: string }) {
                               : "border-line bg-card text-accent-ink",
                           )}
                         >
-                          <Icon aria-hidden className="size-[18px]" />
+                          <Icon aria-hidden className="size-4.5" />
                         </span>
                         {link.label}
                         <ChevronRight
