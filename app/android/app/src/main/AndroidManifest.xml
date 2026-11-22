@@ -13,13 +13,18 @@
     <!-- Haptic feedback on digs, hits and explosions (can be turned off in Settings). -->
     <uses-permission
         android:name="android.permission.VIBRATE"/>
-    <!-- Touch screen game, landscape only. Wi-Fi is optional (mobile data works too). -->
+    <!-- All optional: Play blocks installs on any device (tablet, Chromebook, Play Games
+         on PC, XR) that lacks a *required* feature. screenOrientation="sensorLandscape"
+         implies screen.landscape as required unless it is declared optional here. -->
     <uses-feature
         android:name="android.hardware.touchscreen"
-        android:required="true"/>
+        android:required="false"/>
     <uses-feature
         android:name="android.hardware.screen.landscape"
-        android:required="true"/>
+        android:required="false"/>
+    <uses-feature
+        android:name="android.hardware.screen.portrait"
+        android:required="false"/>
     <uses-feature
         android:name="android.hardware.wifi"
         android:required="false"/>
