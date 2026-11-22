@@ -1,0 +1,29 @@
+# Render Blueprint: game server + PostgreSQL.
+# Render dashboard → New → Blueprint → pick this repo.
+services:
+  - type: web
+    name: mad-miners-server
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    plan: starter # free instances sleep after 15 min idle and drop live matches
+    region: singapore # closest Render region to Nepal
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - server/**
+        - packages/mad_miners_core/**
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mad-miners-db
+          property: connectionString
+      - key: MM_GOOGLE_CLIENT_IDS
+        sync: false # set in the dashboard (Web + Android OAuth client IDs, comma separated)
+
+databases:
+  - name: mad-miners-db
+    databaseName: mad_miners
+    plan: basic-256mb
+    region: singapore
