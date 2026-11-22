@@ -6,7 +6,7 @@ WORKDIR /src
 COPY packages/mad_miners_core packages/mad_miners_core
 COPY server server
 WORKDIR /src/server
-RUN dart pub get && dart compile exe bin/server.dart -o /out/server
+RUN mkdir -p /out && dart pub get && dart compile exe bin/server.dart -o /out/server
 
 FROM scratch
 COPY --from=build /runtime/ /
