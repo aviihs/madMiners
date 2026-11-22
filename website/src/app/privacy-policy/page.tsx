@@ -1,7 +1,7 @@
+import { PolicyHighlights } from "@/components/privacy-policy/PolicyHighlights";
 import { PolicySection } from "@/components/privacy-policy/PolicySection";
 import { PolicyToc } from "@/components/privacy-policy/PolicyToc";
 import { ReadingProgress } from "@/components/privacy-policy/ReadingProgress";
-import { IconCardGrid } from "@/components/reusable/IconCardGrid";
 import { PageHero } from "@/components/reusable/PageHero";
 import { Section } from "@/components/reusable/Section";
 import { formatDate, privacyPolicyContent, site } from "@/lib/content";
@@ -18,19 +18,17 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <ReadingProgress />
-      <PageHero {...hero} note={`Last updated ${formatDate(site.policyLastUpdated)}`} />
-      <Section className="pb-0 sm:pb-0">
-        <IconCardGrid items={highlights} columns={4} />
-      </Section>
-      <Section className="grid gap-12 lg:grid-cols-[240px_1fr]">
-        <aside>
-          <PolicyToc sections={sections.map(({ id, title }) => ({ id, title }))} />
-        </aside>
-        <article className="max-w-3xl text-[1.05rem] leading-relaxed">
-          {sections.map((section, index) => (
-            <PolicySection key={section.id} section={section} number={index + 1} />
-          ))}
-        </article>
+      <PageHero {...hero} note={`Effective ${formatDate(site.policyLastUpdated)}`} />
+      <Section className="grid gap-12 lg:grid-cols-[220px_1fr] lg:gap-16">
+        <PolicyToc sections={sections.map(({ id, title }) => ({ id, title }))} />
+        <div className="max-w-[44rem]">
+          <PolicyHighlights items={highlights} />
+          <article className="mt-12 space-y-8 text-[1rem] leading-[1.75]">
+            {sections.map((section, index) => (
+              <PolicySection key={section.id} section={section} number={index + 1} />
+            ))}
+          </article>
+        </div>
       </Section>
     </>
   );

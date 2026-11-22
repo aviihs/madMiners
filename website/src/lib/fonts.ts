@@ -1,19 +1,25 @@
+import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
 import localFont from "next/font/local";
 
-/** The game's own fonts (bundled, OFL licensed), so the site looks like the app. */
-export const displayFont = localFont({
-  src: "../assets/fonts/LilitaOne-Regular.ttf",
-  variable: "--font-display",
+/** Headings: a grotesque with a bit of character. */
+export const headingFont = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-heading",
   display: "swap",
 });
 
-export const bodyFont = localFont({
-  src: [
-    { path: "../assets/fonts/Nunito-SemiBold.ttf", weight: "600" },
-    { path: "../assets/fonts/Nunito-Bold.ttf", weight: "700" },
-    { path: "../assets/fonts/Nunito-ExtraBold.ttf", weight: "800" },
-    { path: "../assets/fonts/Nunito-Black.ttf", weight: "900" },
-  ],
+/** Body copy and UI: neutral, very readable at small sizes. */
+export const bodyFont = Instrument_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
   variable: "--font-body",
+  display: "swap",
+});
+
+/** The game's own logo face, used only for the wordmark. */
+export const brandFont = localFont({
+  src: "../assets/fonts/LilitaOne-Regular.ttf",
+  variable: "--font-brand",
   display: "swap",
 });

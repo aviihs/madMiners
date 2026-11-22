@@ -8,30 +8,28 @@ export const alt = `${site.storeTitle}: ${site.tagline}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-/** Social share card, generated at build time from the game's own art. */
+/** Social share card: wordmark and tagline beside a real screenshot. */
 export default async function OpengraphImage() {
-  const [miners, font] = await Promise.all([
-    readFile(join(process.cwd(), "public/art/miners.png")),
+  const [screenshot, font] = await Promise.all([
+    readFile(join(process.cwd(), "public/screenshots/deep-mine.jpg")),
     readFile(join(process.cwd(), "src/assets/fonts/LilitaOne-Regular.ttf")),
   ]);
-  const minersSrc = `data:image/png;base64,${miners.toString("base64")}`;
+  const screenshotSrc = `data:image/jpeg;base64,${screenshot.toString("base64")}`;
 
   return new ImageResponse(
     <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "radial-gradient(circle at 50% 0%, #3b2580 0%, #120e1f 55%, #0c0a14 100%)",
-        fontFamily: "Lilita",
-      }}
+      style={{ width: "100%", height: "100%", display: "flex", background: "#f7f5f0", padding: 64, gap: 48 }}
     >
-      <img src={minersSrc} width={600} height={360} alt="" />
-      <div style={{ fontSize: 96, color: "#ffc233", marginTop: -10 }}>{site.name}</div>
-      <div style={{ fontSize: 40, color: "#f6f2ff" }}>{site.tagline}</div>
+      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", width: 440 }}>
+        <div style={{ fontFamily: "Lilita", fontSize: 84, color: "#1c1a16", lineHeight: 1 }}>{site.name}</div>
+        <div style={{ marginTop: 24, fontSize: 34, color: "#4a463e", lineHeight: 1.3 }}>{site.tagline}</div>
+        <div style={{ marginTop: 36, fontSize: 24, color: "#8f5a07" }}>Free on Google Play</div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", flex: 1 }}>
+        <div style={{ display: "flex", background: "#0d0c0a", padding: 10, borderRadius: 26 }}>
+          <img src={screenshotSrc} width={560} height={315} style={{ borderRadius: 18 }} alt="" />
+        </div>
+      </div>
     </div>,
     { ...size, fonts: [{ name: "Lilita", data: font, style: "normal", weight: 400 }] },
   );

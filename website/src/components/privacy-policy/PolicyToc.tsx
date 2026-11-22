@@ -7,24 +7,25 @@ type PolicyTocProps = {
   sections: { id: string; title: string }[];
 };
 
-/** Sticky "On this page" list that highlights the section you're reading. */
+/** Sticky "On this page" list that marks the section you're reading. */
 export function PolicyToc({ sections }: PolicyTocProps) {
   const activeId = useActiveSection(sections.map((section) => section.id));
   return (
-    <nav aria-label="On this page" className="sticky top-28 hidden lg:block">
-      <p className="font-display text-faint tracking-[0.15em] uppercase">On this page</p>
-      <ol className="border-hairline mt-4 space-y-1 border-l">
-        {sections.map((section) => (
+    <nav aria-label="On this page" className="sticky top-24 hidden lg:block">
+      <p className="text-ink-muted text-[0.8125rem] font-semibold tracking-wide">On this page</p>
+      <ol className="mt-3 space-y-0.5">
+        {sections.map((section, index) => (
           <li key={section.id}>
             <a
               href={`#${section.id}`}
               className={cn(
-                "-ml-px block border-l-2 py-1.5 pl-4 text-sm transition",
+                "flex gap-2 rounded-md px-2 py-1.5 text-[0.875rem] transition-colors",
                 activeId === section.id
-                  ? "border-gold text-gold font-extrabold"
-                  : "text-muted hover:text-text border-transparent",
+                  ? "bg-paper-deep text-ink font-semibold"
+                  : "text-ink-soft hover:text-ink",
               )}
             >
+              <span className="text-ink-muted w-5 shrink-0 tabular-nums">{index + 1}.</span>
               {section.title}
             </a>
           </li>

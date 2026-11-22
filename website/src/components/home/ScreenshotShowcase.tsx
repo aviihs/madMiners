@@ -1,48 +1,35 @@
-import Image from "next/image";
-
-import { Reveal } from "@/components/motion/Reveal";
+import { ScreenshotFrame } from "@/components/reusable/ScreenshotFrame";
+import { SectionHeader } from "@/components/reusable/SectionHeader";
 import type { Screenshot } from "@/types/Home";
 
-/** Real in-game screenshots: one large, two beside it. */
-export function ScreenshotShowcase({ items }: { items: Screenshot[] }) {
-  const [featured, ...rest] = items;
-  return (
-    <div className="grid gap-5 lg:grid-cols-[2fr_1fr]">
-      <Reveal>
-        <Shot screenshot={featured} sizes="(min-width: 1024px) 720px, 100vw" priority />
-      </Reveal>
-      <div className="grid gap-5">
-        {rest.map((screenshot, index) => (
-          <Reveal key={screenshot.src} delay={(index + 1) * 90}>
-            <Shot screenshot={screenshot} sizes="(min-width: 1024px) 360px, 100vw" />
-          </Reveal>
-        ))}
-      </div>
-    </div>
-  );
-}
+type ScreenshotShowcaseProps = {
+  title: string;
+  description: string;
+  items: Screenshot[];
+};
 
-function Shot({
-  screenshot,
-  sizes,
-  priority,
-}: {
-  screenshot: Screenshot;
-  sizes: string;
-  priority?: boolean;
-}) {
+/** The one dark band on the site: real screenshots, captioned. */
+export function ScreenshotShowcase({ title, description, items }: ScreenshotShowcaseProps) {
   return (
-    <figure className="border-hairline bg-surface overflow-hidden rounded-3xl border shadow-2xl shadow-black/40">
-      <Image
-        src={screenshot.src}
-        alt={screenshot.alt}
-        width={1920}
-        height={1080}
-        sizes={sizes}
-        priority={priority}
-        className="aspect-video w-full object-cover"
-      />
-      <figcaption className="text-muted px-5 py-3 text-sm">{screenshot.caption}</figcaption>
-    </figure>
+    <section id="screenshots" className="bg-night scroll-mt-16">
+      <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 md:py-20">
+        <SectionHeader label="Screenshots" title={title} description={description} tone="dark" />
+        <div className="grid gap-x-6 gap-y-8 md:grid-cols-2">
+          {items.map((screenshot, index) => (
+            <figure
+              key={screenshot.src}
+              className={index === 0 ? "md:col-span-2 lg:mx-auto lg:w-4/5" : undefined}
+            >
+              <ScreenshotFrame
+                src={screenshot.src}
+                alt={screenshot.alt}
+                sizes={index === 0 ? "(min-width: 1024px) 880px, 92vw" : "(min-width: 768px) 540px, 92vw"}
+              />
+              <figcaption className="text-night-muted mt-3 text-[0.875rem]">{screenshot.caption}</figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

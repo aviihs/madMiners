@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 import { MobileMenu } from "./MobileMenu";
 
-/** Sticky top bar: logo, links, Play button, and a menu on small screens. */
+/** Top bar: logo, links and the store link; a menu on small screens. */
 export function Navbar() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -26,7 +26,7 @@ export function Navbar() {
   }
 
   useEffect(() => {
-    const handleScroll = () => setHasScrolled(window.scrollY > 12);
+    const handleScroll = () => setHasScrolled(window.scrollY > 8);
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
@@ -35,50 +35,53 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-50 transition-colors",
-        hasScrolled || isMenuOpen ? "border-hairline bg-bg/85 border-b backdrop-blur-md" : "bg-transparent",
+        "bg-paper fixed inset-x-0 top-0 z-50 border-b transition-[border-color]",
+        hasScrolled || isMenuOpen ? "border-line" : "border-transparent",
       )}
     >
       <nav
-        className="mx-auto flex h-18 max-w-6xl items-center justify-between px-5 sm:px-8"
+        className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8"
         aria-label="Main"
       >
         <BrandLogo />
-        <ul className="hidden items-center gap-1 md:flex">
-          {NAV_LINKS.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                aria-current={pathname === link.href ? "page" : undefined}
-                className={cn(
-                  "text-muted hover:text-text rounded-xl px-4 py-2 font-extrabold transition",
-                  pathname === link.href && "text-text bg-white/6",
-                )}
-              >
-                {link.label}
-              </Link>
-            </li>
-          ))}
-          <li className="ml-2">
-            <a
-              href={site.playStoreUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-gold font-display text-on-gold rounded-xl px-4 py-2 transition hover:brightness-110"
-            >
-              Play free
-            </a>
-          </li>
-        </ul>
+        <div className="hidden items-center gap-8 md:flex">
+          <ul className="flex items-center gap-7">
+            {NAV_LINKS.map((link) => {
+              const isActive = pathname === link.href;
+              return (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={cn(
+                      "text-[0.9375rem] font-medium transition-colors",
+                      isActive ? "text-ink" : "text-ink-muted hover:text-ink",
+                    )}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <a
+            href={site.playStoreUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-ink hover:bg-ink/85 rounded-lg px-3.5 py-2 text-[0.875rem] font-semibold text-white transition-colors"
+          >
+            Get the game
+          </a>
+        </div>
         <button
           type="button"
-          className="text-text rounded-xl p-2 md:hidden"
+          className="text-ink -mr-2 rounded-lg p-2 md:hidden"
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
           aria-expanded={isMenuOpen}
           aria-controls="mobile-menu"
           onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
         >
-          {isMenuOpen ? <X className="size-7" /> : <Menu className="size-7" />}
+          {isMenuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
         </button>
       </nav>
       {isMenuOpen && <MobileMenu pathname={pathname} />}

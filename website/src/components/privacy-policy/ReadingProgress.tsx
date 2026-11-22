@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/** Thin gold bar at the top of the page showing how far you've read. */
+/** Thin bar under the header showing how far you've read. */
 export function ReadingProgress() {
   const [progress, setProgress] = useState(0);
 
@@ -21,8 +21,8 @@ export function ReadingProgress() {
   }, []);
 
   return (
-    <div aria-hidden className="fixed inset-x-0 top-0 z-[60] h-1">
-      <div className="bg-gold h-full origin-left" style={{ transform: `scaleX(${progress})` }} />
+    <div aria-hidden className="fixed inset-x-0 top-16 z-40 h-0.5">
+      <div className="bg-accent h-full origin-left" style={{ transform: `scaleX(${progress})` }} />
     </div>
   );
 }

@@ -6,14 +6,20 @@ type SectionProps = {
   children: ReactNode;
   id?: string;
   className?: string;
+  /** Inner width: "wide" for marketing sections, "text" for reading pages. */
+  width?: "wide" | "text";
 };
 
-/** Page section with the shared max width and side padding. */
-export function Section({ children, id, className }: SectionProps) {
+/** Vertical rhythm + horizontal container shared by every section. */
+export function Section({ children, id, className, width = "wide" }: SectionProps) {
   return (
     <section
       id={id}
-      className={cn("mx-auto w-full max-w-6xl scroll-mt-24 px-5 py-16 sm:px-8 sm:py-24", className)}
+      className={cn(
+        "mx-auto w-full scroll-mt-20 px-5 py-14 sm:px-8 md:py-20",
+        width === "wide" ? "max-w-6xl" : "max-w-3xl",
+        className,
+      )}
     >
       {children}
     </section>

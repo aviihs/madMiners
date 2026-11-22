@@ -1,20 +1,15 @@
-import { Reveal } from "@/components/motion/Reveal";
 import type { Step } from "@/types/Content";
 
-/** Numbered "how a match works" timeline. */
+/** "How a match works" as a simple ruled timeline. */
 export function StepsSection({ items }: { items: Step[] }) {
   return (
-    <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <ol className="grid gap-y-8 sm:grid-cols-2 sm:gap-x-8 lg:grid-cols-4">
       {items.map((step, index) => (
-        <Reveal key={step.title} delay={index * 80}>
-          <li className="border-hairline bg-surface/60 relative h-full rounded-3xl border p-6">
-            <span className="bg-gold font-display text-on-gold flex size-11 items-center justify-center rounded-full text-xl">
-              {index + 1}
-            </span>
-            <h3 className="mt-5 text-2xl">{step.title}</h3>
-            <p className="text-muted mt-2">{step.text}</p>
-          </li>
-        </Reveal>
+        <li key={step.title} className="border-ink border-t-2 pt-5">
+          <p className="text-ink-muted text-[0.8125rem] font-semibold tabular-nums">Step {index + 1}</p>
+          <h3 className="mt-2 text-[1.25rem]">{step.title}</h3>
+          <p className="text-ink-soft mt-2 text-[0.9375rem]">{step.text}</p>
+        </li>
       ))}
     </ol>
   );

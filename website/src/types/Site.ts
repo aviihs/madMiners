@@ -10,4 +10,6 @@ export type Site = {
   playStoreUrl: string;
   policyLastUpdated: string;
   keywords: string[];
+  /** Leave a link empty ("") to hide it. */
+  social: { github: string; instagram: string; facebook: string; website: string };
 };

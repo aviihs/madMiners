@@ -7,7 +7,8 @@ import { buildMailto } from "@/lib/mailto";
 import type { ContactContent } from "@/types/Contact";
 
 const FIELD_CLASSES =
-  "mt-2 w-full rounded-2xl border border-hairline bg-bg/70 px-4 py-3 text-text placeholder:text-faint focus:border-gold/60 focus:outline-none";
+  "mt-1.5 block w-full rounded-lg border border-line-strong bg-card px-3.5 py-2.5 text-[0.9375rem] text-ink shadow-[inset_0_1px_1px_rgb(28_26_22/0.04)] placeholder:text-ink-muted/70 focus:border-ink focus:ring-0 focus:outline-none";
+const LABEL_CLASSES = "block text-[0.875rem] font-semibold text-ink";
 
 /**
  * Writes the message into the visitor's own email app (mailto). The site has
@@ -27,31 +28,32 @@ export function ContactForm({ form }: { form: ContactContent["form"] }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="border-hairline bg-surface/70 rounded-3xl border p-6 sm:p-8">
-      <h2 className="text-3xl">{form.title}</h2>
-      <p className="text-muted mt-2 text-sm">{form.note}</p>
+    <form onSubmit={handleSubmit} className="border-line bg-card shadow-card rounded-2xl border p-6 sm:p-8">
+      <h2 className="text-[1.375rem]">{form.title}</h2>
+      <p className="text-ink-muted mt-1.5 text-[0.875rem]">{form.note}</p>
 
-      <label className="mt-6 block font-extrabold">
-        Topic
-        <select value={topic} onChange={(event) => setTopic(event.target.value)} className={FIELD_CLASSES}>
-          {form.topics.map((option) => (
-            <option key={option}>{option}</option>
-          ))}
-        </select>
-      </label>
+      <div className="mt-6 grid gap-5 sm:grid-cols-2">
+        <label className={LABEL_CLASSES}>
+          Topic
+          <select value={topic} onChange={(event) => setTopic(event.target.value)} className={FIELD_CLASSES}>
+            {form.topics.map((option) => (
+              <option key={option}>{option}</option>
+            ))}
+          </select>
+        </label>
+        <label className={LABEL_CLASSES}>
+          In-game username <span className="text-ink-muted font-normal">(optional)</span>
+          <input
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            maxLength={24}
+            placeholder="e.g. Sagar_07"
+            className={FIELD_CLASSES}
+          />
+        </label>
+      </div>
 
-      <label className="mt-5 block font-extrabold">
-        In-game username <span className="text-faint font-semibold">(optional)</span>
-        <input
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          maxLength={24}
-          placeholder="e.g. Sagar_07"
-          className={FIELD_CLASSES}
-        />
-      </label>
-
-      <label className="mt-5 block font-extrabold">
+      <label className={`${LABEL_CLASSES} mt-5`}>
         Message
         <textarea
           value={message}
@@ -59,17 +61,20 @@ export function ContactForm({ form }: { form: ContactContent["form"] }) {
           required
           rows={6}
           maxLength={2000}
-          placeholder="Tell us what happened or what you'd like to see…"
-          className={FIELD_CLASSES}
+          placeholder="What happened, or what would you like to see?"
+          className={`${FIELD_CLASSES} resize-y`}
         />
       </label>
 
-      <button
-        type="submit"
-        className="bg-gold font-display text-on-gold mt-6 w-full rounded-2xl px-6 py-3.5 text-lg transition hover:brightness-110"
-      >
-        {form.submit}
-      </button>
+      <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-ink-muted text-[0.8125rem]">Sends to {site.contactEmail}</p>
+        <button
+          type="submit"
+          className="bg-ink hover:bg-ink/85 rounded-lg px-5 py-2.5 text-[0.9375rem] font-semibold text-white transition-colors"
+        >
+          {form.submit}
+        </button>
+      </div>
     </form>
   );
 }

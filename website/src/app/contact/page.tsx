@@ -16,7 +16,7 @@ export default function ContactPage() {
   return (
     <>
       <PageHero {...hero} />
-      <Section className="grid gap-8 lg:grid-cols-[1fr_1.3fr]">
+      <Section className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
         <ContactChannels channels={channels} />
         <ContactForm form={form} />
       </Section>

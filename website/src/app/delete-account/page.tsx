@@ -5,6 +5,7 @@ import { Section } from "@/components/reusable/Section";
 import { deleteAccountContent, fillPlaceholders, site } from "@/lib/content";
 import { buildMailto } from "@/lib/mailto";
 import { pageMetadata } from "@/lib/seo";
+import { cn } from "@/lib/utils";
 
 export const metadata = pageMetadata({
   title: "Delete your account",
@@ -23,39 +24,37 @@ export default function DeleteAccountPage() {
   return (
     <>
       <PageHero {...hero} />
-      <Section className="max-w-4xl">
-        <ol className="space-y-4">
-          {steps.map((step, index) => (
-            <li key={step.title} className="border-hairline bg-surface/70 flex gap-5 rounded-3xl border p-6">
-              <span className="bg-gold font-display text-on-gold flex size-11 shrink-0 items-center justify-center rounded-full text-xl">
-                {index + 1}
-              </span>
-              <div>
-                <h2 className="text-2xl">{step.title}</h2>
-                <p className="text-muted mt-1">{fillPlaceholders(step.text)}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-
-        <div className="mt-8 text-center">
+      <Section className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
+        <div>
+          <h2 className="text-[1.5rem]">How to request deletion</h2>
+          <ol className="mt-6 space-y-6">
+            {steps.map((step, index) => (
+              <li key={step.title} className="grid grid-cols-[2rem_1fr] gap-4">
+                <span className="border-line-strong bg-card flex size-8 items-center justify-center rounded-full border text-[0.875rem] font-semibold tabular-nums">
+                  {index + 1}
+                </span>
+                <div>
+                  <h3 className="text-[1.125rem]">{step.title}</h3>
+                  <p className="text-ink-soft mt-1">{fillPlaceholders(step.text)}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
           <a
             href={DELETION_MAILTO}
-            className="bg-lava font-display inline-flex rounded-2xl px-6 py-3.5 text-lg text-white transition hover:brightness-110"
+            className="bg-danger hover:bg-danger/90 mt-8 inline-flex rounded-lg px-5 py-2.5 text-[0.9375rem] font-semibold text-white transition-colors"
           >
             Email a deletion request
           </a>
+          <p className="border-line bg-paper-deep/60 text-ink-soft mt-8 flex gap-3 rounded-xl border p-4 text-[0.9375rem]">
+            <Info aria-hidden className="text-ink-muted mt-0.5 size-4 shrink-0" />
+            {deviceNote}
+          </p>
         </div>
-
-        <div className="mt-12 grid gap-5 sm:grid-cols-2">
+        <div className="space-y-5">
           <ListCard title={deleted.title} items={deleted.items} isDeleted />
           <ListCard title={kept.title} items={kept.items} />
         </div>
-
-        <p className="border-sky/25 bg-sky/10 text-muted mt-8 flex gap-3 rounded-3xl border p-5">
-          <Info aria-hidden className="text-sky mt-0.5 size-5 shrink-0" />
-          {deviceNote}
-        </p>
       </Section>
     </>
   );
@@ -72,15 +71,15 @@ function ListCard({
 }) {
   const Icon = isDeleted ? X : Check;
   return (
-    <section className="border-hairline bg-surface/70 rounded-3xl border p-6">
-      <h2 className="text-2xl">{title}</h2>
-      <ul className="text-muted mt-4 space-y-3">
+    <section className="border-line bg-card shadow-card rounded-2xl border p-6">
+      <h2 className="text-[1.125rem]">{title}</h2>
+      <ul className="text-ink-soft mt-4 space-y-3 text-[0.9375rem]">
         {items.map((item) => (
           <li key={item} className="flex gap-3">
             <Icon
               aria-hidden
-              className={`mt-1 size-4 shrink-0 ${isDeleted ? "text-lava" : "text-leaf"}`}
-              strokeWidth={3}
+              className={cn("mt-1 size-4 shrink-0", isDeleted ? "text-danger" : "text-ok")}
+              strokeWidth={2.5}
             />
             {item}
           </li>

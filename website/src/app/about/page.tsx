@@ -1,9 +1,8 @@
 import { AboutStory } from "@/components/about/AboutStory";
+import { AboutValues } from "@/components/about/AboutValues";
 import { CallToAction } from "@/components/reusable/CallToAction";
-import { IconCardGrid } from "@/components/reusable/IconCardGrid";
 import { PageHero } from "@/components/reusable/PageHero";
 import { Section } from "@/components/reusable/Section";
-import { SectionIntro } from "@/components/reusable/SectionIntro";
 import { aboutContent, homeContent } from "@/lib/content";
 import { pageMetadata } from "@/lib/seo";
 
@@ -21,11 +20,10 @@ export default function AboutPage() {
       <Section>
         <AboutStory story={story} />
       </Section>
-      <Section className="pt-0 sm:pt-0">
-        <SectionIntro title={values.title} />
-        <IconCardGrid items={values.items} columns={4} />
+      <Section className="pt-0 md:pt-0">
+        <AboutValues values={values} />
       </Section>
-      <CallToAction {...homeContent.cta} />
+      <CallToAction title={homeContent.cta.title} subtitle={homeContent.cta.subtitle} />
     </>
   );
 }

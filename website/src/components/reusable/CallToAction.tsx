@@ -1,35 +1,32 @@
-import Image from "next/image";
-
-import { Reveal } from "@/components/motion/Reveal";
+import Link from "next/link";
 
 import { PlayStoreButton } from "./PlayStoreButton";
 
 type CallToActionProps = {
   title: string;
   subtitle: string;
-  button: string;
 };
 
-/** Closing banner with the Google Play button. */
-export function CallToAction({ title, subtitle, button }: CallToActionProps) {
+/** Closing band: one line of copy and the store badge. */
+export function CallToAction({ title, subtitle }: CallToActionProps) {
   return (
-    <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-8">
-      <Reveal>
-        <div className="border-gold/25 from-bg-top via-surface to-bg relative overflow-hidden rounded-[2rem] border bg-gradient-to-br px-8 py-14 text-center sm:px-16">
-          <div className="bg-gold/20 pointer-events-none absolute -top-24 left-1/2 size-80 -translate-x-1/2 rounded-full blur-3xl" />
-          <Image
-            src="/art/miners.png"
-            alt=""
-            width={1200}
-            height={720}
-            sizes="(min-width: 640px) 384px, 288px"
-            className="relative mx-auto -mt-4 mb-2 w-72 sm:w-96"
-          />
-          <h2 className="relative text-4xl sm:text-5xl">{title}</h2>
-          <p className="text-muted relative mt-3 text-lg">{subtitle}</p>
-          <PlayStoreButton label={button} className="relative mt-8" />
+    <section className="mx-auto w-full max-w-6xl px-5 pb-16 sm:px-8 md:pb-24">
+      <div className="border-line bg-card shadow-card flex flex-col gap-6 rounded-2xl border p-7 sm:p-10 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-[1.75rem]">{title}</h2>
+          <p className="text-ink-soft mt-2">
+            {subtitle} Questions first?{" "}
+            <Link
+              href="/contact"
+              className="text-ink decoration-line-strong hover:decoration-ink font-medium underline underline-offset-4"
+            >
+              Get in touch
+            </Link>
+            .
+          </p>
         </div>
-      </Reveal>
+        <PlayStoreButton className="shrink-0 self-start md:self-auto" />
+      </div>
     </section>
   );
 }
