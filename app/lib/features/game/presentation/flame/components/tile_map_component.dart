@@ -30,8 +30,12 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     ..color = const Color(0xE6FFFFFF)
     ..strokeWidth = 2
     ..style = PaintingStyle.stroke;
-  final _tinyText = TextPaint(style: const TextStyle(fontFamily: 'Lilita', fontSize: 8, color: Color(0xFFFFFFFF)));
-  final _signText = TextPaint(style: const TextStyle(fontFamily: 'Lilita', fontSize: 14, color: Color(0xFF3A2414), letterSpacing: 1.2));
+  final _tinyText = TextPaint(
+    style: const TextStyle(fontFamily: 'Lilita', fontSize: 8, color: Color(0xFFFFFFFF)),
+  );
+  final _signText = TextPaint(
+    style: const TextStyle(fontFamily: 'Lilita', fontSize: 14, color: Color(0xFF3A2414), letterSpacing: 1.2),
+  );
 
   @override
   void update(double dt) => _t += dt;
@@ -139,7 +143,10 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     if (aim != null) {
       final pulse = 0.6 + 0.4 * sin(_t * 8);
       _aim.color = Color.fromRGBO(255, 255, 255, 0.5 + 0.4 * pulse);
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(aim.x * ts + 1.5, aim.y * ts + 1.5, ts - 3, ts - 3), const Radius.circular(6)), _aim);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(aim.x * ts + 1.5, aim.y * ts + 1.5, ts - 3, ts - 3), const Radius.circular(6)),
+        _aim,
+      );
     }
   }
 
@@ -285,7 +292,14 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
       _p.color = const Color(0xFF9AA3AD);
       canvas.drawPath(spike, _p);
       _p.color = const Color(0xFF5E6670);
-      canvas.drawPath(Path()..moveTo(x, r.bottom - 3 - tall)..lineTo(x + 3.5, r.bottom - 3)..lineTo(x, r.bottom - 3)..close(), _p);
+      canvas.drawPath(
+        Path()
+          ..moveTo(x, r.bottom - 3 - tall)
+          ..lineTo(x + 3.5, r.bottom - 3)
+          ..lineTo(x, r.bottom - 3)
+          ..close(),
+        _p,
+      );
       _p.color = const Color(0x99A0522D); // rust / old blood
       canvas.drawCircle(Offset(x, r.bottom - 3 - tall + 3), 1.2, _p);
     }
@@ -312,7 +326,15 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     _p.color = const Color(0xFF1E1E22);
     for (var i = 0; i < 4; i++) {
       final x = box.left + i * 7.0;
-      canvas.drawPath(Path()..moveTo(x, box.center.dy + 4)..lineTo(x + 4, box.center.dy - 4)..lineTo(x + 7, box.center.dy - 4)..lineTo(x + 3, box.center.dy + 4)..close(), _p);
+      canvas.drawPath(
+        Path()
+          ..moveTo(x, box.center.dy + 4)
+          ..lineTo(x + 4, box.center.dy - 4)
+          ..lineTo(x + 7, box.center.dy - 4)
+          ..lineTo(x + 3, box.center.dy + 4)
+          ..close(),
+        _p,
+      );
     }
     final blink = sin(_t * 5) > 0.7;
     _p.color = blink ? const Color(0xFFFF453A) : const Color(0x88FF453A);
@@ -367,13 +389,22 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
       _ => (0.0, -1.0),
     };
     final c = Offset(r.center.dx, topY - 6);
-    _p.color = k == LaunchKind.random ? Color.lerp(const Color(0xFFB06BFF), const Color(0xFFFFC233), (sin(_t * 6) + 1) / 2)! : const Color(0xFFFFFFFF);
+    _p.color = k == LaunchKind.random
+        ? Color.lerp(const Color(0xFFB06BFF), const Color(0xFFFFC233), (sin(_t * 6) + 1) / 2)!
+        : const Color(0xFFFFFFFF);
     if (k == LaunchKind.random) {
       _tinyText.render(canvas, '?', Vector2(c.dx, c.dy), anchor: Anchor.center);
     } else {
       final tip = c + Offset(ax, ay) * 6;
       final side = Offset(-ay, ax) * 3.5;
-      canvas.drawPath(Path()..moveTo(tip.dx, tip.dy)..lineTo((c + side).dx, (c + side).dy)..lineTo((c - side).dx, (c - side).dy)..close(), _p);
+      canvas.drawPath(
+        Path()
+          ..moveTo(tip.dx, tip.dy)
+          ..lineTo((c + side).dx, (c + side).dy)
+          ..lineTo((c - side).dx, (c - side).dy)
+          ..close(),
+        _p,
+      );
     }
   }
 
@@ -383,7 +414,11 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     canvas.drawRRect(RRect.fromRectAndRadius(body, const Radius.circular(3)), _p);
     _p.color = const Color(0xFF8C5A2B);
     canvas.drawRRect(
-      RRect.fromRectAndCorners(Rect.fromLTWH(body.left, body.top - 7, body.width, 8), topLeft: const Radius.circular(7), topRight: const Radius.circular(7)),
+      RRect.fromRectAndCorners(
+        Rect.fromLTWH(body.left, body.top - 7, body.width, 8),
+        topLeft: const Radius.circular(7),
+        topRight: const Radius.circular(7),
+      ),
       _p,
     );
     _p.color = const Color(0xFFFFC233);
@@ -415,11 +450,12 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
     _p.color = const Color(0x66000000);
     canvas.drawOval(Rect.fromCenter(center: Offset(c.dx, r.bottom - 2), width: ts * 0.9, height: 6), _p);
     final base = MinePalette.shade(const Color(0xFF9A8A78), d * -0.2);
-    _p.shader = Gradient.radial(c + const Offset(-5, -6), rad * 1.4, [
-      MinePalette.shade(base, 0.28),
-      base,
-      MinePalette.shade(base, -0.45),
-    ], const [0, 0.5, 1]);
+    _p.shader = Gradient.radial(
+      c + const Offset(-5, -6),
+      rad * 1.4,
+      [MinePalette.shade(base, 0.28), base, MinePalette.shade(base, -0.45)],
+      const [0, 0.5, 1],
+    );
     canvas.drawCircle(c, rad, _p);
     _p.shader = null;
     _p.color = MinePalette.shade(base, -0.25);
@@ -569,7 +605,14 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
         _markAnimated(map, x, y);
       case TileType.obsidian:
         _p.color = const Color(0x55B06BFF);
-        canvas.drawPath(Path()..moveTo(r.left + 6, r.top + 4)..lineTo(r.left + 14, r.top + 4)..lineTo(r.left + 8, r.top + 16)..close(), _p);
+        canvas.drawPath(
+          Path()
+            ..moveTo(r.left + 6, r.top + 4)
+            ..lineTo(r.left + 14, r.top + 4)
+            ..lineTo(r.left + 8, r.top + 16)
+            ..close(),
+          _p,
+        );
         _p.color = const Color(0x33FFFFFF);
         canvas.drawLine(Offset(r.left + 18, r.top + 8), Offset(r.left + 26, r.top + 22), _p..strokeWidth = 1.5);
       case TileType.moneyBag:
@@ -617,7 +660,14 @@ class TileMapComponent extends Component with HasGameReference<MadMinersGame> {
       _p.color = MinePalette.shade(c, -0.3);
       canvas.drawPath(gem, _p);
       _p.color = c;
-      canvas.drawPath(Path()..moveTo(ox, oy - s)..lineTo(ox + s, oy)..lineTo(ox, oy)..close(), _p);
+      canvas.drawPath(
+        Path()
+          ..moveTo(ox, oy - s)
+          ..lineTo(ox + s, oy)
+          ..lineTo(ox, oy)
+          ..close(),
+        _p,
+      );
     }
     _twinkle(canvas, r, h, const Color(0xFFFFFFFF));
   }

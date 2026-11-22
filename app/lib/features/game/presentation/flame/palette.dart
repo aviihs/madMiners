@@ -21,9 +21,8 @@ abstract final class MinePalette {
     return Color.lerp(_deep, _scorched, ((d - 0.5) * 2).clamp(0, 1))!;
   }
 
-  static Color tunnel(double d) => d < 0.75
-      ? Color.lerp(_tunnelTop, _tunnelDeep, d / 0.75)!
-      : Color.lerp(_tunnelDeep, _tunnelHot, (d - 0.75) / 0.25)!;
+  static Color tunnel(double d) =>
+      d < 0.75 ? Color.lerp(_tunnelTop, _tunnelDeep, d / 0.75)! : Color.lerp(_tunnelDeep, _tunnelHot, (d - 0.75) / 0.25)!;
 
   static const ore = <TileType, Color>{
     TileType.copper: Color(0xFFE08A4E),

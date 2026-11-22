@@ -20,9 +20,15 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
   static const double ts = MadMinersGame.tileSize;
 
   final _p = Paint();
-  final _nameText = TextPaint(style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFFFFFFFF), fontWeight: FontWeight.w800));
-  final _botText = TextPaint(style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFF8FC8FF), fontWeight: FontWeight.w800));
-  final _youText = TextPaint(style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFFFFC233), fontWeight: FontWeight.w900));
+  final _nameText = TextPaint(
+    style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFFFFFFFF), fontWeight: FontWeight.w800),
+  );
+  final _botText = TextPaint(
+    style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFF8FC8FF), fontWeight: FontWeight.w800),
+  );
+  final _youText = TextPaint(
+    style: const TextStyle(fontFamily: 'Nunito', fontSize: 11, color: Color(0xFFFFC233), fontWeight: FontWeight.w900),
+  );
 
   final Map<String, _Anim> _anim = {};
   double _t = 0;
@@ -32,7 +38,6 @@ class MinersComponent extends Component with HasGameReference<MadMinersGame> {
     final h = id.codeUnits.fold<int>(7, (a, c) => (a * 31 + c) & 0xffffff);
     return HSLColor.fromAHSL(1, (h % 360).toDouble(), 0.62, 0.52).toColor();
   }
-
 
   @override
   void update(double dt) {

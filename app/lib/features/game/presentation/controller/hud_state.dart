@@ -91,6 +91,7 @@ class HudState {
   final TreasureHint hint;
 
   bool get ready => me != null;
+
   /// Your current depth in tiles below the surface.
   int get depth => me == null ? 0 : (me!.y.floor() - MapGenerator.surfaceRows + 1).clamp(0, 9999);
 

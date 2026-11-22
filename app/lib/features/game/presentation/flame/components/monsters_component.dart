@@ -74,7 +74,13 @@ class MonstersComponent extends Component with HasGameReference<MadMinersGame> {
       for (final side in const [-1.0, 1.0]) {
         final knee = Offset(side * (7 + i * 2.2), -4 + sin(ph * side) * 2);
         final foot = Offset(side * (10 + i * 2.6), 10 + cos(ph) * 1.2);
-        canvas.drawPath(Path()..moveTo(side * 3, 1)..lineTo(knee.dx, knee.dy)..lineTo(foot.dx, foot.dy), _leg);
+        canvas.drawPath(
+          Path()
+            ..moveTo(side * 3, 1)
+            ..lineTo(knee.dx, knee.dy)
+            ..lineTo(foot.dx, foot.dy),
+          _leg,
+        );
       }
     }
     _p.shader = Gradient.radial(const Offset(-2, -1), 11, [const Color(0xFF5A4470), const Color(0xFF1E1528)]);
@@ -84,7 +90,15 @@ class MonstersComponent extends Component with HasGameReference<MadMinersGame> {
     canvas.drawCircle(const Offset(6, 2), 4.6, _p);
     // Markings + eyes.
     _p.color = const Color(0xFFB0303A);
-    canvas.drawPath(Path()..moveTo(-5, -2)..lineTo(-2, 1)..lineTo(-5, 4)..lineTo(-8, 1)..close(), _p);
+    canvas.drawPath(
+      Path()
+        ..moveTo(-5, -2)
+        ..lineTo(-2, 1)
+        ..lineTo(-5, 4)
+        ..lineTo(-8, 1)
+        ..close(),
+      _p,
+    );
     final glow = biting ? 1.0 : 0.6 + 0.4 * sin(_t * 5);
     _p.color = Color.fromRGBO(255, 60, 60, glow);
     canvas.drawCircle(const Offset(8, 0.5), 1.1, _p);
@@ -114,7 +128,13 @@ class MonstersComponent extends Component with HasGameReference<MadMinersGame> {
     _leg
       ..color = const Color(0xFF2E2925)
       ..strokeWidth = 1.2;
-    canvas.drawPath(Path()..moveTo(-4, -12)..lineTo(-1, -7)..lineTo(-4, -2), _leg);
+    canvas.drawPath(
+      Path()
+        ..moveTo(-4, -12)
+        ..lineTo(-1, -7)
+        ..lineTo(-4, -2),
+      _leg,
+    );
     // Arms: one raised to smash when attacking.
     _p.color = const Color(0xFF7A716A);
     final armAngle = smashing ? -2.2 : 0.4 + sin(walk * 0.25) * 0.2;

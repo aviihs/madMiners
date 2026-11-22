@@ -11,28 +11,36 @@ import 'theme.dart';
 import 'ui/ui.dart';
 
 class MadMinersApp extends StatelessWidget {
-  const MadMinersApp({super.key});
+  const MadMinersApp({super.key, this.auth});
+
+  /// Already started by the loading screen (see `boot/app_root.dart`).
+  /// When null (tests), the app creates and starts its own.
+  final AuthCubit? auth;
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-    create: (_) => sl<AuthCubit>()..start(),
-    child: MaterialApp(
-      title: 'Mad Miners',
-      debugShowCheckedModeBanner: false,
-      theme: buildTheme(),
-      // Menu blur follows the "High quality graphics" setting.
-      builder: (context, child) => ValueListenableBuilder<bool>(
-        valueListenable: sl<GameSettings>().highGraphics,
-        builder: (context, hq, _) => GlassScope(blur: hq, child: child!),
-      ),
-      home: BlocBuilder<AuthCubit, AuthState>(
-        buildWhen: (a, b) => a.runtimeType != b.runtimeType || b is AuthSignedOut || b is AuthSignedIn,
-        builder: (context, state) => switch (state) {
-          AuthRestoring() => const Scaffold(body: Center(child: CupertinoActivityIndicator(radius: 14))),
-          AuthSignedOut() => LoginPage(key: const ValueKey('login'), state: state),
-          AuthSignedIn(:final session) => LobbyPage(key: ValueKey(session.profile.id), session: session),
-        },
-      ),
+  Widget build(BuildContext context) {
+    final app = _materialApp();
+    return auth != null ? BlocProvider.value(value: auth!, child: app) : BlocProvider(create: (_) => sl<AuthCubit>()..start(), child: app);
+  }
+
+  Widget _materialApp() => MaterialApp(
+    title: 'Mad Miners',
+    debugShowCheckedModeBanner: false,
+    theme: buildTheme(),
+    // Menu blur follows the "High quality graphics" setting.
+    builder: (context, child) => ValueListenableBuilder<bool>(
+      valueListenable: sl<GameSettings>().highGraphics,
+      builder: (context, hq, _) => GlassScope(blur: hq, child: child!),
+    ),
+    home: BlocBuilder<AuthCubit, AuthState>(
+      buildWhen: (a, b) => a.runtimeType != b.runtimeType || b is AuthSignedOut || b is AuthSignedIn,
+      builder: (context, state) => switch (state) {
+        AuthRestoring() => const Scaffold(
+          body: AppBackground(child: Center(child: CupertinoActivityIndicator(radius: 14))),
+        ),
+        AuthSignedOut() => LoginPage(key: const ValueKey('login'), state: state),
+        AuthSignedIn(:final session) => LobbyPage(key: ValueKey(session.profile.id), session: session),
+      },
     ),
   );
 }

@@ -1,14 +1,15 @@
-import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
-import 'package:flutter/material.dart';
-
-import 'app/app.dart';
-import 'app/audio.dart';
-import 'app/di.dart';
+import 'app/boot/app_root.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await configureDependencies();
-  unawaited(sl<GameAudio>().init());
-  runApp(const MadMinersApp());
+  final binding = WidgetsFlutterBinding.ensureInitialized();
+  // Keep the OS splash up until the loading screen's art is decoded.
+  FlutterNativeSplash.preserve(widgetsBinding: binding);
+  // A landscape game: full screen, both landscape sides.
+  await SystemChrome.setPreferredOrientations(const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  runApp(const AppRoot());
 }

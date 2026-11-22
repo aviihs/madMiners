@@ -112,77 +112,102 @@ class _LoginPageState extends State<LoginPage> {
     final busy = widget.state.busy;
     final online = _status == _ServerStatus.online;
     final googleVisible = GoogleConfig.platformSupported;
+    final form = <Widget>[
+      if (!_guestForm) ...[
+        if (googleVisible) ...[
+          GameButton(
+            label: 'Continue with Google',
+            tone: ButtonTone.light,
+            leading: const _GoogleMark(size: 22),
+            fontSize: 17,
+            loading: busy,
+            onPressed: online ? () => context.read<AuthCubit>().signInWithGoogle(_server.text) : null,
+          ),
+          const SizedBox(height: 14),
+        ],
+        GameButton(
+          label: 'Play as Guest',
+          icon: CupertinoIcons.person_fill,
+          onPressed: busy ? null : () => setState(() => _guestForm = true),
+        ),
+        const SizedBox(height: 14),
+        GameButton(
+          label: 'Practice Offline',
+          icon: CupertinoIcons.game_controller_solid,
+          tone: ButtonTone.dark,
+          height: 52,
+          fontSize: 17,
+          onPressed: busy ? null : () => context.read<AuthCubit>().playOffline(_name.text.isEmpty ? 'Miner' : _name.text),
+        ),
+      ] else ...[
+        Text('Pick a miner name', style: MMText.title.copyWith(fontSize: 22), textAlign: TextAlign.center),
+        const SizedBox(height: 6),
+        const Text('You can link Google later to keep your progress safe.', style: MMText.footnote, textAlign: TextAlign.center),
+        const SizedBox(height: 18),
+        AppTextField(
+          controller: _name,
+          placeholder: 'Username',
+          icon: CupertinoIcons.person_fill,
+          maxLength: 16,
+          autofocus: true,
+          onSubmitted: (_) => _guest(),
+        ),
+        if (_nameError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8, left: 6),
+            child: Text(_nameError!, style: MMText.footnote.copyWith(color: MMColors.lava)),
+          ),
+        const SizedBox(height: 16),
+        GameButton(label: 'Start Digging', loading: busy, onPressed: online ? _guest : null),
+        const SizedBox(height: 10),
+        CupertinoButton(
+          onPressed: busy ? null : () => setState(() => _guestForm = false),
+          child: const Text(
+            'Back',
+            style: TextStyle(fontFamily: MMFonts.body, fontWeight: FontWeight.w800, color: MMColors.muted),
+          ),
+        ),
+      ],
+      const SizedBox(height: 18),
+      _serverRow(),
+    ];
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       body: AppBackground(
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const _Hero(),
-                    const SizedBox(height: 28),
-                    if (!_guestForm) ...[
-                      if (googleVisible) ...[
-                        GameButton(
-                          label: 'Continue with Google',
-                          tone: ButtonTone.light,
-                          leading: const _GoogleMark(size: 22),
-                          fontSize: 17,
-                          loading: busy,
-                          onPressed: online ? () => context.read<AuthCubit>().signInWithGoogle(_server.text) : null,
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      GameButton(
-                        label: 'Play as Guest',
-                        icon: CupertinoIcons.person_fill,
-                        onPressed: busy ? null : () => setState(() => _guestForm = true),
-                      ),
-                      const SizedBox(height: 14),
-                      GameButton(
-                        label: 'Practice Offline',
-                        icon: CupertinoIcons.game_controller_solid,
-                        tone: ButtonTone.dark,
-                        height: 52,
-                        fontSize: 17,
-                        onPressed: busy ? null : () => context.read<AuthCubit>().playOffline(_name.text.isEmpty ? 'Miner' : _name.text),
-                      ),
-                    ] else ...[
-                      Text('Pick a miner name', style: MMText.title.copyWith(fontSize: 22), textAlign: TextAlign.center),
-                      const SizedBox(height: 6),
-                      const Text('You can link Google later to keep your progress safe.', style: MMText.footnote, textAlign: TextAlign.center),
-                      const SizedBox(height: 18),
-                      AppTextField(
-                        controller: _name,
-                        placeholder: 'Username',
-                        icon: CupertinoIcons.person_fill,
-                        maxLength: 16,
-                        autofocus: true,
-                        onSubmitted: (_) => _guest(),
-                      ),
-                      if (_nameError != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8, left: 6),
-                          child: Text(_nameError!, style: MMText.footnote.copyWith(color: MMColors.lava)),
-                        ),
-                      const SizedBox(height: 16),
-                      GameButton(label: 'Start Digging', loading: busy, onPressed: online ? _guest : null),
-                      const SizedBox(height: 10),
-                      CupertinoButton(
-                        onPressed: busy ? null : () => setState(() => _guestForm = false),
-                        child: const Text('Back', style: TextStyle(fontFamily: MMFonts.body, fontWeight: FontWeight.w800, color: MMColors.muted)),
-                      ),
-                    ],
-                    const SizedBox(height: 26),
-                    _serverRow(),
-                  ],
+          child: LayoutBuilder(
+            builder: (context, box) {
+              Widget formColumn(double maxWidth, EdgeInsets padding, List<Widget> children) => Center(
+                child: SingleChildScrollView(
+                  padding: padding,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+                  ),
                 ),
-              ),
-            ),
+              );
+              if (box.maxWidth < box.maxHeight) {
+                // Portrait (tablets mid-rotation, tests): stacked.
+                return formColumn(400, const EdgeInsets.all(24), [const _Hero(), const SizedBox(height: 28), ...form]);
+              }
+              // Landscape: the miners on the left, the buttons on the right.
+              return Row(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: _Hero(compact: box.maxHeight < 330),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: (box.maxWidth * 0.46).clamp(320, 420),
+                    child: formColumn(380, const EdgeInsets.fromLTRB(8, 16, 24, 16), form),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -216,23 +241,30 @@ class _LoginPageState extends State<LoginPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 minimumSize: const Size(32, 32),
                 onPressed: () => setState(() => _editServer = !_editServer),
-                child: Icon(_editServer ? CupertinoIcons.checkmark_alt : CupertinoIcons.slider_horizontal_3, size: 18, color: MMColors.muted),
+                child: Icon(
+                  _editServer ? CupertinoIcons.checkmark_alt : CupertinoIcons.slider_horizontal_3,
+                  size: 18,
+                  color: MMColors.muted,
+                ),
               ),
             ],
           ),
           if (_editServer)
             Padding(
               padding: const EdgeInsets.fromLTRB(0, 4, 8, 8),
-              child: AppTextField(controller: _server, placeholder: 'http://192.168.1.10:8080', keyboardType: TextInputType.url, autofocus: true),
+              child: AppTextField(
+                controller: _server,
+                placeholder: 'http://192.168.1.10:8080',
+                keyboardType: TextInputType.url,
+                autofocus: true,
+              ),
             ),
           if (_status == _ServerStatus.offline && !_editServer)
             Padding(
               padding: const EdgeInsets.fromLTRB(0, 2, 8, 10),
               child: Row(
                 children: [
-                  const Expanded(
-                    child: Text('Start the server on your computer and stay on the same Wi-Fi.', style: MMText.caption),
-                  ),
+                  const Expanded(child: Text('Start the server on your computer and stay on the same Wi-Fi.', style: MMText.caption)),
                   const SizedBox(width: 8),
                   SizedBox(
                     width: 110,
@@ -248,7 +280,10 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 class _Hero extends StatelessWidget {
-  const _Hero();
+  const _Hero({this.compact = false});
+
+  /// Short landscape screens: drop the tagline.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -270,7 +305,11 @@ class _Hero extends StatelessWidget {
             const Positioned(
               left: 0,
               bottom: 18,
-              child: AvatarPreview(look: Look(character: 'char_maya', outfit: 'outfit_denim', helmet: 'helmet_white'), seed: 'a', size: 120),
+              child: AvatarPreview(
+                look: Look(character: 'char_maya', outfit: 'outfit_denim', helmet: 'helmet_white'),
+                seed: 'a',
+                size: 120,
+              ),
             ),
             const Positioned(
               right: 0,
@@ -281,21 +320,29 @@ class _Hero extends StatelessWidget {
                 size: 120,
               ),
             ),
-            const Positioned(bottom: 6, child: AvatarPreview(look: Look.standard, seed: 'c', size: 150)),
+            const Positioned(
+              bottom: 6,
+              child: AvatarPreview(look: Look.standard, seed: 'c', size: 150),
+            ),
           ],
         ),
       ),
       const SizedBox(height: 10),
       ShaderMask(
-        shaderCallback: (r) =>
-            const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [MMColors.goldLight, MMColors.gold]).createShader(r),
+        shaderCallback: (r) => const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [MMColors.goldLight, MMColors.gold],
+        ).createShader(r),
         child: const Text(
           'MAD MINERS',
           style: TextStyle(fontFamily: MMFonts.display, fontSize: 46, letterSpacing: 1.5, color: CupertinoColors.white, height: 1),
         ),
       ),
-      const SizedBox(height: 8),
-      const Text('Dig deep. Dodge the lava.\nFind the treasure first.', textAlign: TextAlign.center, style: MMText.callout),
+      if (!compact) ...[
+        const SizedBox(height: 8),
+        const Text('Dig deep. Dodge the lava.\nFind the treasure first.', textAlign: TextAlign.center, style: MMText.callout),
+      ],
     ],
   );
 }

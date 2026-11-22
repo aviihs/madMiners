@@ -9,6 +9,7 @@ import 'components/effects_components.dart';
 import 'components/miners_component.dart';
 import 'components/monsters_component.dart';
 import 'components/tile_map_component.dart';
+import 'components/treasure_arrow_component.dart';
 
 /// Flame view of the match. Pure rendering — all game state comes from the
 /// [GameController], which in turn comes from the authoritative simulation.
@@ -41,6 +42,7 @@ class MadMinersGame extends FlameGame {
       MysteryOpeningsComponent(controller),
       MinersComponent(controller),
       DarknessComponent(controller, highQuality: highQuality),
+      TreasureArrowComponent(controller),
     ]);
     camera.viewfinder.anchor = Anchor.center;
   }

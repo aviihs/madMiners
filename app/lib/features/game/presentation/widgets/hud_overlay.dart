@@ -16,8 +16,7 @@ import 'minimap.dart';
 import 'shop_panel.dart';
 import 'touch_controls.dart';
 
-bool get isTouchPlatform =>
-    !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+bool get isTouchPlatform => !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
 
 /// Gameplay HUD (SRS §9.3): vitals, depth, tool, timer, standings,
 /// connection status, depot shop, lobby countdown and touch controls.
@@ -35,84 +34,185 @@ class _HudOverlayState extends State<HudOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    // Never blur over the live game: it's the single most expensive thing
-    // a HUD can do on Android. RepaintBoundary keeps HUD repaints (15/s)
-    // separate from the game's 60 fps canvas.
-    return GlassScope(blur: false, child: RepaintBoundary(child: _build(context)));
+    final touch = isTouchPlatform;
+    // Never blur over the live game: it's the single most expensive thing a
+    // HUD can do on Android. Two separate layers: the info HUD (rebuilt with
+    // every snapshot) and the touch controls (repainted while you drag the
+    // joystick). Neither one repaints the other.
+    return GlassScope(
+      blur: false,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(child: RepaintBoundary(child: _info(context))),
+            if (touch) Positioned.fill(child: _TouchControls(controller: widget.controller)),
+          ],
+        ),
+      ),
+    );
   }
 
-  Widget _build(BuildContext context) {
+  Widget _info(BuildContext context) {
     final c = widget.controller;
     return ValueListenableBuilder<HudState>(
       valueListenable: c.hud,
       builder: (context, hud, _) {
         final me = hud.me;
         final touch = isTouchPlatform;
+        final width = MediaQuery.sizeOf(context).width;
+        // Room between the vitals card (left) and the map / standings (right).
+        final laneWidth = (width - 2 * (touch ? 200 : 220)).clamp(240.0, 440.0);
         return DefaultTextStyle(
           style: Theme.of(context).textTheme.bodyLarge!.merge(MMText.body),
-          child: SafeArea(
-            child: Stack(
-              children: [
-                if (hud.hint.level >= 2) Positioned.fill(child: _HintGlow(level: hud.hint.level)),
-                if (me != null)
-                  Positioned(left: 12, top: 10, child: _Vitals(me: me, depth: hud.depth, lavaDepth: hud.lavaDepth, hint: hud.hint)),
-                Positioned(top: 10, left: 0, right: 0, child: Center(child: _TopBar(hud: hud, onExit: widget.onExit))),
-                if (me != null) Positioned(right: 12, top: 10, child: MiniMap(controller: c, width: touch ? 112 : 132, height: touch ? 120 : 150)),
-                if (hud.worldEvent != null)
-                  Positioned(
-                    top: (touch ? 54 : 60) + (hud.hint.level >= 1 ? 50 : 0),
-                    left: 0,
-                    right: 0,
-                    child: Center(child: _EventChip(kind: hud.worldEvent!, left: hud.worldEventLeft)),
-                  ),
-                if (hud.banner != null) Positioned(top: 0, bottom: 0, left: 0, right: 0, child: IgnorePointer(child: Center(child: _BannerView(banner: hud.banner!)))),
+          child: Stack(
+            children: [
+              if (me != null)
                 Positioned(
-                  // Phones: left of the mini-map (clear of the bomb buttons). Desktop: under it.
-                  right: me != null && touch ? 132 : 12,
-                  top: me != null && !touch ? 168 : 10,
-                  child: _showStandings
-                      ? _Standings(hud: hud, onClose: () => setState(() => _showStandings = false))
-                      : _RoundButton(icon: CupertinoIcons.list_number, onTap: () => setState(() => _showStandings = true)),
+                  left: 12,
+                  top: 10,
+                  child: _Vitals(me: me, depth: hud.depth, lavaDepth: hud.lavaDepth, compact: touch),
                 ),
+              if (me != null)
+                Positioned(
+                  right: 12,
+                  top: 10,
+                  child: RepaintBoundary(
+                    child: MiniMap(controller: c, width: touch ? 112 : 132, height: touch ? 120 : 150),
+                  ),
+                ),
+              Positioned(
+                // Phones: left of the mini-map (clear of the bomb buttons). Desktop: under it.
+                right: me != null && touch ? 132 : 12,
+                top: me != null && !touch ? 168 : 10,
+                child: _showStandings
+                    ? _Standings(hud: hud, onClose: () => setState(() => _showStandings = false))
+                    : _RoundButton(icon: CupertinoIcons.list_number, onTap: () => setState(() => _showStandings = true)),
+              ),
+              // Timer + every notification, stacked in one lane at the top
+              // centre: nothing ever covers your miner in the middle.
+              Positioned(
+                top: 10,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: SizedBox(
+                    width: laneWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _TopBar(hud: hud, onExit: widget.onExit),
+                        _NoticeLane(hud: hud),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (me != null && me.inDepot && me.alive && hud.warmup <= 0)
                 if (touch)
+                  // Phones: a low strip between the joystick and the action buttons.
                   Positioned(
-                    top: 58,
-                    left: 0,
-                    right: 0,
-                    child: Center(child: _Feed(lines: hud.feed.skip(hud.feed.length > 2 ? hud.feed.length - 2 : 0).toList(), centered: true)),
+                    left: 190,
+                    right: 220,
+                    bottom: 10,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 560),
+                        child: ShopPanel(me: me, onUpgrade: c.buy, onBuyItem: c.buyItem, strip: true),
+                      ),
+                    ),
                   )
                 else
-                  Positioned(left: 12, top: me == null ? 10 : 196, child: _Feed(lines: hud.feed)),
-                if (me != null && me.inDepot && me.alive && hud.warmup <= 0)
                   Positioned(
-                    // Phones: left of the jump / jetpack / dig buttons, never on top of them.
-                    right: touch ? 212 : 12,
-                    bottom: touch ? 12 : 44,
+                    right: 12,
+                    bottom: 44,
                     child: ShopPanel(me: me, onUpgrade: c.buy, onBuyItem: c.buyItem),
                   ),
-                if (me != null && me.alive && hud.warmup <= 0 && !me.inDepot)
-                  if (touch)
-                    _ActionSide(bottom: 140, inset: 30, child: _ItemBar(me: me, onUse: c.useItem, vertical: true))
-                  else
-                    Positioned(right: 12, bottom: 44, child: _ItemBar(me: me, onUse: c.useItem, vertical: false)),
-                if (hud.warmup > 0 && hud.link == LinkStatus.connected)
-                  Positioned(top: touch ? 54 : 60, left: 0, right: 0, child: Center(child: _Lobby(hud: hud))),
-                if (me != null && me.alive && hud.hint.level >= 1 && hud.warmup <= 0)
-                  Positioned(top: touch ? 54 : 60, left: 0, right: 0, child: Center(child: _TreasureCompass(hint: hud.hint, depth: hud.depth, lavaDepth: hud.lavaDepth))),
-                if (me != null && !me.alive) Center(child: _DeathBanner(seconds: me.respawnIn, cause: hud.deathCause, lost: hud.deathLost)),
-                if (hud.link != LinkStatus.connected) Center(child: _LinkBanner(hud: hud, onExit: widget.onExit)),
-                if (!hud.ready && hud.link == LinkStatus.connected) const Center(child: CupertinoActivityIndicator(radius: 14)),
-                if (touch) ...[
-                  Positioned.fill(child: _TouchControls(controller: c)),
-                ] else
-                  const Positioned(bottom: 14, left: 0, right: 0, child: Center(child: _KeyHints())),
-              ],
-            ),
+              if (me != null && me.alive && hud.warmup <= 0 && !me.inDepot)
+                if (touch)
+                  _ActionSide(
+                    bottom: 140,
+                    inset: 30,
+                    child: _ItemBar(me: me, onUse: c.useItem, vertical: true),
+                  )
+                else
+                  Positioned(
+                    right: 12,
+                    bottom: 44,
+                    child: _ItemBar(me: me, onUse: c.useItem, vertical: false),
+                  ),
+              if (me != null && !me.alive)
+                Center(
+                  child: _DeathBanner(seconds: me.respawnIn, cause: hud.deathCause, lost: hud.deathLost),
+                ),
+              if (hud.link != LinkStatus.connected)
+                Center(
+                  child: _LinkBanner(hud: hud, onExit: widget.onExit),
+                ),
+              if (!hud.ready && hud.link == LinkStatus.connected) const Center(child: CupertinoActivityIndicator(radius: 14)),
+              if (!touch) const Positioned(bottom: 14, left: 0, right: 0, child: Center(child: _KeyHints())),
+            ],
           ),
         );
       },
     );
   }
+}
+
+/// Everything that announces something, in one column under the timer:
+/// lobby / treasure compass, world event, the latest headline and the two
+/// newest feed lines (which expire after a few seconds).
+class _NoticeLane extends StatelessWidget {
+  const _NoticeLane({required this.hud});
+  final HudState hud;
+
+  @override
+  Widget build(BuildContext context) {
+    final me = hud.me;
+    // During the lobby the avatars already show who joined.
+    final feed = hud.warmup > 0 ? const <String>[] : (hud.feed.length > 2 ? hud.feed.sublist(hud.feed.length - 2) : hud.feed);
+    final items = <Widget>[
+      if (hud.warmup > 0 && hud.link == LinkStatus.connected)
+        _Lobby(hud: hud)
+      else if (me != null && me.alive && hud.hint.level >= 1)
+        _TreasureCompass(hint: hud.hint, depth: hud.depth, lavaDepth: hud.lavaDepth),
+      if (hud.worldEvent != null) _EventChip(kind: hud.worldEvent!, left: hud.worldEventLeft),
+      if (hud.banner != null) _BannerView(banner: hud.banner!),
+      for (final line in feed) _FeedLine(key: ValueKey(line), text: line),
+    ];
+    return IgnorePointer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [for (final w in items) Padding(padding: const EdgeInsets.only(top: 6), child: w)],
+      ),
+    );
+  }
+}
+
+/// One feed line that slides in from above.
+class _FeedLine extends StatelessWidget {
+  const _FeedLine({super.key, required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    tween: Tween(begin: 0, end: 1),
+    duration: const Duration(milliseconds: 220),
+    curve: Curves.easeOut,
+    builder: (context, v, child) => Opacity(
+      opacity: v,
+      child: Transform.translate(offset: Offset(0, -8 * (1 - v)), child: child),
+    ),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: const Color(0x8C000000), borderRadius: BorderRadius.circular(10)),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12.5, color: MMColors.text),
+      ),
+    ),
+  );
 }
 
 class _RoundButton extends StatelessWidget {
@@ -131,11 +231,13 @@ class _RoundButton extends StatelessWidget {
 }
 
 class _Vitals extends StatelessWidget {
-  const _Vitals({required this.me, required this.depth, required this.lavaDepth, required this.hint});
+  const _Vitals({required this.me, required this.depth, required this.lavaDepth, this.compact = false});
   final PlayerSnapshot me;
   final int depth;
   final int lavaDepth;
-  final TreasureHint hint;
+
+  /// Phones: narrower and tighter, so more of the mine stays visible.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -144,9 +246,9 @@ class _Vitals extends StatelessWidget {
     return GlassCard(
       radius: 18,
       color: const Color(0x66000000),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      padding: compact ? const EdgeInsets.fromLTRB(10, 8, 10, 8) : const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: SizedBox(
-        width: 176,
+        width: compact ? 150 : 176,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -175,7 +277,10 @@ class _Vitals extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 5),
-            _Track(value: progress, gradient: const LinearGradient(colors: [MMColors.amber, MMColors.ember])),
+            _Track(
+              value: progress,
+              gradient: const LinearGradient(colors: [MMColors.amber, MMColors.ember]),
+            ),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -191,91 +296,11 @@ class _Vitals extends StatelessWidget {
                 CurrencyPill(me.coins),
               ],
             ),
-            const SizedBox(height: 8),
-            _SenseRow(hint: hint),
           ],
         ),
       ),
     );
   }
-}
-
-/// Vague treasure sense: never says exactly where.
-class _SenseRow extends StatelessWidget {
-  const _SenseRow({required this.hint});
-  final TreasureHint hint;
-
-  @override
-  Widget build(BuildContext context) {
-    final (text, color) = switch (hint.level) {
-      0 => ('No treasure sense', MMColors.faint),
-      1 => ('Faint glimmer below…', MMColors.muted),
-      2 => (
-        switch (hint.side) {
-          -1 => 'Warmer · somewhere left',
-          1 => 'Warmer · somewhere right',
-          _ => 'Warmer · keep digging',
-        },
-        MMColors.amber,
-      ),
-      _ => ('HOT! It\'s right here', MMColors.gold),
-    };
-    return Row(
-      children: [
-        for (var i = 1; i <= 3; i++)
-          Padding(
-            padding: const EdgeInsets.only(right: 3),
-            child: Icon(
-              CupertinoIcons.sparkles,
-              size: 13,
-              color: hint.level >= i ? (hint.level == 3 ? MMColors.gold : MMColors.amber) : const Color(0x33FFFFFF),
-            ),
-          ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: MMText.caption.copyWith(color: color, fontWeight: hint.level >= 2 ? FontWeight.w700 : null)),
-        ),
-      ],
-    );
-  }
-}
-
-/// Golden glow around the screen edge when the treasure is close.
-class _HintGlow extends StatefulWidget {
-  const _HintGlow({required this.level});
-  final int level;
-
-  @override
-  State<_HintGlow> createState() => _HintGlowState();
-}
-
-class _HintGlowState extends State<_HintGlow> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    child: AnimatedBuilder(
-      animation: _c,
-      builder: (_, _) {
-        final a = (widget.level == 3 ? 0.35 : 0.16) * (0.6 + 0.4 * _c.value);
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              radius: 1.05,
-              colors: [const Color(0x00FFD34D), const Color(0x00FFD34D), const Color(0xFFFFD34D).withValues(alpha: a)],
-              stops: const [0, 0.7, 1],
-            ),
-          ),
-        );
-      },
-    ),
-  );
 }
 
 class _ItemBar extends StatelessWidget {
@@ -327,10 +352,20 @@ class _ItemButton extends StatelessWidget {
             Positioned(
               right: 6,
               bottom: 5,
-              child: Text('$count', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MMColors.text)),
+              child: Text(
+                '$count',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: MMColors.text),
+              ),
             ),
             if (hotkey != null)
-              Positioned(left: 7, top: 5, child: Text(hotkey!, style: const TextStyle(fontSize: 10, color: MMColors.muted, fontWeight: FontWeight.w700))),
+              Positioned(
+                left: 7,
+                top: 5,
+                child: Text(
+                  hotkey!,
+                  style: const TextStyle(fontSize: 10, color: MMColors.muted, fontWeight: FontWeight.w700),
+                ),
+              ),
           ],
         ),
       ),
@@ -355,7 +390,9 @@ class _Track extends StatelessWidget {
           AnimatedFractionallySizedBox(
             duration: const Duration(milliseconds: 250),
             widthFactor: value.clamp(0.0, 1.0),
-            child: Container(decoration: BoxDecoration(gradient: gradient, color: color)),
+            child: Container(
+              decoration: BoxDecoration(gradient: gradient, color: color),
+            ),
           ),
         ],
       ),
@@ -374,7 +411,9 @@ class _Bar extends StatelessWidget {
     children: [
       Icon(icon, size: 13, color: color),
       const SizedBox(width: 7),
-      Expanded(child: _Track(value: value, color: color)),
+      Expanded(
+        child: _Track(value: value, color: color),
+      ),
     ],
   );
 }
@@ -389,7 +428,13 @@ class _TopBar extends StatelessWidget {
     final t = hud.timeLeft.ceil();
     final time = '${t ~/ 60}:${(t % 60).toString().padLeft(2, '0')}';
     final rtt = hud.rttMs;
-    final pingColor = rtt == null || rtt <= 0 ? null : (rtt < 100 ? MMColors.stamina : rtt < 200 ? MMColors.amber : MMColors.health);
+    final pingColor = rtt == null || rtt <= 0
+        ? null
+        : (rtt < 100
+              ? MMColors.stamina
+              : rtt < 200
+              ? MMColors.amber
+              : MMColors.health);
     final urgent = t < 30 && hud.warmup <= 0;
     return GlassCard(
       radius: 22,
@@ -409,7 +454,11 @@ class _TopBar extends StatelessWidget {
           ],
           if (pingColor != null) ...[
             const SizedBox(width: 12),
-            Container(width: 7, height: 7, decoration: BoxDecoration(color: pingColor, shape: BoxShape.circle)),
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: pingColor, shape: BoxShape.circle),
+            ),
             const SizedBox(width: 4),
             Text('${rtt}ms', style: MMText.caption.merge(MMText.number)),
           ],
@@ -460,7 +509,10 @@ class _Standings extends StatelessWidget {
             ),
             for (final (i, s) in shown.indexed) _line(i + 1, s),
             if (youIdx >= shown.length) ...[
-              const Padding(padding: EdgeInsets.symmetric(vertical: 2), child: Text('···', style: MMText.caption)),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 2),
+                child: Text('···', style: MMText.caption),
+              ),
               _line(youIdx + 1, lines[youIdx]),
             ],
           ],
@@ -489,34 +541,6 @@ class _Standings extends StatelessWidget {
           ),
         ),
         Text('${s.depth}m', style: MMText.caption.copyWith(color: MMColors.text).merge(MMText.number)),
-      ],
-    ),
-  );
-}
-
-class _Feed extends StatelessWidget {
-  const _Feed({required this.lines, this.centered = false});
-  final List<String> lines;
-  final bool centered;
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    child: Column(
-      crossAxisAlignment: centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (final (i, l) in lines.indexed)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Opacity(
-              opacity: 0.45 + 0.55 * (i + 1) / lines.length,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: const Color(0x73000000), borderRadius: BorderRadius.circular(10)),
-                child: Text(l, style: const TextStyle(fontSize: 13, color: MMColors.text)),
-              ),
-            ),
-          ),
       ],
     ),
   );
@@ -598,7 +622,10 @@ class _Lobby extends StatelessWidget {
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 2),
                                       decoration: BoxDecoration(color: MMColors.sky, borderRadius: BorderRadius.circular(4)),
-                                      child: const Text('BOT', style: TextStyle(fontSize: 6.5, fontWeight: FontWeight.w900, color: Color(0xFF0C1A2E))),
+                                      child: const Text(
+                                        'BOT',
+                                        style: TextStyle(fontSize: 6.5, fontWeight: FontWeight.w900, color: Color(0xFF0C1A2E)),
+                                      ),
                                     ),
                                   ),
                               ],
@@ -643,7 +670,11 @@ class _TreasureCompass extends StatelessWidget {
             Container(
               width: 32,
               height: 32,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: MMColors.gold.withValues(alpha: 0.18), border: Border.all(color: MMColors.gold)),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: MMColors.gold.withValues(alpha: 0.18),
+                border: Border.all(color: MMColors.gold),
+              ),
               child: TweenAnimationBuilder<double>(
                 tween: Tween(end: rad),
                 duration: const Duration(milliseconds: 300),
@@ -711,10 +742,7 @@ class _DeathBanner extends StatelessWidget {
           Icon(icon, color: MMColors.ember, size: 34),
           const SizedBox(height: 8),
           Text(title, style: MMText.title),
-          if (cause != null) ...[
-            const SizedBox(height: 2),
-            Text('Killed by $cause', style: MMText.callout.copyWith(color: MMColors.text)),
-          ],
+          if (cause != null) ...[const SizedBox(height: 2), Text('Killed by $cause', style: MMText.callout.copyWith(color: MMColors.text))],
           const SizedBox(height: 6),
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -761,10 +789,7 @@ class _LinkBanner extends StatelessWidget {
               const CupertinoActivityIndicator(radius: 14),
             const SizedBox(height: 12),
             Text(text, textAlign: TextAlign.center, style: MMText.headline),
-            if (lost) ...[
-              const SizedBox(height: 16),
-              PrimaryButton(label: 'Back to Lobby', onPressed: onExit),
-            ],
+            if (lost) ...[const SizedBox(height: 16), PrimaryButton(label: 'Back to Lobby', onPressed: onExit)],
           ],
         ),
       ),
@@ -780,14 +805,21 @@ class _KeyHints extends StatelessWidget {
     Widget key(String k) => Container(
       margin: const EdgeInsets.symmetric(horizontal: 2),
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(border: Border.all(color: const Color(0x44FFFFFF)), borderRadius: BorderRadius.circular(5)),
-      child: Text(k, style: const TextStyle(fontSize: 11, color: Color(0xAAFFFFFF), fontWeight: FontWeight.w600)),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0x44FFFFFF)),
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        k,
+        style: const TextStyle(fontSize: 11, color: Color(0xAAFFFFFF), fontWeight: FontWeight.w600),
+      ),
     );
     const label = TextStyle(fontSize: 12, color: Color(0x88FFFFFF));
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        key('A'), key('D'),
+        key('A'),
+        key('D'),
         const Text('  run   ', style: label),
         key('W'),
         const Text('  jump / climb   ', style: label),
@@ -856,7 +888,12 @@ class _TouchControls extends StatelessWidget {
             left: onLeft ? side * k : null,
             right: onLeft ? null : side * k,
             bottom: bottom * k,
-            child: Transform.scale(scale: k, alignment: onLeft ? Alignment.bottomLeft : Alignment.bottomRight, child: child),
+            // Each control repaints alone (the joystick knob moves every frame).
+            child: Transform.scale(
+              scale: k,
+              alignment: onLeft ? Alignment.bottomLeft : Alignment.bottomRight,
+              child: RepaintBoundary(child: child),
+            ),
           );
         }
 
@@ -866,10 +903,12 @@ class _TouchControls extends StatelessWidget {
               side: 28,
               bottom: 28,
               action: false,
-              child: VirtualJoystick(onChanged: (x, y) {
-                c.joyX = x;
-                c.joyY = y;
-              }),
+              child: VirtualJoystick(
+                onChanged: (x, y) {
+                  c.joyX = x;
+                  c.joyY = y;
+                },
+              ),
             ),
             at(side: 32, bottom: 32, action: true, child: MineButton(onChanged: (v) => c.mineHeld = v)),
             at(side: 134, bottom: 24, action: true, child: JumpButton(onChanged: (v) => c.jumpHeld = v)),
@@ -886,7 +925,8 @@ class _TouchControls extends StatelessWidget {
   }
 }
 
-/// Big centre-screen headline that pops in and fades.
+/// Headline for big moments (treasure signal, TNT, events…): a compact
+/// card in the top lane that drops in, never over the middle of the screen.
 class _BannerView extends StatelessWidget {
   const _BannerView({required this.banner});
   final HudBanner banner;
@@ -895,24 +935,37 @@ class _BannerView extends StatelessWidget {
   Widget build(BuildContext context) => TweenAnimationBuilder<double>(
     key: ValueKey(banner.id),
     tween: Tween(begin: 0, end: 1),
-    duration: const Duration(milliseconds: 420),
+    duration: const Duration(milliseconds: 320),
     curve: Curves.easeOutBack,
-    builder: (context, v, child) => Transform.scale(scale: 0.6 + 0.4 * v, child: Opacity(opacity: v.clamp(0, 1), child: child)),
+    builder: (context, v, child) => Opacity(
+      opacity: v.clamp(0, 1),
+      child: Transform.translate(offset: Offset(0, -14 * (1 - v)), child: child),
+    ),
     child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 7),
       decoration: BoxDecoration(
-        color: const Color(0xCC0C0A09),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Color(banner.color), width: 2),
-        boxShadow: [BoxShadow(color: Color(banner.color).withValues(alpha: 0.45), blurRadius: 28)],
+        color: const Color(0xD90C0A09),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Color(banner.color), width: 1.5),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(banner.title, textAlign: TextAlign.center, style: MMText.title.copyWith(color: Color(banner.color), fontSize: 26)),
-          const SizedBox(height: 4),
-          Text(banner.subtitle, textAlign: TextAlign.center, style: MMText.callout.copyWith(color: MMColors.text)),
+          Text(
+            banner.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: MMText.title.copyWith(color: Color(banner.color), fontSize: 17, height: 1.1),
+          ),
+          if (banner.subtitle.isNotEmpty)
+            Text(
+              banner.subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: MMText.caption.copyWith(color: MMColors.text),
+            ),
         ],
       ),
     ),
@@ -929,7 +982,10 @@ class _EventChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = switch (kind) {
       WorldEventKind.goldRush || WorldEventKind.rareOreSurge || WorldEventKind.hiddenTreasure => MMColors.gold,
-      WorldEventKind.earthquake || WorldEventKind.caveCollapse || WorldEventKind.lavaBreakthrough || WorldEventKind.tntChain => MMColors.lava,
+      WorldEventKind.earthquake ||
+      WorldEventKind.caveCollapse ||
+      WorldEventKind.lavaBreakthrough ||
+      WorldEventKind.tntChain => MMColors.lava,
       WorldEventKind.mysteryRain => MMColors.violet,
       WorldEventKind.monsterInvasion => MMColors.health,
     };

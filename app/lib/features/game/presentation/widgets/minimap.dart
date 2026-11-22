@@ -55,7 +55,8 @@ class _MiniMapPainter extends CustomPainter {
         if (!c.explored[i]) continue;
         final t = map.tileAtIndex(i);
         p.color = switch (t) {
-          TileType.empty || TileType.spikes => y < MapGenerator.surfaceRows ? const Color(0xFF3B4A6B) : MinePalette.tinted(const Color(0xFF4A3B30), d),
+          TileType.empty ||
+          TileType.spikes => y < MapGenerator.surfaceRows ? const Color(0xFF3B4A6B) : MinePalette.tinted(const Color(0xFF4A3B30), d),
           TileType.lava => const Color(0xFFFF6A2A),
           TileType.gas => const Color(0xFF6FBF4A),
           TileType.depot => const Color(0xFF3DDC97),
@@ -123,14 +124,28 @@ class _MiniMapPainter extends CustomPainter {
       p.style = PaintingStyle.fill;
       final side = Offset(-sin(a), cos(a)) * 3.5;
       final back = tip - Offset(cos(a), sin(a)) * 6;
-      canvas.drawPath(Path()..moveTo(tip.dx, tip.dy)..lineTo((back + side).dx, (back + side).dy)..lineTo((back - side).dx, (back - side).dy)..close(), p);
+      canvas.drawPath(
+        Path()
+          ..moveTo(tip.dx, tip.dy)
+          ..lineTo((back + side).dx, (back + side).dy)
+          ..lineTo((back - side).dx, (back - side).dy)
+          ..close(),
+        p,
+      );
     }
 
     // Way back up: arrow to the shop when it's off the top of the map.
     if (top > MapGenerator.surfaceRows && c.depotXs.isNotEmpty) {
       final sx = (c.depotXs.first + c.depotXs.last + 1) / 2 * cell;
       p.color = const Color(0xFF3DDC97);
-      canvas.drawPath(Path()..moveTo(sx, 3)..lineTo(sx - 5, 10)..lineTo(sx + 5, 10)..close(), p);
+      canvas.drawPath(
+        Path()
+          ..moveTo(sx, 3)
+          ..lineTo(sx - 5, 10)
+          ..lineTo(sx + 5, 10)
+          ..close(),
+        p,
+      );
     }
   }
 

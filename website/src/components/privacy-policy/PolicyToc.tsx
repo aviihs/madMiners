@@ -7,11 +7,14 @@ type PolicyTocProps = {
   sections: { id: string; title: string }[];
 };
 
-/** Sticky "On this page" list that marks the section you're reading. */
+/**
+ * "On this page" list that stays in view while you scroll and marks the section
+ * you're reading. `self-start` matters: a stretched grid item can't stick.
+ */
 export function PolicyToc({ sections }: PolicyTocProps) {
   const activeId = useActiveSection(sections.map((section) => section.id));
   return (
-    <nav aria-label="On this page" className="sticky top-24 hidden lg:block">
+    <nav aria-label="On this page" className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto overscroll-contain lg:block">
       <p className="text-ink-muted text-[0.8125rem] font-semibold tracking-wide">On this page</p>
       <ol className="mt-3 space-y-0.5">
         {sections.map((section, index) => (

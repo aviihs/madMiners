@@ -17,7 +17,10 @@ class StorePage extends StatelessWidget {
   final String token;
 
   @override
-  Widget build(BuildContext context) => BlocProvider(create: (_) => sl<StoreCubit>(), child: _StoreView(token: token));
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) => sl<StoreCubit>(),
+    child: _StoreView(token: token),
+  );
 }
 
 class _StoreView extends StatelessWidget {
@@ -37,103 +40,145 @@ class _StoreView extends StatelessWidget {
             builder: (context, st) {
               final look = st.preview == null ? profile.look : profile.look.withItem(st.preview!);
               final items = cosmeticCatalog.where((c) => c.slot == st.slot).toList();
+              final currency = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CurrencyPill(profile.wallet),
+                  const SizedBox(width: 6),
+                  CurrencyPill(profile.gems, kind: CurrencyKind.gems),
+                ],
+              );
+              Widget preview({required double size}) => GlassCard(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF3B2580), Color(0xFF1E1832)],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(colors: [MMColors.gold.withValues(alpha: 0.3), MMColors.gold.withValues(alpha: 0)]),
+                      ),
+                      child: AvatarPreview(look: look, seed: profile.id, size: size),
+                    ),
+                    Text(st.preview?.name ?? look.def(CosmeticSlot.character).name, style: MMText.title, textAlign: TextAlign.center),
+                    const SizedBox(height: 4),
+                    Text(
+                      st.preview == null
+                          ? look.def(CosmeticSlot.character).description
+                          : [
+                              if (st.preview!.description.isNotEmpty) st.preview!.description,
+                              profile.owns(st.preview!) ? 'Owned. Tap Wear to put it on.' : 'Trying it on. Buy to keep it.',
+                            ].join('\n'),
+                      style: MMText.footnote,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+              final shop = <Widget>[
+                AppSegmented<CosmeticSlot>(
+                  value: st.slot,
+                  items: {for (final s in CosmeticSlot.values) s: s.label},
+                  onChanged: context.read<StoreCubit>().selectSlot,
+                ),
+                const SizedBox(height: 14),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: items.length,
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 180,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.72,
+                  ),
+                  itemBuilder: (context, i) => _ItemCard(
+                    item: items[i],
+                    profile: profile,
+                    selected: st.preview?.id == items[i].id,
+                    busy: st.busyItem == items[i].id,
+                    onTap: () => context.read<StoreCubit>().tryOn(items[i]),
+                    onAction: () => _act(context, profile, items[i]),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Earn coins in every match. Find the treasure to earn gems.\n'
+                  'Everything in the Locker is cosmetic: it never changes how the game plays.',
+                  textAlign: TextAlign.center,
+                  style: MMText.caption,
+                ),
+              ];
               return Scaffold(
                 body: AppBackground(
-                  child: CustomScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    slivers: [
-                      CupertinoSliverNavigationBar(
-                        largeTitle: const Text('Locker'),
-                        previousPageTitle: 'Lobby',
-                        backgroundColor: const Color(0xE6120E1F),
-                        border: null,
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CurrencyPill(profile.wallet),
-                            const SizedBox(width: 6),
-                            CurrencyPill(profile.gems, kind: CurrencyKind.gems),
+                  child: LayoutBuilder(
+                    builder: (context, box) {
+                      if (box.maxWidth < box.maxHeight) {
+                        return CustomScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          slivers: [
+                            CupertinoSliverNavigationBar(
+                              largeTitle: const Text('Locker'),
+                              previousPageTitle: 'Lobby',
+                              backgroundColor: const Color(0xE6120E1F),
+                              border: null,
+                              trailing: currency,
+                            ),
+                            SliverSafeArea(
+                              top: false,
+                              sliver: SliverPadding(
+                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+                                sliver: SliverList.list(children: [preview(size: 200), const SizedBox(height: 16), ...shop]),
+                              ),
+                            ),
                           ],
-                        ),
-                      ),
-                      SliverSafeArea(
-                        top: false,
-                        sliver: SliverPadding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-                          sliver: SliverList.list(
-                            children: [
-                              GlassCard(
-                                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [Color(0xFF3B2580), Color(0xFF1E1832)],
-                                ),
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        gradient: RadialGradient(colors: [MMColors.gold.withValues(alpha: 0.3), MMColors.gold.withValues(alpha: 0)]),
-                                      ),
-                                      child: AvatarPreview(look: look, seed: profile.id, size: 200),
-                                    ),
-                                    Text(
-                                      st.preview?.name ?? look.def(CosmeticSlot.character).name,
-                                      style: MMText.title,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      st.preview == null
-                                          ? look.def(CosmeticSlot.character).description
-                                          : [
-                                              if (st.preview!.description.isNotEmpty) st.preview!.description,
-                                              profile.owns(st.preview!) ? 'Owned. Tap Wear to put it on.' : 'Trying it on. Buy to keep it.',
-                                            ].join('\n'),
-                                      style: MMText.footnote,
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              AppSegmented<CosmeticSlot>(
-                                value: st.slot,
-                                items: {for (final s in CosmeticSlot.values) s: s.label},
-                                onChanged: context.read<StoreCubit>().selectSlot,
-                              ),
-                              const SizedBox(height: 14),
-                              GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: items.length,
-                                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                                  maxCrossAxisExtent: 180,
-                                  mainAxisSpacing: 12,
-                                  crossAxisSpacing: 12,
-                                  childAspectRatio: 0.72,
-                                ),
-                                itemBuilder: (context, i) => _ItemCard(
-                                  item: items[i],
-                                  profile: profile,
-                                  selected: st.preview?.id == items[i].id,
-                                  busy: st.busyItem == items[i].id,
-                                  onTap: () => context.read<StoreCubit>().tryOn(items[i]),
-                                  onAction: () => _act(context, profile, items[i]),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Earn coins in every match. Find the treasure to earn gems.\n'
-                                'Everything in the Locker is cosmetic: it never changes how the game plays.',
-                                textAlign: TextAlign.center,
-                                style: MMText.caption,
-                              ),
-                            ],
+                        );
+                      }
+                      // Landscape: the miner stays in view on the left while you browse on the right.
+                      return Column(
+                        children: [
+                          CupertinoNavigationBar(
+                            middle: const Text('Locker'),
+                            previousPageTitle: 'Lobby',
+                            backgroundColor: const Color(0xE6120E1F),
+                            border: null,
+                            trailing: currency,
                           ),
-                        ),
-                      ),
-                    ],
+                          Expanded(
+                            child: SafeArea(
+                              top: false,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  SizedBox(
+                                    width: (box.maxWidth * 0.36).clamp(240.0, 380.0),
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(16, 4, 8, 16),
+                                      child: LayoutBuilder(
+                                        builder: (context, side) =>
+                                            SingleChildScrollView(child: preview(size: (side.maxHeight - 110).clamp(110.0, 220.0))),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: ListView(
+                                      physics: const BouncingScrollPhysics(),
+                                      padding: const EdgeInsets.fromLTRB(8, 4, 16, 24),
+                                      children: shop,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               );
@@ -152,12 +197,7 @@ class _StoreView extends StatelessWidget {
       updated = await store.equip(token, item);
     } else {
       final currency = item.currency == Currency.gems ? 'gems' : 'coins';
-      final ok = await showConfirm(
-        context,
-        title: 'Buy ${item.name}?',
-        message: 'This costs ${item.price} $currency.',
-        confirm: 'Buy',
-      );
+      final ok = await showConfirm(context, title: 'Buy ${item.name}?', message: 'This costs ${item.price} $currency.', confirm: 'Buy');
       if (!ok) return;
       updated = await store.buy(token, item);
     }
@@ -209,7 +249,10 @@ class _ItemCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                if (item.isPremium) const Pill('PREMIUM', color: MMColors.gem) else if (!item.isFree && !owned) const Pill('NEW', color: MMColors.gold),
+                if (item.isPremium)
+                  const Pill('PREMIUM', color: MMColors.gem)
+                else if (!item.isFree && !owned)
+                  const Pill('NEW', color: MMColors.gold),
                 const Spacer(),
                 if (equipped) const Icon(CupertinoIcons.checkmark_seal_fill, size: 18, color: MMColors.leaf),
               ],
@@ -244,4 +287,3 @@ class _ItemCard extends StatelessWidget {
     );
   }
 }
-

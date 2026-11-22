@@ -73,7 +73,18 @@ class ParticlesComponent extends Component {
     for (var i = 0; i < n; i++) {
       final a = _rng.nextDouble() * pi * 2;
       final sp = 40 + _rng.nextDouble() * 110;
-      _ps.add(_Particle(x * ts, y * ts, cos(a) * sp, sin(a) * sp - 60, 0.45 + _rng.nextDouble() * 0.4, 2 + _rng.nextDouble() * 3, c, gravity: 420));
+      _ps.add(
+        _Particle(
+          x * ts,
+          y * ts,
+          cos(a) * sp,
+          sin(a) * sp - 60,
+          0.45 + _rng.nextDouble() * 0.4,
+          2 + _rng.nextDouble() * 3,
+          c,
+          gravity: 420,
+        ),
+      );
     }
   }
 
@@ -82,16 +93,39 @@ class ParticlesComponent extends Component {
     for (var i = 0; i < _n(18); i++) {
       final a = _rng.nextDouble() * pi * 2;
       final sp = 30 + _rng.nextDouble() * 90;
-      _ps.add(_Particle(x * ts, y * ts, cos(a) * sp, sin(a) * sp, 0.6 + _rng.nextDouble() * 0.5, 1.5 + _rng.nextDouble() * 2, c, gravity: -20, glow: true));
+      _ps.add(
+        _Particle(
+          x * ts,
+          y * ts,
+          cos(a) * sp,
+          sin(a) * sp,
+          0.6 + _rng.nextDouble() * 0.5,
+          1.5 + _rng.nextDouble() * 2,
+          c,
+          gravity: -20,
+          glow: true,
+        ),
+      );
     }
   }
 
   /// Jetpack exhaust: a couple of hot sparks and smoke each frame.
   void jet(double x, double y) {
     for (var i = 0; i < 2; i++) {
-      _ps.add(_Particle(x * ts + (_rng.nextDouble() - 0.5) * 4, y * ts, (_rng.nextDouble() - 0.5) * 30, 90 + _rng.nextDouble() * 60,
-          0.25 + _rng.nextDouble() * 0.2, 2 + _rng.nextDouble() * 2, i == 0 ? const Color(0xFFFFB13B) : const Color(0xFF9A8F88),
-          gravity: -40, glow: i == 0, soft: i == 1));
+      _ps.add(
+        _Particle(
+          x * ts + (_rng.nextDouble() - 0.5) * 4,
+          y * ts,
+          (_rng.nextDouble() - 0.5) * 30,
+          90 + _rng.nextDouble() * 60,
+          0.25 + _rng.nextDouble() * 0.2,
+          2 + _rng.nextDouble() * 2,
+          i == 0 ? const Color(0xFFFFB13B) : const Color(0xFF9A8F88),
+          gravity: -40,
+          glow: i == 0,
+          soft: i == 1,
+        ),
+      );
     }
     _trim();
   }
@@ -101,17 +135,19 @@ class ParticlesComponent extends Component {
     n = _n(n);
     for (var i = 0; i < n; i++) {
       final side = _rng.nextBool() ? 1 : -1;
-      _ps.add(_Particle(
-        x * ts + side * _rng.nextDouble() * 6,
-        y * ts,
-        side * (30 + _rng.nextDouble() * 60),
-        -10 - _rng.nextDouble() * 30,
-        0.4 + _rng.nextDouble() * 0.35,
-        3 + _rng.nextDouble() * 3,
-        const Color(0xFFB8A48C),
-        gravity: 60,
-        soft: true,
-      ));
+      _ps.add(
+        _Particle(
+          x * ts + side * _rng.nextDouble() * 6,
+          y * ts,
+          side * (30 + _rng.nextDouble() * 60),
+          -10 - _rng.nextDouble() * 30,
+          0.4 + _rng.nextDouble() * 0.35,
+          3 + _rng.nextDouble() * 3,
+          const Color(0xFFB8A48C),
+          gravity: 60,
+          soft: true,
+        ),
+      );
     }
   }
 
@@ -147,7 +183,18 @@ class ParticlesComponent extends Component {
 }
 
 class _Particle {
-  _Particle(this.x, this.y, this.vx, this.vy, this.life, this.size, this.color, {required this.gravity, this.glow = false, this.soft = false});
+  _Particle(
+    this.x,
+    this.y,
+    this.vx,
+    this.vy,
+    this.life,
+    this.size,
+    this.color, {
+    required this.gravity,
+    this.glow = false,
+    this.soft = false,
+  });
   double x, y, vx, vy;
   final double life, size, gravity;
   final Color color;
@@ -194,11 +241,12 @@ class DarknessComponent extends Component with HasGameReference<MadMinersGame> {
     canvas.drawRect(view, _dark);
 
     void light(Offset c, double radius, double strength) {
-      _cut.shader = Gradient.radial(c, max(radius, 1), [
-        Color.fromRGBO(0, 0, 0, strength),
-        Color.fromRGBO(0, 0, 0, strength * 0.85),
-        const Color(0x00000000),
-      ], const [0, 0.55, 1]);
+      _cut.shader = Gradient.radial(
+        c,
+        max(radius, 1),
+        [Color.fromRGBO(0, 0, 0, strength), Color.fromRGBO(0, 0, 0, strength * 0.85), const Color(0x00000000)],
+        const [0, 0.55, 1],
+      );
       canvas.drawCircle(c, radius, _cut);
     }
 
@@ -240,7 +288,12 @@ class BombsComponent extends Component {
   void update(double dt) => _t += dt;
 
   final _count = TextPaint(
-    style: const TextStyle(fontFamily: 'Lilita', fontSize: 30, color: Color(0xFFFFFFFF), shadows: [Shadow(blurRadius: 6, color: Color(0xFFFF1F1F))]),
+    style: const TextStyle(
+      fontFamily: 'Lilita',
+      fontSize: 30,
+      color: Color(0xFFFFFFFF),
+      shadows: [Shadow(blurRadius: 6, color: Color(0xFFFF1F1F))],
+    ),
   );
 
   void _litTnt(Canvas canvas, BombSnapshot b) {
@@ -286,7 +339,10 @@ class BombsComponent extends Component {
       } else {
         for (var i = -1; i <= 1; i++) {
           _p.color = const Color(0xFFC62828);
-          canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: c + Offset(i * 5.0, 0), width: 5, height: 15), const Radius.circular(2)), _p);
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(Rect.fromCenter(center: c + Offset(i * 5.0, 0), width: 5, height: 15), const Radius.circular(2)),
+            _p,
+          );
         }
         _p.color = const Color(0xFF3B2416);
         canvas.drawRect(Rect.fromLTWH(c.dx - 8, c.dy - 1, 16, 3), _p);

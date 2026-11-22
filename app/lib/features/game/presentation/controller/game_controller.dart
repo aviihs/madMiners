@@ -56,6 +56,7 @@ class GameController {
     final dx = x - predX, dy = y - predY;
     return (1 - sqrt(dx * dx + dy * dy) / 16).clamp(0.0, 1.0);
   }
+
   StreamSubscription<SessionEvent>? _sub;
 
   GameMap? map;
@@ -123,6 +124,20 @@ class GameController {
   double _sendTimer = 0;
   PlayerInput _lastSent = PlayerInput.idle;
   final List<String> _feed = [];
+
+  /// When each feed line arrived; lines fade out of the HUD after [_feedLife].
+  final List<int> _feedAt = [];
+  final _clock = Stopwatch()..start();
+  static const _feedLife = 4500; // ms
+
+  List<String> _recentFeed() {
+    final now = _clock.elapsedMilliseconds;
+    while (_feedAt.isNotEmpty && now - _feedAt.first > _feedLife) {
+      _feedAt.removeAt(0);
+      _feed.removeAt(0);
+    }
+    return List.unmodifiable(_feed);
+  }
 
   RenderMiner? get me => youId == null ? null : miners[youId];
   bool get ready => map != null && me != null;
@@ -201,7 +216,10 @@ class GameController {
     if (s.tiles.isNotEmpty) {
       final lavaTop = m.height - 1 - settings.mapId.def.lavaRows;
       // A boulder moving down a tile is not a broken tile: no rock chips.
-      final boulderNow = {for (final t in s.tiles) if (t.typeIndex == TileType.boulder.index) t.index};
+      final boulderNow = {
+        for (final t in s.tiles)
+          if (t.typeIndex == TileType.boulder.index) t.index,
+      };
       for (final t in s.tiles) {
         final old = m.tileAtIndex(t.index);
         final oldHp = m.hpAtIndex(t.index);
@@ -311,7 +329,7 @@ class GameController {
             ),
           )
           .toList(),
-      feed: List.unmodifiable(_feed),
+      feed: _recentFeed(),
     );
   }
 
@@ -424,7 +442,11 @@ class GameController {
         _pushFeed(isMe ? 'You defeated a ${def.name}!' : '$name defeated a ${def.name}');
       case GameEventKind.worldEvent:
         final k = WorldEventKind.values[ev.value.clamp(0, WorldEventKind.values.length - 1)];
-        _banner(k.label.toUpperCase(), k.blurb, k == WorldEventKind.earthquake ? 0xFFFF8A5B : (k == WorldEventKind.goldRush ? 0xFFFFD34D : 0xFFB06BFF));
+        _banner(
+          k.label.toUpperCase(),
+          k.blurb,
+          k == WorldEventKind.earthquake ? 0xFFFF8A5B : (k == WorldEventKind.goldRush ? 0xFFFFD34D : 0xFFB06BFF),
+        );
         _pushFeed('EVENT: ${k.label}! ${k.blurb}');
         audio?.play(k == WorldEventKind.earthquake ? Sfx.explosion : Sfx.victory, volume: 0.7);
         if (k == WorldEventKind.earthquake) _fx.add(const FxRequest.shake(12));
@@ -521,7 +543,11 @@ class GameController {
 
   void _pushFeed(String s) {
     _feed.add(s);
-    if (_feed.length > 5) _feed.removeAt(0);
+    _feedAt.add(_clock.elapsedMilliseconds);
+    if (_feed.length > 3) {
+      _feed.removeAt(0);
+      _feedAt.removeAt(0);
+    }
   }
 
   static int _rarityColor(Rarity r) => switch (r) {
@@ -625,7 +651,8 @@ class GameController {
       ..ry = predY;
 
     _sendTimer += dt;
-    final changed = input.dx != _lastSent.dx ||
+    final changed =
+        input.dx != _lastSent.dx ||
         input.dy != _lastSent.dy ||
         input.mine != _lastSent.mine ||
         input.jump != _lastSent.jump ||
@@ -679,7 +706,11 @@ class GameController {
       fy: _fy0,
       mine: mining,
       jump: jump,
-      jet: jetHeld || keys.contains(LogicalKeyboardKey.shiftLeft) || keys.contains(LogicalKeyboardKey.shiftRight) || keys.contains(LogicalKeyboardKey.keyK),
+      jet:
+          jetHeld ||
+          keys.contains(LogicalKeyboardKey.shiftLeft) ||
+          keys.contains(LogicalKeyboardKey.shiftRight) ||
+          keys.contains(LogicalKeyboardKey.keyK),
     );
   }
 

@@ -77,7 +77,8 @@
           "items": [
             "Settings (music, sound effects, vibration, button size, left-handed layout, graphics quality) and your sign-in session are saved in the app's private storage on your phone.",
             "Practice Offline runs entirely on your device. Nothing from offline matches is sent to us.",
-            "Local network: to find a Mad Miners server on the same Wi-Fi (for example at home or at an event), the app listens for the server's announcement on your local network. It does not scan, collect or send information about other devices."
+            "Local network: to find a Mad Miners server on the same Wi-Fi (for example at home or at an event), the app listens for the server's announcement on your local network. It does not scan, collect or send information about other devices.",
+            "Android permissions: internet and network state (to play online), Wi-Fi state and Wi-Fi multicast (to find a server on your local network) and vibrate (haptic feedback, which you can turn off). These need no prompt and give the app no access to your personal data."
           ]
         }
       ]

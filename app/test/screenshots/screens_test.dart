@@ -8,6 +8,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mad_miners/app/boot/loading_screen.dart';
 import 'package:mad_miners/app/di.dart';
 import 'package:mad_miners/app/theme.dart';
 import 'package:mad_miners/features/auth/domain/entities/session.dart';
@@ -31,6 +32,7 @@ const cupertinoIcons = String.fromEnvironment('CI_FONT');
 /// phone; `--dart-define=HD=true` renders 1920x1080 (16:9, Play Store ready).
 const hd = bool.fromEnvironment('HD');
 const gameSize = hd ? Size(800, 450) : Size(844, 390);
+const menuSize = Size(740, 360);
 const gameDpr = hd ? 2.4 : 1.0;
 double _snapRatio = 1;
 
@@ -62,7 +64,15 @@ void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
     await configureDependencies();
-    for (final fam in ['Roboto', '.SF Pro Text', '.SF Pro Display', 'CupertinoSystemText', 'CupertinoSystemDisplay', '.SF UI Text', '.SF UI Display']) {
+    for (final fam in [
+      'Roboto',
+      '.SF Pro Text',
+      '.SF Pro Display',
+      'CupertinoSystemText',
+      'CupertinoSystemDisplay',
+      '.SF UI Text',
+      '.SF UI Display',
+    ]) {
       await _loadFont(fam, '$fonts/Roboto-Regular.ttf');
       await _loadFont(fam, '$fonts/Roboto-Medium.ttf');
       await _loadFont(fam, '$fonts/Roboto-Bold.ttf');
@@ -79,10 +89,28 @@ void main() {
     LocalGameSession.runOnMainThread = true; // fake clock: keep the sim on this thread
     final cubit = sl<AuthCubit>();
 
-    // Phone portrait.
+    // The whole app is landscape. A small phone (740x360) shows overflows first.
     tester.view
-      ..physicalSize = const Size(390, 844)
+      ..physicalSize = menuSize
       ..devicePixelRatio = 1;
+
+    final progress = ValueNotifier<double>(0.64);
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: const ValueKey('shot'),
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: LoadingScreen(progress: progress, showArt: true),
+        ),
+      ),
+    );
+    await tester.runAsync(() async {
+      for (final a in LoadingArt.all) {
+        await precacheImage(a, tester.element(find.byType(LoadingScreen)));
+      }
+    });
+    await tester.pump(const Duration(seconds: 1));
+    await _snap(tester, '0_loading');
     await tester.pumpWidget(_host(const LoginPage(state: AuthSignedOut(serverUrl: 'http://localhost:8080')), cubit));
     await tester.pump(const Duration(seconds: 4));
     await _snap(tester, '1_login');
@@ -104,10 +132,27 @@ void main() {
       owned: {'outfit_forest', 'helmet_viking', 'char_bahadur'},
       look: Look(character: 'char_bahadur', outfit: 'outfit_forest', helmet: 'helmet_viking'),
     );
-    await tester.pumpWidget(_host(LobbyPage(session: const Session(profile: me, token: 't', serverUrl: 'http://x')), cubit));
+    await tester.pumpWidget(
+      _host(
+        LobbyPage(
+          session: const Session(profile: me, token: 't', serverUrl: 'http://x'),
+        ),
+        cubit,
+      ),
+    );
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
     await tester.pump(const Duration(milliseconds: 500));
     await _snap(tester, '2_lobby');
+    await tester.pumpWidget(_host(LobbyPage(session: Session.offline('Shiva')), cubit));
+    await tester.pump(const Duration(milliseconds: 500));
+    await _snap(tester, '2a_lobby_offline');
+    await tester.tap(find.text('Custom practice'));
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await _snap(tester, '2d_create_sheet');
+    Navigator.of(tester.element(find.text('Practice Match'))).pop();
+    await tester.pump(const Duration(seconds: 1));
 
     cubit
       ..playOffline('Shiva')
@@ -127,7 +172,12 @@ void main() {
     _snapRatio = gameDpr;
     await tester.pumpWidget(
       _host(
-        const GamePage(target: OfflineTarget(playerName: 'Shiva', settings: MatchSettings(mapId: MapId.lavaMine))),
+        const GamePage(
+          target: OfflineTarget(
+            playerName: 'Shiva',
+            settings: MatchSettings(mapId: MapId.lavaMine),
+          ),
+        ),
         cubit,
       ),
     );

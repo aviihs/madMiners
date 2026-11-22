@@ -72,9 +72,9 @@ class _LobbyViewState extends State<_LobbyView> {
 
   Future<void> _enter(RoomTicket t) async {
     lobby.ticketConsumed();
-    final again = await Navigator.of(context).push<bool>(
-      GamePage.route(OnlineTarget(token: token, wsPath: t.wsPath, roomCode: t.roomCode)),
-    );
+    final again = await Navigator.of(
+      context,
+    ).push<bool>(GamePage.route(OnlineTarget(token: token, wsPath: t.wsPath, roomCode: t.roomCode)));
     if (!mounted) return;
     await _refresh();
     if (again == true) lobby.quickPlay(token);
@@ -83,7 +83,10 @@ class _LobbyViewState extends State<_LobbyView> {
   Future<void> _practice({MapId map = MapId.starterMine, GameMode mode = GameMode.treasureHunt}) async {
     final again = await Navigator.of(context).push<bool>(
       GamePage.route(
-        OfflineTarget(playerName: s.profile.username, settings: MatchSettings(mapId: map, mode: mode)),
+        OfflineTarget(
+          playerName: s.profile.username,
+          settings: MatchSettings(mapId: map, mode: mode),
+        ),
       ),
     );
     if (again == true && mounted) await _practice(map: map, mode: mode);
@@ -141,170 +144,214 @@ class _LobbyViewState extends State<_LobbyView> {
           showToast(context, st.error!, error: true);
         }
       },
-      builder: (context, st) => Scaffold(
-        body: AppBackground(
-          child: SafeArea(
-            bottom: false,
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-              slivers: [
-                if (s.isOnline) CupertinoSliverRefreshControl(onRefresh: _refresh),
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-                  sliver: SliverList.list(
-                    children: [
-                      _TopBar(
-                        session: s,
-                        onProfile: () => s.isOnline ? _open(ProfilePage(token: token)) : context.read<AuthCubit>().signOut(),
-                      ),
-                      const SizedBox(height: 18),
-                      _PlayCard(
-                        online: s.isOnline,
-                        busy: st.busy,
-                        onPlay: s.isOnline ? () => lobby.quickPlay(token) : () => _practice(),
-                      ),
-                      const SizedBox(height: 14),
-                      if (s.isOnline) DailyRewardCard(token: token),
-                      _Tile(
-                        icon: CupertinoIcons.gear_alt_fill,
-                        color: MMColors.muted,
-                        title: 'Settings',
-                        subtitle: 'Sound, vibration, controls',
-                        wide: true,
-                        onTap: () => _open(const SettingsPage()),
-                      ),
-                      const SizedBox(height: 12),
-                      if (s.isOnline) ...[
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _Tile(
-                                icon: CupertinoIcons.person_crop_square_fill,
-                                color: MMColors.violet,
-                                title: 'Locker',
-                                subtitle: 'Miners & outfits',
-                                onTap: () => _open(StorePage(token: token)),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _Tile(
-                                icon: CupertinoIcons.chart_bar_alt_fill,
-                                color: MMColors.gold,
-                                title: 'Rankings',
-                                subtitle: 'Today and all time',
-                                onTap: () => _open(LeaderboardPage(token: token, youId: s.profile.id)),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _Tile(
-                                icon: CupertinoIcons.add_circled_solid,
-                                color: MMColors.sky,
-                                title: 'Create',
-                                subtitle: 'Your own room',
-                                onTap: st.busy ? null : () => _create(offline: false),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _Tile(
-                                icon: CupertinoIcons.number_circle_fill,
-                                color: MMColors.gem,
-                                title: 'Join Code',
-                                subtitle: 'Play with friends',
-                                onTap: st.busy ? null : _joinCode,
-                              ),
-                            ),
-                          ],
-                        ),
-                        _TodayLeaders(youId: s.profile.id, onMore: () => _open(LeaderboardPage(token: token, youId: s.profile.id))),
-                        SectionHeader(
-                          'Live mines',
-                          trailing: st.loading
-                              ? const CupertinoActivityIndicator(radius: 8)
-                              : CupertinoButton(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: const Size(28, 28),
-                                  onPressed: () => lobby.refresh(token),
-                                  child: const Icon(CupertinoIcons.arrow_clockwise, size: 18, color: MMColors.muted),
-                                ),
-                        ),
-                        if (st.rooms.isEmpty && !st.loading)
-                          const GlassCard(
-                            child: Row(
-                              children: [
-                                IconTile(CupertinoIcons.moon_stars_fill, color: MMColors.violet),
-                                SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('No live mines right now', style: MMText.headline),
-                                      SizedBox(height: 2),
-                                      Text('Tap Play. You will be matched in seconds.', style: MMText.footnote),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        else if (st.rooms.isNotEmpty)
-                          GroupedList(
-                            children: [
-                              for (final r in st.rooms)
-                                ListRow(
-                                  leading: MapThumb(r.mapId, size: 40),
-                                  title: r.mapId.def.name,
-                                  subtitle: '${r.mode.label}  ·  ${_fmt(r.timeLeft)} left',
-                                  trailing: Pill(
-                                    '${r.humans + r.bots}/${r.maxPlayers}',
-                                    icon: CupertinoIcons.person_2_fill,
-                                    color: r.isFull ? MMColors.lava : MMColors.leaf,
-                                  ),
-                                  onTap: r.isFull || st.busy ? null : () => lobby.join(token, r.roomId),
-                                ),
-                            ],
-                          ),
-                        const SizedBox(height: 14),
-                        _Tile(
-                          icon: CupertinoIcons.game_controller_solid,
-                          color: MMColors.leaf,
-                          title: 'Practice offline',
-                          subtitle: 'No internet needed',
-                          onTap: () => _create(offline: true),
-                          wide: true,
-                        ),
-                      ] else ...[
-                        _Tile(
-                          icon: CupertinoIcons.slider_horizontal_3,
-                          color: MMColors.sky,
-                          title: 'Custom practice',
-                          subtitle: 'Choose mine and mode',
-                          onTap: () => _create(offline: true),
-                          wide: true,
-                        ),
-                        const SizedBox(height: 16),
-                        GameButton(
-                          label: 'Sign in to play online',
-                          tone: ButtonTone.dark,
-                          height: 50,
-                          fontSize: 16,
-                          onPressed: () => context.read<AuthCubit>().signOut(),
-                        ),
-                      ],
-                    ],
+      builder: (context, st) {
+        final topBar = _TopBar(
+          session: s,
+          onProfile: () => s.isOnline ? _open(ProfilePage(token: token)) : context.read<AuthCubit>().signOut(),
+        );
+        final playCard = _PlayCard(
+          online: s.isOnline,
+          busy: st.busy,
+          onPlay: s.isOnline ? () => lobby.quickPlay(token) : () => _practice(),
+        );
+        final playCardFill = _PlayCard(
+          online: s.isOnline,
+          busy: st.busy,
+          fill: true,
+          onPlay: s.isOnline ? () => lobby.quickPlay(token) : () => _practice(),
+        );
+        final rest = <Widget>[
+          if (s.isOnline) DailyRewardCard(token: token),
+          _Tile(
+            icon: CupertinoIcons.gear_alt_fill,
+            color: MMColors.muted,
+            title: 'Settings',
+            subtitle: 'Sound, vibration, controls',
+            wide: true,
+            onTap: () => _open(const SettingsPage()),
+          ),
+          const SizedBox(height: 12),
+          if (s.isOnline) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _Tile(
+                    icon: CupertinoIcons.person_crop_square_fill,
+                    color: MMColors.violet,
+                    title: 'Locker',
+                    subtitle: 'Miners & outfits',
+                    onTap: () => _open(StorePage(token: token)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _Tile(
+                    icon: CupertinoIcons.chart_bar_alt_fill,
+                    color: MMColors.gold,
+                    title: 'Rankings',
+                    subtitle: 'Today and all time',
+                    onTap: () => _open(LeaderboardPage(token: token, youId: s.profile.id)),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _Tile(
+                    icon: CupertinoIcons.add_circled_solid,
+                    color: MMColors.sky,
+                    title: 'Create',
+                    subtitle: 'Your own room',
+                    onTap: st.busy ? null : () => _create(offline: false),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _Tile(
+                    icon: CupertinoIcons.number_circle_fill,
+                    color: MMColors.gem,
+                    title: 'Join Code',
+                    subtitle: 'Play with friends',
+                    onTap: st.busy ? null : _joinCode,
+                  ),
+                ),
+              ],
+            ),
+            _TodayLeaders(
+              youId: s.profile.id,
+              onMore: () => _open(LeaderboardPage(token: token, youId: s.profile.id)),
+            ),
+            SectionHeader(
+              'Live mines',
+              trailing: st.loading
+                  ? const CupertinoActivityIndicator(radius: 8)
+                  : CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(28, 28),
+                      onPressed: () => lobby.refresh(token),
+                      child: const Icon(CupertinoIcons.arrow_clockwise, size: 18, color: MMColors.muted),
+                    ),
+            ),
+            if (st.rooms.isEmpty && !st.loading)
+              const GlassCard(
+                child: Row(
+                  children: [
+                    IconTile(CupertinoIcons.moon_stars_fill, color: MMColors.violet),
+                    SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('No live mines right now', style: MMText.headline),
+                          SizedBox(height: 2),
+                          Text('Tap Play. You will be matched in seconds.', style: MMText.footnote),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (st.rooms.isNotEmpty)
+              GroupedList(
+                children: [
+                  for (final r in st.rooms)
+                    ListRow(
+                      leading: MapThumb(r.mapId, size: 40),
+                      title: r.mapId.def.name,
+                      subtitle: '${r.mode.label}  ·  ${_fmt(r.timeLeft)} left',
+                      trailing: Pill(
+                        '${r.humans + r.bots}/${r.maxPlayers}',
+                        icon: CupertinoIcons.person_2_fill,
+                        color: r.isFull ? MMColors.lava : MMColors.leaf,
+                      ),
+                      onTap: r.isFull || st.busy ? null : () => lobby.join(token, r.roomId),
+                    ),
+                ],
+              ),
+            const SizedBox(height: 14),
+            _Tile(
+              icon: CupertinoIcons.game_controller_solid,
+              color: MMColors.leaf,
+              title: 'Practice offline',
+              subtitle: 'No internet needed',
+              onTap: () => _create(offline: true),
+              wide: true,
+            ),
+          ] else ...[
+            _Tile(
+              icon: CupertinoIcons.slider_horizontal_3,
+              color: MMColors.sky,
+              title: 'Custom practice',
+              subtitle: 'Choose mine and mode',
+              onTap: () => _create(offline: true),
+              wide: true,
+            ),
+            const SizedBox(height: 16),
+            GameButton(
+              label: 'Sign in to play online',
+              tone: ButtonTone.dark,
+              height: 50,
+              fontSize: 16,
+              onPressed: () => context.read<AuthCubit>().signOut(),
+            ),
+          ],
+        ];
+        const physics = BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+        Widget list(List<Widget> children, EdgeInsets padding) => CustomScrollView(
+          physics: physics,
+          slivers: [
+            if (s.isOnline) CupertinoSliverRefreshControl(onRefresh: _refresh),
+            SliverPadding(
+              padding: padding,
+              sliver: SliverList.list(children: children),
+            ),
+          ],
+        );
+        return Scaffold(
+          body: AppBackground(
+            child: SafeArea(
+              bottom: false,
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  if (box.maxWidth < box.maxHeight) {
+                    return list([
+                      topBar,
+                      const SizedBox(height: 18),
+                      playCard,
+                      const SizedBox(height: 14),
+                      ...rest,
+                    ], const EdgeInsets.fromLTRB(16, 12, 16, 40));
+                  }
+                  // Landscape: profile + big Play card stay on the left, everything else scrolls on the right.
+                  final left = (box.maxWidth * 0.42).clamp(300.0, 440.0);
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: left,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 8, 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              topBar,
+                              const SizedBox(height: 12),
+                              Expanded(child: playCardFill),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Expanded(child: list(rest, const EdgeInsets.fromLTRB(8, 12, 16, 24))),
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -337,11 +384,19 @@ class _TopBar extends StatelessWidget {
                 height: 58,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: const LinearGradient(colors: [Color(0xFF3A2F5C), MMColors.surface], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3A2F5C), MMColors.surface],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
                   border: Border.all(color: MMColors.gold, width: 2),
                 ),
                 child: ClipOval(
-                  child: OverflowBox(maxWidth: 96, maxHeight: 96, child: AvatarPreview(look: p.look, seed: p.id, size: 96, animate: false)),
+                  child: OverflowBox(
+                    maxWidth: 96,
+                    maxHeight: 96,
+                    child: AvatarPreview(look: p.look, seed: p.id, size: 96, animate: false),
+                  ),
                 ),
               ),
               if (session.isOnline)
@@ -350,8 +405,15 @@ class _TopBar extends StatelessWidget {
                   bottom: -4,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(color: MMColors.gold, borderRadius: BorderRadius.circular(8), border: Border.all(color: MMColors.bg, width: 2)),
-                    child: Text('${p.level}', style: const TextStyle(fontFamily: MMFonts.display, fontSize: 13, color: MMColors.onGold)),
+                    decoration: BoxDecoration(
+                      color: MMColors.gold,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: MMColors.bg, width: 2),
+                    ),
+                    child: Text(
+                      '${p.level}',
+                      style: const TextStyle(fontFamily: MMFonts.display, fontSize: 13, color: MMColors.onGold),
+                    ),
                   ),
                 ),
             ],
@@ -373,7 +435,10 @@ class _TopBar extends StatelessWidget {
                     child: Stack(
                       children: [
                         Container(color: MMColors.surfaceHi),
-                        FractionallySizedBox(widthFactor: progress, child: Container(decoration: const BoxDecoration(gradient: MMColors.accentGradient))),
+                        FractionallySizedBox(
+                          widthFactor: progress,
+                          child: Container(decoration: const BoxDecoration(gradient: MMColors.accentGradient)),
+                        ),
                       ],
                     ),
                   ),
@@ -398,13 +463,20 @@ class _TopBar extends StatelessWidget {
 }
 
 class _PlayCard extends StatelessWidget {
-  const _PlayCard({required this.online, required this.busy, required this.onPlay});
+  const _PlayCard({required this.online, required this.busy, required this.onPlay, this.fill = false});
   final bool online;
   final bool busy;
   final VoidCallback onPlay;
 
+  /// Landscape: fill the given height with the Play button pinned to the
+  /// bottom; the description only shows when there is room for it.
+  final bool fill;
+
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) =>
+      fill ? LayoutBuilder(builder: (context, box) => _card(roomy: box.maxHeight >= 300)) : _card(roomy: true);
+
+  Widget _card({required bool roomy}) => Container(
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(28),
       gradient: const LinearGradient(
@@ -433,36 +505,51 @@ class _PlayCard extends StatelessWidget {
             ),
           ),
         ),
-        const Positioned(
-          right: 4,
-          bottom: 60,
+        Positioned(
+          right: fill ? -6 : 4,
+          bottom: fill ? 62 : 60,
           child: AvatarPreview(
-            look: Look(character: 'char_tinker', outfit: 'outfit_purple', helmet: 'helmet_yellow', pickaxe: 'pick_gold'),
+            look: const Look(character: 'char_tinker', outfit: 'outfit_purple', helmet: 'helmet_yellow', pickaxe: 'pick_gold'),
             seed: 'p',
-            size: 150,
+            size: fill ? 130 : 150,
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+          padding: fill ? const EdgeInsets.fromLTRB(18, 16, 18, 16) : const EdgeInsets.fromLTRB(20, 20, 20, 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Pill(online ? 'ONLINE  ·  8-12 MINERS' : 'PRACTICE', color: MMColors.goldLight),
               const SizedBox(height: 10),
-              const Text(
+              Text(
                 'TREASURE\nHUNT',
-                style: TextStyle(fontFamily: MMFonts.display, fontSize: 38, height: 0.95, color: CupertinoColors.white, letterSpacing: 0.5),
-              ),
-              const SizedBox(height: 8),
-              const SizedBox(
-                width: 190,
-                child: Text(
-                  'Break the rock, dodge the lava, and grab the hidden treasure first.',
-                  style: TextStyle(fontFamily: MMFonts.body, fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xCCFFFFFF)),
+                style: TextStyle(
+                  fontFamily: MMFonts.display,
+                  fontSize: fill ? 34 : 38,
+                  height: 0.95,
+                  color: CupertinoColors.white,
+                  letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 18),
-              GameButton(label: online ? 'Play' : 'Play now', icon: CupertinoIcons.play_fill, loading: busy, onPressed: onPlay, height: 58, fontSize: 22),
+              if (roomy) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: fill ? 150 : 190,
+                  child: const Text(
+                    'Break the rock, dodge the lava, and grab the hidden treasure first.',
+                    style: TextStyle(fontFamily: MMFonts.body, fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xCCFFFFFF)),
+                  ),
+                ),
+              ],
+              if (fill) const Spacer() else const SizedBox(height: 18),
+              GameButton(
+                label: online ? 'Play' : 'Play now',
+                icon: CupertinoIcons.play_fill,
+                loading: busy,
+                onPressed: onPlay,
+                height: fill ? 52 : 58,
+                fontSize: fill ? 20 : 22,
+              ),
             ],
           ),
         ),
@@ -472,7 +559,14 @@ class _PlayCard extends StatelessWidget {
 }
 
 class _Tile extends StatelessWidget {
-  const _Tile({required this.icon, required this.color, required this.title, required this.subtitle, required this.onTap, this.wide = false});
+  const _Tile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.wide = false,
+  });
   final IconData icon;
   final Color color;
   final String title;
@@ -506,7 +600,14 @@ class _Tile extends StatelessWidget {
                   const Icon(CupertinoIcons.chevron_forward, size: 16, color: MMColors.faint),
                 ],
               )
-            : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [IconTile(icon, color: color, size: 42), const SizedBox(height: 12), text]),
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  IconTile(icon, color: color, size: 42),
+                  const SizedBox(height: 12),
+                  text,
+                ],
+              ),
       ),
     );
   }
@@ -532,7 +633,10 @@ class _TodayLeaders extends StatelessWidget {
               padding: EdgeInsets.zero,
               minimumSize: const Size(28, 28),
               onPressed: onMore,
-              child: const Text('See all', style: TextStyle(fontFamily: MMFonts.body, fontWeight: FontWeight.w800, fontSize: 13, color: MMColors.gold)),
+              child: const Text(
+                'See all',
+                style: TextStyle(fontFamily: MMFonts.body, fontWeight: FontWeight.w800, fontSize: 13, color: MMColors.gold),
+              ),
             ),
           ),
           GlassCard(
@@ -543,7 +647,11 @@ class _TodayLeaders extends StatelessWidget {
                 ? const SizedBox(
                     height: 70,
                     child: Center(
-                      child: Text('No treasure found yet today.\nWin a match to take the top spot.', textAlign: TextAlign.center, style: MMText.footnote),
+                      child: Text(
+                        'No treasure found yet today.\nWin a match to take the top spot.',
+                        textAlign: TextAlign.center,
+                        style: MMText.footnote,
+                      ),
                     ),
                   )
                 : Row(
@@ -573,7 +681,10 @@ class _TodayLeaders extends StatelessWidget {
                                         shape: BoxShape.circle,
                                         border: Border.all(color: MMColors.surface, width: 2),
                                       ),
-                                      child: Text('${i + 1}', style: const TextStyle(fontFamily: MMFonts.display, fontSize: 12, color: MMColors.onGold)),
+                                      child: Text(
+                                        '${i + 1}',
+                                        style: const TextStyle(fontFamily: MMFonts.display, fontSize: 12, color: MMColors.onGold),
+                                      ),
                                     ),
                                   ),
                                 ],

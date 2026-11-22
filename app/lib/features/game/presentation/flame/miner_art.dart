@@ -97,7 +97,12 @@ abstract final class MinerArt {
       _stroke
         ..color = pants
         ..strokeWidth = 5;
-      canvas.drawPath(Path()..moveTo(hip.dx, hip.dy)..quadraticBezierTo(knee.dx, knee.dy, foot.dx, foot.dy), _stroke);
+      canvas.drawPath(
+        Path()
+          ..moveTo(hip.dx, hip.dy)
+          ..quadraticBezierTo(knee.dx, knee.dy, foot.dx, foot.dy),
+        _stroke,
+      );
       _p.color = boot;
       final b = RRect.fromRectAndRadius(Rect.fromLTWH(foot.dx - 3 + dir * 0.5, foot.dy - 1, 7, 4), const Radius.circular(1.8));
       canvas.drawRRect(b, _p);
@@ -183,12 +188,15 @@ abstract final class MinerArt {
     final body = RRect.fromRectAndRadius(Rect.fromCenter(center: const Offset(0, -3), width: 17, height: 15), const Radius.circular(5.5));
     final base = Color(outfit.primary);
     _p.color = const Color(0xFFFFFFFF); // a shader fill must not inherit a faded colour
-    _p.shader = _cached(('torso', outfit.primary, opacity), () => Gradient.linear(
-      const Offset(-8, -10),
-      const Offset(8, 5),
-      [_shade(base, 0.18).withValues(alpha: opacity), base.withValues(alpha: opacity), _shade(base, -0.3).withValues(alpha: opacity)],
-      const [0, 0.5, 1],
-    ));
+    _p.shader = _cached(
+      ('torso', outfit.primary, opacity),
+      () => Gradient.linear(
+        const Offset(-8, -10),
+        const Offset(8, 5),
+        [_shade(base, 0.18).withValues(alpha: opacity), base.withValues(alpha: opacity), _shade(base, -0.3).withValues(alpha: opacity)],
+        const [0, 0.5, 1],
+      ),
+    );
     canvas.drawRRect(body, _p);
     _p.shader = null;
 
@@ -230,7 +238,15 @@ abstract final class MinerArt {
       case 'outfit_gold':
         final shine = (sin(t * 2.4) + 1) / 2;
         _p.color = Color.fromRGBO(255, 255, 255, (0.2 + 0.45 * shine) * opacity);
-        canvas.drawPath(Path()..moveTo(-9 + shine * 10, -11)..lineTo(-5 + shine * 10, -11)..lineTo(-11 + shine * 10, 5)..lineTo(-15 + shine * 10, 5)..close(), _p);
+        canvas.drawPath(
+          Path()
+            ..moveTo(-9 + shine * 10, -11)
+            ..lineTo(-5 + shine * 10, -11)
+            ..lineTo(-11 + shine * 10, 5)
+            ..lineTo(-15 + shine * 10, 5)
+            ..close(),
+          _p,
+        );
       case 'outfit_ice':
         _stroke
           ..color = Color.fromRGBO(255, 255, 255, 0.75 * opacity)
@@ -247,8 +263,21 @@ abstract final class MinerArt {
         _stroke
           ..color = Color.fromRGBO(255, 190, 60, glow * opacity)
           ..strokeWidth = 1.2;
-        canvas.drawPath(Path()..moveTo(-7, -9)..lineTo(-3, -5)..lineTo(-5, -1)..lineTo(-1, 3), _stroke);
-        canvas.drawPath(Path()..moveTo(6, -10)..lineTo(3, -6)..lineTo(6, -2), _stroke);
+        canvas.drawPath(
+          Path()
+            ..moveTo(-7, -9)
+            ..lineTo(-3, -5)
+            ..lineTo(-5, -1)
+            ..lineTo(-1, 3),
+          _stroke,
+        );
+        canvas.drawPath(
+          Path()
+            ..moveTo(6, -10)
+            ..lineTo(3, -6)
+            ..lineTo(6, -2),
+          _stroke,
+        );
       default:
         // Classic overalls: bib + straps.
         _p.color = sec.withValues(alpha: 0.85 * opacity);
@@ -301,15 +330,29 @@ abstract final class MinerArt {
       case Face.robot:
         final r = RRect.fromRectAndRadius(Rect.fromCenter(center: head, width: 15, height: 13.5), const Radius.circular(3.5));
         _p.color = const Color(0xFFFFFFFF); // a shader fill must not inherit a faded colour
-        _p.shader = _cached(('robot', ch.primary), () => Gradient.linear(const Offset(-7, -20), const Offset(7, -8), [_shade(Color(ch.primary), 0.3), Color(ch.primary), _shade(Color(ch.primary), -0.35)], const [0, 0.5, 1]));
+        _p.shader = _cached(
+          ('robot', ch.primary),
+          () => Gradient.linear(
+            const Offset(-7, -20),
+            const Offset(7, -8),
+            [_shade(Color(ch.primary), 0.3), Color(ch.primary), _shade(Color(ch.primary), -0.35)],
+            const [0, 0.5, 1],
+          ),
+        );
         canvas.drawRRect(r, _p);
         _p.shader = null;
         canvas.drawRRect(r, _line);
         // Visor.
         _p.color = c(0xFF111820);
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(1.8 * dir, -14), width: 10, height: 4.4), const Radius.circular(2)), _p);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(1.8 * dir, -14), width: 10, height: 4.4), const Radius.circular(2)),
+          _p,
+        );
         _p.color = hair;
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(3 * dir, -14), width: 4.5, height: 2), const Radius.circular(1)), _p);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(3 * dir, -14), width: 4.5, height: 2), const Radius.circular(1)),
+          _p,
+        );
         // Rivets + antenna.
         _p.color = c(0xFF6B7785);
         canvas.drawCircle(Offset(-5 * dir, -10), 0.8, _p);
@@ -324,7 +367,15 @@ abstract final class MinerArt {
 
     // Head with soft shading.
     _p.color = const Color(0xFFFFFFFF); // a shader fill must not inherit a faded colour
-    _p.shader = _cached(('head', ch.primary, dir), () => Gradient.radial(head + Offset(2 * dir, -2), 8.5, [_shade(Color(ch.primary), 0.15), Color(ch.primary), _shade(Color(ch.primary), -0.25)], const [0, 0.6, 1]));
+    _p.shader = _cached(
+      ('head', ch.primary, dir),
+      () => Gradient.radial(
+        head + Offset(2 * dir, -2),
+        8.5,
+        [_shade(Color(ch.primary), 0.15), Color(ch.primary), _shade(Color(ch.primary), -0.25)],
+        const [0, 0.6, 1],
+      ),
+    );
     canvas.drawCircle(head, 6.8, _p);
     _p.shader = null;
     canvas.drawCircle(head, 6.8, _line);
@@ -363,14 +414,31 @@ abstract final class MinerArt {
         _drawSmile(canvas, dir, c);
       case Face.ninja:
         _p.color = hair;
-        canvas.drawPath(Path()..addArc(Rect.fromCircle(center: head, radius: 6.8), 0.05, pi - 0.1)..close(), _p);
-        canvas.drawPath(Path()..addArc(Rect.fromCircle(center: head, radius: 6.8), pi + 0.05, pi - 0.1)..close(), _p);
+        canvas.drawPath(
+          Path()
+            ..addArc(Rect.fromCircle(center: head, radius: 6.8), 0.05, pi - 0.1)
+            ..close(),
+          _p,
+        );
+        canvas.drawPath(
+          Path()
+            ..addArc(Rect.fromCircle(center: head, radius: 6.8), pi + 0.05, pi - 0.1)
+            ..close(),
+          _p,
+        );
         _p.color = skin;
         canvas.drawRect(Rect.fromLTWH(dir > 0 ? -1 : -6, -16, 7, 3.2), _p);
         // Headband tails.
         _p.color = c(0xFFE53935);
         canvas.drawRect(const Rect.fromLTWH(-6.8, -18.5, 13.6, 1.6), _p);
-        canvas.drawPath(Path()..moveTo(-6 * dir, -18)..lineTo(-11 * dir, -20)..lineTo(-10 * dir, -16.5)..close(), _p);
+        canvas.drawPath(
+          Path()
+            ..moveTo(-6 * dir, -18)
+            ..lineTo(-11 * dir, -20)
+            ..lineTo(-10 * dir, -16.5)
+            ..close(),
+          _p,
+        );
         _p.color = c(0xFF1B1B1B);
         canvas.drawCircle(eye, 1.1, _p);
       case Face.mole:
@@ -392,7 +460,14 @@ abstract final class MinerArt {
         _p.color = hair;
         canvas.drawOval(Rect.fromCenter(center: Offset(2.4 * dir, -14.6), width: 3.4, height: 3.8), _p);
         canvas.drawOval(Rect.fromCenter(center: Offset(-1.6 * dir, -14.6), width: 2.8, height: 3.4), _p);
-        canvas.drawPath(Path()..moveTo(0.4 * dir, -12.4)..lineTo(1.2 * dir, -11.2)..lineTo(-0.4 * dir, -11.2)..close(), _p);
+        canvas.drawPath(
+          Path()
+            ..moveTo(0.4 * dir, -12.4)
+            ..lineTo(1.2 * dir, -11.2)
+            ..lineTo(-0.4 * dir, -11.2)
+            ..close(),
+          _p,
+        );
         for (var i = -2; i <= 2; i++) {
           canvas.drawRect(Rect.fromLTWH(i * 1.6 - 0.5, -9.8, 1, 1.8), _p);
         }
@@ -430,11 +505,15 @@ abstract final class MinerArt {
 
   static void _drawHelmet(Canvas canvas, CosmeticDef h, double dir, Color Function(int) c, double t, double opacity) {
     final base = Color(h.primary);
-    Shader dome(Rect r) => _cached(('dome', h.primary, opacity, r), () => Gradient.linear(r.topLeft, r.bottomRight, [
-      _shade(base, 0.35).withValues(alpha: opacity),
-      base.withValues(alpha: opacity),
-      _shade(base, -0.3).withValues(alpha: opacity),
-    ], const [0, 0.45, 1]));
+    Shader dome(Rect r) => _cached(
+      ('dome', h.primary, opacity, r),
+      () => Gradient.linear(
+        r.topLeft,
+        r.bottomRight,
+        [_shade(base, 0.35).withValues(alpha: opacity), base.withValues(alpha: opacity), _shade(base, -0.3).withValues(alpha: opacity)],
+        const [0, 0.45, 1],
+      ),
+    );
 
     switch (h.style) {
       case 1: // crown
@@ -472,8 +551,16 @@ abstract final class MinerArt {
         _p.color = c(0xFF8A6A3A);
         canvas.drawRect(const Rect.fromLTWH(-7.5, -16.5, 15, 2), _p);
         _p.color = c(h.secondary);
-        final hornL = Path()..moveTo(-6, -19)..quadraticBezierTo(-13, -20, -12, -28)..quadraticBezierTo(-10, -22, -6.5, -21.5)..close();
-        final hornR = Path()..moveTo(6, -19)..quadraticBezierTo(13, -20, 12, -28)..quadraticBezierTo(10, -22, 6.5, -21.5)..close();
+        final hornL = Path()
+          ..moveTo(-6, -19)
+          ..quadraticBezierTo(-13, -20, -12, -28)
+          ..quadraticBezierTo(-10, -22, -6.5, -21.5)
+          ..close();
+        final hornR = Path()
+          ..moveTo(6, -19)
+          ..quadraticBezierTo(13, -20, 12, -28)
+          ..quadraticBezierTo(10, -22, 6.5, -21.5)
+          ..close();
         canvas.drawPath(hornL, _p);
         canvas.drawPath(hornR, _p);
         canvas.drawPath(hornL, _line);
@@ -523,7 +610,11 @@ abstract final class MinerArt {
         _p.color = c(h.secondary);
         canvas.drawCircle(lamp, 1.8, _p);
         _p.color = const Color(0xFFFFFFFF); // a shader fill must not inherit a faded colour
-        _p.shader = _cached(('lamp', dir, opacity), () => Gradient.radial(lamp, 7, [Color.fromRGBO(255, 247, 209, 0.55 * opacity), const Color(0x00FFF7D1)]));
+        _p.shader = _cached((
+          'lamp',
+          dir,
+          opacity,
+        ), () => Gradient.radial(lamp, 7, [Color.fromRGBO(255, 247, 209, 0.55 * opacity), const Color(0x00FFF7D1)]));
         canvas.drawCircle(lamp, 7, _p);
         _p.shader = null;
     }
@@ -591,8 +682,18 @@ abstract final class MinerArt {
         for (final s in const [1.0, -1.0]) {
           final blade = Path()
             ..moveTo((head + perp * 1.5 * s - d * 2).dx, (head + perp * 1.5 * s - d * 2).dy)
-            ..quadraticBezierTo((head + perp * 9 * s - d * 5).dx, (head + perp * 9 * s - d * 5).dy, (head + perp * 8 * s).dx, (head + perp * 8 * s).dy)
-            ..quadraticBezierTo((head + perp * 9 * s + d * 5).dx, (head + perp * 9 * s + d * 5).dy, (head + perp * 1.5 * s + d * 2).dx, (head + perp * 1.5 * s + d * 2).dy)
+            ..quadraticBezierTo(
+              (head + perp * 9 * s - d * 5).dx,
+              (head + perp * 9 * s - d * 5).dy,
+              (head + perp * 8 * s).dx,
+              (head + perp * 8 * s).dy,
+            )
+            ..quadraticBezierTo(
+              (head + perp * 9 * s + d * 5).dx,
+              (head + perp * 9 * s + d * 5).dy,
+              (head + perp * 1.5 * s + d * 2).dx,
+              (head + perp * 1.5 * s + d * 2).dy,
+            )
             ..close();
           canvas.drawPath(blade, _p);
           canvas.drawPath(blade, _line);
@@ -642,11 +743,12 @@ abstract final class MinerArt {
     if (firing) {
       final f = 0.75 + 0.25 * sin(t * 40);
       _p.color = const Color(0xFFFFFFFF); // a shader fill must not inherit a faded colour
-      _p.shader = Gradient.linear(Offset(x, 4), Offset(x, 4 + 13 * f), [
-        Color.fromRGBO(255, 248, 200, opacity),
-        Color.fromRGBO(255, 150, 40, 0.9 * opacity),
-        const Color(0x00FF5A1F),
-      ], const [0, 0.4, 1]);
+      _p.shader = Gradient.linear(
+        Offset(x, 4),
+        Offset(x, 4 + 13 * f),
+        [Color.fromRGBO(255, 248, 200, opacity), Color.fromRGBO(255, 150, 40, 0.9 * opacity), const Color(0x00FF5A1F)],
+        const [0, 0.4, 1],
+      );
       canvas.drawPath(
         Path()
           ..moveTo(x - 3.2, 3)
@@ -658,10 +760,13 @@ abstract final class MinerArt {
     }
     final tank = RRect.fromRectAndRadius(Rect.fromLTWH(x - 3.5, -11, 7, 14), const Radius.circular(3));
     _p.color = const Color(0xFFFFFFFF); // a shader fill must not inherit a faded colour
-    _p.shader = _cached(('tank', x, opacity), () => Gradient.linear(Offset(x - 3.5, 0), Offset(x + 3.5, 0), [
-      Color.fromRGBO(190, 200, 212, opacity),
-      Color.fromRGBO(120, 130, 145, opacity),
-    ]));
+    _p.shader = _cached(
+      ('tank', x, opacity),
+      () => Gradient.linear(Offset(x - 3.5, 0), Offset(x + 3.5, 0), [
+        Color.fromRGBO(190, 200, 212, opacity),
+        Color.fromRGBO(120, 130, 145, opacity),
+      ]),
+    );
     canvas.drawRRect(tank, _p);
     _p.shader = null;
     canvas.drawRRect(tank, _line);

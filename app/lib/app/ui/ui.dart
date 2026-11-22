@@ -813,8 +813,10 @@ Future<T?> showAppSheet<T>(BuildContext context, WidgetBuilder builder) =>
         type: MaterialType.transparency,
         child: Container(
           width: double.infinity,
+          // Landscape: a centred sheet, not a strip across the whole screen.
           constraints: BoxConstraints(
             maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
+            maxWidth: 620,
           ),
           decoration: const BoxDecoration(
             gradient: LinearGradient(

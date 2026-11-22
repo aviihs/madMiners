@@ -7,8 +7,12 @@ import '../../../../app/ui/ui.dart';
 /// Surface shop: equipment upgrades + bombs, paid with match coins.
 /// Purchases are only requests — the server validates them.
 class ShopPanel extends StatelessWidget {
-  const ShopPanel({super.key, required this.me, required this.onUpgrade, required this.onBuyItem});
+  const ShopPanel({super.key, required this.me, required this.onUpgrade, required this.onBuyItem, this.strip = false});
   final PlayerSnapshot me;
+
+  /// Phones: one low row along the bottom (scrolls sideways), so the miner
+  /// standing in the depot stays in view.
+  final bool strip;
   final ValueChanged<UpgradeKind> onUpgrade;
   final ValueChanged<ItemKind> onBuyItem;
 
@@ -27,7 +31,50 @@ class ShopPanel extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => strip ? _strip() : _panel(context);
+
+  Widget _strip() => GlassCard(
+    radius: 18,
+    color: const Color(0xB3000000),
+    padding: const EdgeInsets.fromLTRB(10, 7, 6, 7),
+    child: SizedBox(
+      height: 76,
+      child: Row(
+        children: [
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const IconTile(CupertinoIcons.bag_fill, size: 26),
+              const SizedBox(height: 4),
+              const Text(
+                'SHOP',
+                style: TextStyle(fontFamily: MMFonts.display, fontSize: 12, color: MMColors.gold),
+              ),
+              const SizedBox(height: 2),
+              CurrencyPill(me.coins),
+            ],
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: UpgradeKind.values.length + ItemKind.values.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 6),
+              itemBuilder: (_, i) {
+                final t = i < UpgradeKind.values.length
+                    ? _upgradeTile(UpgradeKind.values[i])
+                    : _itemTile(ItemKind.values[i - UpgradeKind.values.length]);
+                return _MiniTile(tile: t);
+              },
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _panel(BuildContext context) {
     final maxH = MediaQuery.sizeOf(context).height - 140;
     return GlassCard(
       radius: 20,
@@ -53,10 +100,7 @@ class ShopPanel extends StatelessWidget {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: [
-                  for (final k in UpgradeKind.values) _upgradeTile(k),
-                  for (final k in ItemKind.values) _itemTile(k),
-                ],
+                children: [for (final k in UpgradeKind.values) _upgradeTile(k), for (final k in ItemKind.values) _itemTile(k)],
               ),
             ],
           ),
@@ -65,7 +109,7 @@ class ShopPanel extends StatelessWidget {
     );
   }
 
-  Widget _upgradeTile(UpgradeKind k) {
+  _Tile _upgradeTile(UpgradeKind k) {
     final lvl = me.level(k);
     final maxed = lvl >= k.maxLevel;
     final next = maxed ? null : k.levels[lvl + 1];
@@ -81,7 +125,7 @@ class ShopPanel extends StatelessWidget {
     );
   }
 
-  Widget _itemTile(ItemKind k) {
+  _Tile _itemTile(ItemKind k) {
     final def = itemDefs[k]!;
     final have = me.itemCount(k);
     final full = have >= Balance.maxItemStack;
@@ -123,7 +167,11 @@ class _Tile extends StatelessWidget {
     width: 142,
     child: Container(
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(color: MMColors.glass, borderRadius: BorderRadius.circular(14), border: Border.all(color: MMColors.hairline, width: 0.5)),
+      decoration: BoxDecoration(
+        color: MMColors.glass,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: MMColors.hairline, width: 0.5),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -163,4 +211,60 @@ class _Tile extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Small square version of a shop tile for the bottom strip.
+class _MiniTile extends StatelessWidget {
+  const _MiniTile({required this.tile});
+  final _Tile tile;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = tile;
+    return Container(
+      width: 84,
+      padding: const EdgeInsets.fromLTRB(6, 5, 6, 5),
+      decoration: BoxDecoration(
+        color: MMColors.glass,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: MMColors.hairline, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconTile(t.icon, color: t.color, size: 22),
+              const Spacer(),
+              Text(t.level, style: MMText.caption.copyWith(fontSize: 10.5)),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(t.title, style: MMText.headline.copyWith(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: CupertinoButton(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 22),
+              borderRadius: BorderRadius.circular(99),
+              color: t.enabled ? MMColors.amber : MMColors.glassStrong,
+              disabledColor: MMColors.glassStrong,
+              onPressed: t.enabled ? t.onTap : null,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (t.price != null) ...[const CoinIcon(size: 11), const SizedBox(width: 3)],
+                  Text(
+                    t.price == null ? 'MAX' : '${t.price}',
+                    style: MMText.number.copyWith(fontSize: 12, color: t.enabled ? MMColors.onGold : MMColors.muted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -26,8 +26,8 @@ bun start          # serve the build
 
 ## Before you publish
 
-1. **Contact email.** Set `contactEmail` in `src/data/site.json` (it's `support@example.com` until you
-   do). It's used everywhere: privacy policy, deletion page, contact form, footer.
+1. **Contact email.** `contactEmail` in `src/data/site.json` is used everywhere: privacy policy,
+   deletion page, contact form, footer.
 2. **Site URL.** Set `NEXT_PUBLIC_SITE_URL` (see `.env.example`) to the real address, so canonical
    links, the sitemap and social cards point to it.
 3. **Policy accuracy.** The policy describes what the game does today (see "What the policy is based
@@ -77,8 +77,8 @@ Checked against the code on 2026-11-21:
 - Chat is relayed to the match and never stored. IP addresses are used in memory for rate limiting
   only.
 - On the device: settings, session and server address (`shared_preferences`).
-- Android permissions: internet, network state, Wi-Fi multicast (to find a server on the local
-  network).
+- Android permissions: internet, network state, Wi-Fi state + Wi-Fi multicast (to find a server on
+  the local network), vibrate (haptic feedback). See `app/android/app/src/main/AndroidManifest.xml`.
 - No ads, analytics, advertising ID, location, contacts, camera, microphone or real-money purchases.
 
 The policy also says connections are encrypted (HTTPS / WSS): deploy the game server behind HTTPS.
