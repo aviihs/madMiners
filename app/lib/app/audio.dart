@@ -25,14 +25,7 @@ class GameAudio {
   final Map<Sfx, AudioPool> _pools = {};
 
   /// How many of each sound may overlap.
-  static const _voices = {
-    Sfx.dig: 3,
-    Sfx.rockBreak: 3,
-    Sfx.coin: 2,
-    Sfx.tick: 2,
-    Sfx.explosion: 2,
-    Sfx.smallBlast: 2,
-  };
+  static const _voices = {Sfx.dig: 3, Sfx.rockBreak: 3, Sfx.coin: 2, Sfx.tick: 2, Sfx.explosion: 2, Sfx.smallBlast: 2};
 
   static const _files = {
     Sfx.dig: 'dig.wav',

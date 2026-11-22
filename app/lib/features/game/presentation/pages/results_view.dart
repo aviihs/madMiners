@@ -121,7 +121,11 @@ class _ResultsViewState extends State<ResultsView> with SingleTickerProviderStat
                           highlight: p.playerId == widget.youId,
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: [const CoinIcon(size: 15), const SizedBox(width: 5), Text(formatAmount(p.score), style: MMText.number.copyWith(fontSize: 16, color: MMColors.text))],
+                            children: [
+                              const CoinIcon(size: 15),
+                              const SizedBox(width: 5),
+                              Text(formatAmount(p.score), style: MMText.number.copyWith(fontSize: 16, color: MMColors.text)),
+                            ],
                           ),
                         ),
                     ],
@@ -155,7 +159,10 @@ class _Stat extends StatelessWidget {
         children: [
           Row(
             mainAxisSize: MainAxisSize.min,
-            children: [if (icon != null) ...[icon!, const SizedBox(width: 5)], Text(value, style: MMText.title.merge(MMText.number))],
+            children: [
+              if (icon != null) ...[icon!, const SizedBox(width: 5)],
+              Text(value, style: MMText.title.merge(MMText.number)),
+            ],
           ),
           const SizedBox(height: 2),
           Text(label, style: MMText.caption),

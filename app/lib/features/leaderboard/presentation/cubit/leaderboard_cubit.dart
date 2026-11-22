@@ -22,9 +22,11 @@ class LeaderboardCubit extends Cubit<LeaderboardState> {
     final b = board ?? state.board;
     emit(LeaderboardState(board: b));
     final r = await (b == Board.today ? _today(token) : _global(token));
-    emit(r.fold(
-      (f) => LeaderboardState(board: b, loading: false, error: f.message),
-      (e) => LeaderboardState(board: b, loading: false, entries: e),
-    ));
+    emit(
+      r.fold(
+        (f) => LeaderboardState(board: b, loading: false, error: f.message),
+        (e) => LeaderboardState(board: b, loading: false, entries: e),
+      ),
+    );
   }
 }

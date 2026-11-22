@@ -33,93 +33,101 @@ class SettingsPage extends StatelessWidget {
                 sliver: SliverList.list(
                   children: [
                     const SectionHeader('Sound'),
-                    _Card(children: [
-                      _Toggle(icon: CupertinoIcons.music_note_2, color: MMColors.violet, label: 'Music', value: st.music),
-                      _Toggle(
-                        icon: CupertinoIcons.speaker_2_fill,
-                        color: MMColors.sky,
-                        label: 'Sound effects',
-                        value: st.sfx,
-                        onChanged: (v) {
-                          if (v) audio.play(Sfx.coin);
-                        },
-                      ),
-                      _Toggle(
-                        icon: CupertinoIcons.waveform,
-                        color: MMColors.leaf,
-                        label: 'Vibration',
-                        value: st.vibration,
-                        onChanged: (v) {
-                          if (v) audio.buzz(Haptic.medium);
-                        },
-                      ),
-                    ]),
+                    _Card(
+                      children: [
+                        _Toggle(icon: CupertinoIcons.music_note_2, color: MMColors.violet, label: 'Music', value: st.music),
+                        _Toggle(
+                          icon: CupertinoIcons.speaker_2_fill,
+                          color: MMColors.sky,
+                          label: 'Sound effects',
+                          value: st.sfx,
+                          onChanged: (v) {
+                            if (v) audio.play(Sfx.coin);
+                          },
+                        ),
+                        _Toggle(
+                          icon: CupertinoIcons.waveform,
+                          color: MMColors.leaf,
+                          label: 'Vibration',
+                          value: st.vibration,
+                          onChanged: (v) {
+                            if (v) audio.buzz(Haptic.medium);
+                          },
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 18),
                     const SectionHeader('Graphics'),
-                    _Card(children: [
-                      _Toggle(
-                        icon: CupertinoIcons.sparkles,
-                        color: MMColors.violet,
-                        label: 'High quality graphics',
-                        value: st.highGraphics,
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(14, 0, 14, 12),
-                        child: Text(
-                          'More lights, particles and frosted-glass menus. Turn off if the game feels slow on your phone.',
-                          style: MMText.caption,
+                    _Card(
+                      children: [
+                        _Toggle(
+                          icon: CupertinoIcons.sparkles,
+                          color: MMColors.violet,
+                          label: 'High quality graphics',
+                          value: st.highGraphics,
                         ),
-                      ),
-                    ]),
-                    const SizedBox(height: 18),
-                    const SectionHeader('Touch controls'),
-                    _Card(children: [
-                      ValueListenableBuilder<double>(
-                        valueListenable: st.controlScale,
-                        builder: (context, v, _) => Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const IconTile(CupertinoIcons.hand_draw_fill, color: MMColors.gold, size: 30),
-                                  const SizedBox(width: 12),
-                                  const Expanded(child: Text('Button size', style: MMText.headline)),
-                                  Text('${(v * 100).round()}%', style: MMText.number.copyWith(color: MMColors.gold, fontSize: 16)),
-                                ],
-                              ),
-                              CupertinoSlider(
-                                value: v,
-                                min: GameSettings.minScale,
-                                max: GameSettings.maxScale,
-                                divisions: 12,
-                                activeColor: MMColors.gold,
-                                onChanged: (x) => st.controlScale.value = x,
-                              ),
-                            ],
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(14, 0, 14, 12),
+                          child: Text(
+                            'More lights, particles and frosted-glass menus. Turn off if the game feels slow on your phone.',
+                            style: MMText.caption,
                           ),
                         ),
-                      ),
-                      _Toggle(
-                        icon: CupertinoIcons.arrow_right_arrow_left,
-                        color: MMColors.lava,
-                        label: 'Left-handed (buttons on the left)',
-                        value: st.leftHanded,
-                      ),
-                    ]),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    const SectionHeader('Touch controls'),
+                    _Card(
+                      children: [
+                        ValueListenableBuilder<double>(
+                          valueListenable: st.controlScale,
+                          builder: (context, v, _) => Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const IconTile(CupertinoIcons.hand_draw_fill, color: MMColors.gold, size: 30),
+                                    const SizedBox(width: 12),
+                                    const Expanded(child: Text('Button size', style: MMText.headline)),
+                                    Text('${(v * 100).round()}%', style: MMText.number.copyWith(color: MMColors.gold, fontSize: 16)),
+                                  ],
+                                ),
+                                CupertinoSlider(
+                                  value: v,
+                                  min: GameSettings.minScale,
+                                  max: GameSettings.maxScale,
+                                  divisions: 12,
+                                  activeColor: MMColors.gold,
+                                  onChanged: (x) => st.controlScale.value = x,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        _Toggle(
+                          icon: CupertinoIcons.arrow_right_arrow_left,
+                          color: MMColors.lava,
+                          label: 'Left-handed (buttons on the left)',
+                          value: st.leftHanded,
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 18),
                     const SectionHeader('Keyboard'),
-                    const _Card(children: [
-                      Padding(
-                        padding: EdgeInsets.all(14),
-                        child: Text(
-                          'A / D  run      W  jump · climb a shaft      S  aim down\n'
-                          'Shift  jetpack      Space  dig      B  bomb      N  dynamite',
-                          style: MMText.footnote,
+                    const _Card(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.all(14),
+                          child: Text(
+                            'A / D  run      W  jump · climb a shaft      S  aim down\n'
+                            'Shift  jetpack      Space  dig      B  bomb      N  dynamite',
+                            style: MMText.footnote,
+                          ),
                         ),
-                      ),
-                    ]),
+                      ],
+                    ),
                   ],
                 ),
               ),

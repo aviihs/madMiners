@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 
+import '../../../../core/config/server_config.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/player_profile_model.dart';
 
@@ -23,10 +24,10 @@ class AuthRemoteDataSource {
     } catch (_) {}
   }
 
-  Future<bool> health(String baseUrl) async {
+  /// True when `GET /health` answers 200 within [timeout].
+  Future<bool> health(String baseUrl, {Duration timeout = ServerConfig.healthTimeout}) async {
     try {
-      final b = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
-      final res = await http.get(Uri.parse('$b/health')).timeout(const Duration(seconds: 3));
+      final res = await http.get(Uri.parse('${ServerConfig.trim(baseUrl)}/health')).timeout(timeout);
       return res.statusCode == 200;
     } catch (_) {
       return false;

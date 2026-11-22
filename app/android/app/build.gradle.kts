@@ -37,6 +37,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Plain http allowed for local dev servers; release turns it off below.
+        manifestPlaceholders["usesCleartextTraffic"] = "true"
     }
 
     // Upload key for Google Play, read from android/key.properties (never committed).
@@ -53,6 +55,8 @@ android {
 
     buildTypes {
         release {
+            // The live server is https only; plain http stays for local dev (debug/profile).
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
             // Falls back to the debug key only when no key.properties exists, so
             // `flutter run --release` still works on a fresh checkout.
             signingConfig = if (keystoreProperties.isNotEmpty()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")

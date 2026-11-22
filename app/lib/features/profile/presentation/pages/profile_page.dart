@@ -41,7 +41,13 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _signOut() async {
-    final yes = await showConfirm(context, title: 'Sign out?', message: 'You can sign back in any time.', confirm: 'Sign Out', destructive: true);
+    final yes = await showConfirm(
+      context,
+      title: 'Sign out?',
+      message: 'You can sign back in any time.',
+      confirm: 'Sign Out',
+      destructive: true,
+    );
     if (!yes || !mounted) return;
     Navigator.of(context).popUntil((r) => r.isFirst);
     await context.read<AuthCubit>().signOut();
@@ -106,7 +112,14 @@ class _ProfilePageState extends State<ProfilePage> {
                                   const SizedBox(width: 8),
                                   SizedBox(
                                     width: 86,
-                                    child: GameButton(label: 'Link', tone: ButtonTone.light, height: 42, fontSize: 15, loading: _linking, onPressed: _linkGoogle),
+                                    child: GameButton(
+                                      label: 'Link',
+                                      tone: ButtonTone.light,
+                                      height: 42,
+                                      fontSize: 15,
+                                      loading: _linking,
+                                      onPressed: _linkGoogle,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -124,7 +137,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           else if (st.loading)
                             const Padding(padding: EdgeInsets.only(top: 40), child: CupertinoActivityIndicator(radius: 13))
                           else if (st.error != null)
-                            Padding(padding: const EdgeInsets.only(top: 30), child: Text(st.error!, textAlign: TextAlign.center, style: MMText.callout))
+                            Padding(
+                              padding: const EdgeInsets.only(top: 30),
+                              child: Text(st.error!, textAlign: TextAlign.center, style: MMText.callout),
+                            )
                           else if (_tab == _Tab.matches)
                             _MatchList(items: st.matches)
                           else
@@ -168,7 +184,10 @@ class _Header extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     Pill('LEVEL ${p.level}', color: MMColors.gold),
-                    if (p.hasGoogle) const Pill('GOOGLE', color: MMColors.sky, icon: CupertinoIcons.checkmark_seal_fill) else const Pill('GUEST', color: MMColors.muted),
+                    if (p.hasGoogle)
+                      const Pill('GOOGLE', color: MMColors.sky, icon: CupertinoIcons.checkmark_seal_fill)
+                    else
+                      const Pill('GUEST', color: MMColors.muted),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -260,9 +279,23 @@ class _MatchList extends StatelessWidget {
             trailing: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Row(mainAxisSize: MainAxisSize.min, children: [const CoinIcon(size: 14), const SizedBox(width: 4), Text('+${m.coinsAwarded}', style: MMText.number.copyWith(fontSize: 15, color: MMColors.text))]),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CoinIcon(size: 14),
+                    const SizedBox(width: 4),
+                    Text('+${m.coinsAwarded}', style: MMText.number.copyWith(fontSize: 15, color: MMColors.text)),
+                  ],
+                ),
                 if (m.gemsAwarded > 0)
-                  Row(mainAxisSize: MainAxisSize.min, children: [const GemIcon(size: 13), const SizedBox(width: 4), Text('+${m.gemsAwarded}', style: MMText.number.copyWith(fontSize: 13, color: MMColors.gem))]),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const GemIcon(size: 13),
+                      const SizedBox(width: 4),
+                      Text('+${m.gemsAwarded}', style: MMText.number.copyWith(fontSize: 13, color: MMColors.gem)),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -392,7 +425,12 @@ class _BadgeTile extends StatelessWidget {
             Text(b.title, style: MMText.headline.copyWith(fontSize: 12), textAlign: TextAlign.center, maxLines: 2),
             const SizedBox(height: 4),
             if (b.done)
-              Text('${b.goal} ${b.unit}', style: MMText.caption.copyWith(fontSize: 10, color: b.color), maxLines: 1, overflow: TextOverflow.ellipsis)
+              Text(
+                '${b.goal} ${b.unit}',
+                style: MMText.caption.copyWith(fontSize: 10, color: b.color),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              )
             else ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(3),

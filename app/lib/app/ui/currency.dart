@@ -18,8 +18,11 @@ class _CoinPainter extends CustomPainter {
     final r = s.width / 2;
     final p = Paint()..color = MMColors.goldDeep;
     canvas.drawCircle(c + Offset(0, r * 0.1), r, p);
-    p.shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [MMColors.goldLight, MMColors.gold])
-        .createShader(Rect.fromCircle(center: c, radius: r));
+    p.shader = const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [MMColors.goldLight, MMColors.gold],
+    ).createShader(Rect.fromCircle(center: c, radius: r));
     canvas.drawCircle(c, r * 0.94, p);
     p
       ..shader = null
@@ -110,7 +113,10 @@ class CurrencyPill extends StatelessWidget {
         children: [
           if (kind == CurrencyKind.coins) CoinIcon(size: iconSize) else GemIcon(size: iconSize),
           SizedBox(width: large ? 7 : 5),
-          Text(formatAmount(amount), style: MMText.number.copyWith(fontSize: large ? 18 : 14, color: MMColors.text, letterSpacing: 0.4)),
+          Text(
+            formatAmount(amount),
+            style: MMText.number.copyWith(fontSize: large ? 18 : 14, color: MMColors.text, letterSpacing: 0.4),
+          ),
         ],
       ),
     );

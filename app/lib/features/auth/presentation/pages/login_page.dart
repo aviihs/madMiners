@@ -10,6 +10,7 @@ import '../../../../app/di.dart';
 import '../../../../app/theme.dart';
 import '../../../../app/ui/ui.dart';
 import '../../../../core/config/google_config.dart';
+import '../../../../core/config/server_config.dart';
 import '../../../store/presentation/widgets/avatar_preview.dart';
 import '../../domain/usecases/auth_usecases.dart';
 import '../cubit/auth_cubit.dart';
@@ -36,12 +37,19 @@ class _LoginPageState extends State<LoginPage> {
   String? _nameError;
   Timer? _debounce;
 
+  /// The free server sleeps when idle; after a few seconds of "checking"
+  /// tell the player it's waking up instead of leaving them guessing.
+  bool _slow = false;
+  Timer? _slowTimer;
+
+  static const _dev = ServerConfig.canChangeServer;
+
   static final _validName = RegExp(r'^[A-Za-z0-9_ .\-]{3,16}$');
 
   @override
   void initState() {
     super.initState();
-    _probe(autoFind: true);
+    _probe(autoFind: _dev);
     _server.addListener(() {
       _debounce?.cancel();
       _debounce = Timer(const Duration(milliseconds: 600), _probe);
@@ -63,6 +71,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _slowTimer?.cancel();
     _name.dispose();
     _server.dispose();
     super.dispose();
@@ -70,34 +79,46 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _probe({bool autoFind = false}) async {
     final url = _server.text;
-    if (_status != _ServerStatus.checking) setState(() => _status = _ServerStatus.checking);
+    _checking();
     final ok = await _checkServer(url);
     if (!mounted || url != _server.text) return;
-    setState(() => _status = ok ? _ServerStatus.online : _ServerStatus.offline);
+    _settled(ok ? _ServerStatus.online : _ServerStatus.offline);
     if (!ok && autoFind) await _autoFind();
+  }
+
+  void _checking() {
+    _slowTimer?.cancel();
+    _slowTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && _status == _ServerStatus.checking) setState(() => _slow = true);
+    });
+    setState(() {
+      _status = _ServerStatus.checking;
+      _slow = false;
+    });
+  }
+
+  void _settled(_ServerStatus status) {
+    _slowTimer?.cancel();
+    setState(() {
+      _status = status;
+      _slow = false;
+    });
   }
 
   /// Looks for the server on localhost, the emulator host and the Wi-Fi.
   Future<void> _autoFind() async {
     if (_searching) return;
-    setState(() {
-      _searching = true;
-      _status = _ServerStatus.checking;
-    });
+    setState(() => _searching = true);
+    _checking();
     final found = await _findServer(_server.text);
     if (!mounted) return;
     setState(() => _searching = false);
-    if (found == null) {
-      setState(() => _status = _ServerStatus.offline);
-      return;
-    }
+    if (found == null) return _settled(_ServerStatus.offline);
     final changed = found != _server.text;
     _server.text = found;
     _debounce?.cancel();
-    setState(() {
-      _status = _ServerStatus.online;
-      _editServer = false;
-    });
+    _settled(_ServerStatus.online);
+    setState(() => _editServer = false);
     if (changed) showToast(context, 'Connected to ${found.replaceFirst('http://', '')}');
   }
 
@@ -214,7 +235,46 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _serverRow() {
+  Widget _serverRow() => _dev ? _devServerRow() : _statusRow();
+
+  /// Players: just the connection state, and a retry when it's down.
+  Widget _statusRow() {
+    final (color, label) = switch (_status) {
+      _ServerStatus.checking => (MMColors.muted, _slow ? 'Waking up the server…' : 'Connecting…'),
+      _ServerStatus.online => (MMColors.leaf, 'Servers online'),
+      _ServerStatus.offline => (MMColors.lava, 'Can\'t reach the server'),
+    };
+    return GlassCard(
+      radius: 16,
+      padding: EdgeInsets.fromLTRB(14, 6, 6, 6),
+      child: SizedBox(
+        height: 38,
+        child: Row(
+          children: [
+            _Dot(color: color, pulse: _status == _ServerStatus.checking),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: MMText.caption.copyWith(color: color == MMColors.muted ? MMColors.muted : color),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (_status == _ServerStatus.checking)
+              const Padding(padding: EdgeInsets.only(right: 10), child: CupertinoActivityIndicator(radius: 8)),
+            if (_status == _ServerStatus.offline)
+              SizedBox(
+                width: 96,
+                child: GameButton(label: 'Retry', tone: ButtonTone.dark, height: 34, fontSize: 14, onPressed: _probe),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Developer builds: see and change which server the app talks to.
+  Widget _devServerRow() {
     final (color, label) = switch (_status) {
       _ServerStatus.checking => (MMColors.muted, _searching ? 'Searching' : 'Checking'),
       _ServerStatus.online => (MMColors.leaf, 'Online'),
@@ -264,7 +324,7 @@ class _LoginPageState extends State<LoginPage> {
               padding: const EdgeInsets.fromLTRB(0, 2, 8, 10),
               child: Row(
                 children: [
-                  const Expanded(child: Text('Start the server on your computer and stay on the same Wi-Fi.', style: MMText.caption)),
+                  const Expanded(child: Text('Dev build: start the local server, or point to the live one.', style: MMText.caption)),
                   const SizedBox(width: 8),
                   SizedBox(
                     width: 110,

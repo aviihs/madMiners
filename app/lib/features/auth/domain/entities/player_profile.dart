@@ -51,5 +51,23 @@ class PlayerProfile extends Equatable {
   bool owns(CosmeticDef c) => c.isFree || owned.contains(c.id);
 
   @override
-  List<Object?> get props => [id, username, level, xp, totalCoins, wallet, gems, gamesPlayed, wins, bestScore, bestDepth, oresMined, todayWins, owned, look, providers, email];
+  List<Object?> get props => [
+    id,
+    username,
+    level,
+    xp,
+    totalCoins,
+    wallet,
+    gems,
+    gamesPlayed,
+    wins,
+    bestScore,
+    bestDepth,
+    oresMined,
+    todayWins,
+    owned,
+    look,
+    providers,
+    email,
+  ];
 }

@@ -55,16 +55,7 @@ class _AvatarPainter extends CustomPainter {
     canvas.translate(size.width / 2, size.height * 0.62);
     canvas.scale(scale);
     final swinging = t > 0.55 && t < 0.85;
-    MinerArt.draw(
-      canvas,
-      look: look,
-      seed: seed,
-      mining: swinging,
-      swing: (t - 0.55) * 40,
-      aim: 0,
-      walk: t * pi * 2,
-      time: t * 9,
-    );
+    MinerArt.draw(canvas, look: look, seed: seed, mining: swinging, swing: (t - 0.55) * 40, aim: 0, walk: t * pi * 2, time: t * 9);
     canvas.restore();
   }
 

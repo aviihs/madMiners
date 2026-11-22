@@ -20,8 +20,7 @@ class GamePage extends StatefulWidget {
   const GamePage({super.key, required this.target});
   final GameTarget target;
 
-  static Route<bool> route(GameTarget target) =>
-      CupertinoPageRoute<bool>(builder: (_) => GamePage(target: target), fullscreenDialog: true);
+  static Route<bool> route(GameTarget target) => CupertinoPageRoute<bool>(builder: (_) => GamePage(target: target), fullscreenDialog: true);
 
   @override
   State<GamePage> createState() => _GamePageState();
@@ -71,7 +70,9 @@ class _GamePageState extends State<GamePage> {
             children: [
               Positioned.fill(child: GameWidget(game: _game, autofocus: true)),
               if (result == null)
-                Positioned.fill(child: HudOverlay(controller: _controller, onExit: _confirmExit))
+                Positioned.fill(
+                  child: HudOverlay(controller: _controller, onExit: _confirmExit),
+                )
               else
                 Positioned.fill(
                   child: ResultsView(

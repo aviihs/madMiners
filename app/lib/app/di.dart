@@ -76,9 +76,7 @@ Future<void> configureDependencies() async {
     ..registerFactory(() => JoinRoom(sl()))
     ..registerFactory(() => JoinRoomByCode(sl()))
     ..registerFactory(() => QuickPlay(sl()))
-    ..registerFactory(
-      () => LobbyCubit(listRooms: sl(), createRoom: sl(), joinRoom: sl(), joinByCode: sl(), quickPlay: sl()),
-    )
+    ..registerFactory(() => LobbyCubit(listRooms: sl(), createRoom: sl(), joinRoom: sl(), joinByCode: sl(), quickPlay: sl()))
     // Leaderboard
     ..registerLazySingleton(() => LeaderboardRemoteDataSource(sl()))
     ..registerLazySingleton<LeaderboardRepository>(() => LeaderboardRepositoryImpl(sl()))

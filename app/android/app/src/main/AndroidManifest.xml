@@ -27,7 +27,7 @@
         android:glEsVersion="0x00020000"
         android:required="true"/>
     <application
-        android:usesCleartextTraffic="true"
+        android:usesCleartextTraffic="${usesCleartextTraffic}"
         android:label="Mad Miners"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

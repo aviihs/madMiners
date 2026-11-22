@@ -49,11 +49,18 @@ class LeaderboardPage extends StatelessWidget {
                       if (s.loading)
                         const Padding(padding: EdgeInsets.only(top: 80), child: CupertinoActivityIndicator(radius: 14))
                       else if (s.error != null)
-                        Padding(padding: const EdgeInsets.only(top: 80), child: Text(s.error!, textAlign: TextAlign.center, style: MMText.callout))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 80),
+                          child: Text(s.error!, textAlign: TextAlign.center, style: MMText.callout),
+                        )
                       else if (s.entries.isEmpty)
                         const Padding(
                           padding: EdgeInsets.only(top: 80),
-                          child: Text('Nobody has found a treasure yet today.\nBe the first — win a match to take #1!', textAlign: TextAlign.center, style: MMText.callout),
+                          child: Text(
+                            'Nobody has found a treasure yet today.\nBe the first — win a match to take #1!',
+                            textAlign: TextAlign.center,
+                            style: MMText.callout,
+                          ),
                         )
                       else ...[
                         _Podium(entries: s.entries.take(3).toList(), youId: youId, today: s.board == Board.today),
@@ -117,11 +124,20 @@ class _Podium extends StatelessWidget {
                         : AvatarPreview(look: e.look!, seed: e.playerId, size: e.rank == 1 ? 76 : 60, animate: e.rank == 1),
                   ),
                   const SizedBox(height: 8),
-                  Text(e.username, style: MMText.headline.copyWith(fontSize: 15, color: e.playerId == youId ? MMColors.amber : null), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(
+                    e.username,
+                    style: MMText.headline.copyWith(fontSize: 15, color: e.playerId == youId ? MMColors.amber : null),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   Text(today ? '${e.todayWins} wins today' : '${e.totalCoins} coins', style: MMText.caption),
                   const SizedBox(height: 8),
                   Container(
-                    height: switch (e.rank) { 1 => 54.0, 2 => 38.0, _ => 26.0 },
+                    height: switch (e.rank) {
+                      1 => 54.0,
+                      2 => 38.0,
+                      _ => 26.0,
+                    },
                     margin: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),

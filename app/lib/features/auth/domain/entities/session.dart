@@ -6,10 +6,7 @@ import 'player_profile.dart';
 class Session extends Equatable {
   const Session({required this.profile, this.token, this.serverUrl});
 
-  Session.offline(String name)
-    : profile = PlayerProfile(id: 'local-player', username: name),
-      token = null,
-      serverUrl = null;
+  Session.offline(String name) : profile = PlayerProfile(id: 'local-player', username: name), token = null, serverUrl = null;
 
   final PlayerProfile profile;
   final String? token;
@@ -17,8 +14,7 @@ class Session extends Equatable {
 
   bool get isOnline => token != null;
 
-  Session copyWith({PlayerProfile? profile}) =>
-      Session(profile: profile ?? this.profile, token: token, serverUrl: serverUrl);
+  Session copyWith({PlayerProfile? profile}) => Session(profile: profile ?? this.profile, token: token, serverUrl: serverUrl);
 
   @override
   List<Object?> get props => [profile, token, serverUrl];

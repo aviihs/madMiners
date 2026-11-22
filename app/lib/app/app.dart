@@ -35,8 +35,20 @@ class MadMinersApp extends StatelessWidget {
     home: BlocBuilder<AuthCubit, AuthState>(
       buildWhen: (a, b) => a.runtimeType != b.runtimeType || b is AuthSignedOut || b is AuthSignedIn,
       builder: (context, state) => switch (state) {
+        // Only seen when the server is slow to wake up after the loading screen.
         AuthRestoring() => const Scaffold(
-          body: AppBackground(child: Center(child: CupertinoActivityIndicator(radius: 14))),
+          body: AppBackground(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CupertinoActivityIndicator(radius: 14),
+                  SizedBox(height: 14),
+                  Text('Connecting to the mine…', style: MMText.callout),
+                ],
+              ),
+            ),
+          ),
         ),
         AuthSignedOut() => LoginPage(key: const ValueKey('login'), state: state),
         AuthSignedIn(:final session) => LobbyPage(key: ValueKey(session.profile.id), session: session),

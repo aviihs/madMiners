@@ -42,31 +42,13 @@ class _CavePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final p = Paint();
     // Glows.
-    p.shader =
-        RadialGradient(
-          colors: [
-            MMColors.gold.withValues(alpha: 0.16),
-            MMColors.gold.withValues(alpha: 0),
-          ],
-        ).createShader(
-          Rect.fromCircle(
-            center: Offset(size.width * 0.15, size.height * 0.08),
-            radius: size.width * 0.8,
-          ),
-        );
+    p.shader = RadialGradient(
+      colors: [MMColors.gold.withValues(alpha: 0.16), MMColors.gold.withValues(alpha: 0)],
+    ).createShader(Rect.fromCircle(center: Offset(size.width * 0.15, size.height * 0.08), radius: size.width * 0.8));
     canvas.drawRect(Offset.zero & size, p);
-    p.shader =
-        RadialGradient(
-          colors: [
-            MMColors.violet.withValues(alpha: 0.18),
-            MMColors.violet.withValues(alpha: 0),
-          ],
-        ).createShader(
-          Rect.fromCircle(
-            center: Offset(size.width * 1.0, size.height * 0.55),
-            radius: size.width * 0.75,
-          ),
-        );
+    p.shader = RadialGradient(
+      colors: [MMColors.violet.withValues(alpha: 0.18), MMColors.violet.withValues(alpha: 0)],
+    ).createShader(Rect.fromCircle(center: Offset(size.width * 1.0, size.height * 0.55), radius: size.width * 0.75));
     canvas.drawRect(Offset.zero & size, p);
     p.shader = null;
 
@@ -87,14 +69,8 @@ class _CavePainter extends CustomPainter {
     // Dust.
     for (var i = 0; i < 70; i++) {
       final gold = i % 5 == 0;
-      p.color = gold
-          ? MMColors.gold.withValues(alpha: 0.35)
-          : const Color(0x14FFFFFF);
-      canvas.drawCircle(
-        Offset(rng.nextDouble() * size.width, rng.nextDouble() * size.height),
-        gold ? 1.4 : 1 + rng.nextDouble(),
-        p,
-      );
+      p.color = gold ? MMColors.gold.withValues(alpha: 0.35) : const Color(0x14FFFFFF);
+      canvas.drawCircle(Offset(rng.nextDouble() * size.width, rng.nextDouble() * size.height), gold ? 1.4 : 1 + rng.nextDouble(), p);
     }
   }
 
@@ -137,15 +113,7 @@ class GlassCard extends StatelessWidget {
         gradient: color == null ? (gradient ?? MMColors.cardGradient) : null,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: borderColor ?? MMColors.hairline, width: 1),
-        boxShadow: translucent
-            ? null
-            : const [
-                BoxShadow(
-                  color: Color(0x59000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 8),
-                ),
-              ],
+        boxShadow: translucent ? null : const [BoxShadow(color: Color(0x59000000), blurRadius: 18, offset: Offset(0, 8))],
       ),
       child: Padding(padding: padding, child: child),
     );
@@ -155,10 +123,7 @@ class GlassCard extends StatelessWidget {
     if (translucent && GlassScope.blurOf(context)) {
       card = ClipRRect(
         borderRadius: BorderRadius.circular(radius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: card,
-        ),
+        child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14), child: card),
       );
     }
     return onTap == null ? card : PressableScale(onTap: onTap!, child: card);
@@ -173,8 +138,7 @@ class GlassScope extends InheritedWidget {
   /// App-wide default (set from the graphics setting).
   static bool defaultBlur = true;
 
-  static bool blurOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<GlassScope>()?.blur ?? defaultBlur;
+  static bool blurOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<GlassScope>()?.blur ?? defaultBlur;
 
   @override
   bool updateShouldNotify(GlassScope old) => old.blur != blur;
@@ -200,12 +164,7 @@ class _PressableScaleState extends State<PressableScale> {
     onTapCancel: () => setState(() => _down = false),
     onTapUp: (_) => setState(() => _down = false),
     onTap: widget.onTap,
-    child: AnimatedScale(
-      scale: _down ? 0.97 : 1,
-      duration: const Duration(milliseconds: 110),
-      curve: Curves.easeOut,
-      child: widget.child,
-    ),
+    child: AnimatedScale(scale: _down ? 0.97 : 1, duration: const Duration(milliseconds: 110), curve: Curves.easeOut, child: widget.child),
   );
 }
 
@@ -246,31 +205,11 @@ class _GameButtonState extends State<GameButton> {
   bool _down = false;
 
   (List<Color>, Color, Color) get _colors => switch (widget.tone) {
-    ButtonTone.gold => (
-      const [MMColors.goldLight, MMColors.gold],
-      MMColors.goldDeep,
-      MMColors.onGold,
-    ),
-    ButtonTone.dark => (
-      const [Color(0xFF3A2F5C), Color(0xFF2B2246)],
-      const Color(0xFF15102A),
-      MMColors.text,
-    ),
-    ButtonTone.gem => (
-      const [Color(0xFF6FF2DF), MMColors.gem],
-      MMColors.gemDeep,
-      const Color(0xFF053B34),
-    ),
-    ButtonTone.lava => (
-      const [Color(0xFFFF8A63), MMColors.lava],
-      const Color(0xFFB23A12),
-      CupertinoColors.white,
-    ),
-    ButtonTone.light => (
-      const [CupertinoColors.white, Color(0xFFECE8F5)],
-      const Color(0xFFB9B2CF),
-      const Color(0xFF1F1A2E),
-    ),
+    ButtonTone.gold => (const [MMColors.goldLight, MMColors.gold], MMColors.goldDeep, MMColors.onGold),
+    ButtonTone.dark => (const [Color(0xFF3A2F5C), Color(0xFF2B2246)], const Color(0xFF15102A), MMColors.text),
+    ButtonTone.gem => (const [Color(0xFF6FF2DF), MMColors.gem], MMColors.gemDeep, const Color(0xFF053B34)),
+    ButtonTone.lava => (const [Color(0xFFFF8A63), MMColors.lava], const Color(0xFFB23A12), CupertinoColors.white),
+    ButtonTone.light => (const [CupertinoColors.white, Color(0xFFECE8F5)], const Color(0xFFB9B2CF), const Color(0xFF1F1A2E)),
   };
 
   @override
@@ -299,10 +238,7 @@ class _GameButtonState extends State<GameButton> {
               Positioned.fill(
                 top: lipH,
                 child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: lip,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  decoration: BoxDecoration(color: lip, borderRadius: BorderRadius.circular(16)),
                 ),
               ),
               AnimatedPositioned(
@@ -313,16 +249,9 @@ class _GameButtonState extends State<GameButton> {
                 bottom: pressed ? 0 : lipH,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: faces,
-                    ),
+                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: faces),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: const Color(0x33FFFFFF),
-                      width: 1,
-                    ),
+                    border: Border.all(color: const Color(0x33FFFFFF), width: 1),
                   ),
                   child: Center(
                     child: widget.loading
@@ -332,16 +261,9 @@ class _GameButtonState extends State<GameButton> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (widget.leading != null) ...[
-                                  widget.leading!,
-                                  const SizedBox(width: 10),
-                                ],
+                                if (widget.leading != null) ...[widget.leading!, const SizedBox(width: 10)],
                                 if (widget.icon != null) ...[
-                                  Icon(
-                                    widget.icon,
-                                    size: widget.fontSize + 1,
-                                    color: ink,
-                                  ),
+                                  Icon(widget.icon, size: widget.fontSize + 1, color: ink),
                                   const SizedBox(width: 8),
                                 ],
                                 Flexible(
@@ -350,10 +272,7 @@ class _GameButtonState extends State<GameButton> {
                                     child: Text(
                                       widget.label.toUpperCase(),
                                       maxLines: 1,
-                                      style: MMText.button.copyWith(
-                                        color: ink,
-                                        fontSize: widget.fontSize,
-                                      ),
+                                      style: MMText.button.copyWith(color: ink, fontSize: widget.fontSize),
                                     ),
                                   ),
                                 ),
@@ -373,59 +292,30 @@ class _GameButtonState extends State<GameButton> {
 
 /// Back-compat names.
 class PrimaryButton extends StatelessWidget {
-  const PrimaryButton({
-    super.key,
-    required this.label,
-    this.onPressed,
-    this.icon,
-    this.loading = false,
-  });
+  const PrimaryButton({super.key, required this.label, this.onPressed, this.icon, this.loading = false});
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
   final bool loading;
 
   @override
-  Widget build(BuildContext context) => GameButton(
-    label: label,
-    onPressed: onPressed,
-    icon: icon,
-    loading: loading,
-  );
+  Widget build(BuildContext context) => GameButton(label: label, onPressed: onPressed, icon: icon, loading: loading);
 }
 
 class SecondaryButton extends StatelessWidget {
-  const SecondaryButton({
-    super.key,
-    required this.label,
-    this.onPressed,
-    this.icon,
-  });
+  const SecondaryButton({super.key, required this.label, this.onPressed, this.icon});
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
 
   @override
-  Widget build(BuildContext context) => GameButton(
-    label: label,
-    onPressed: onPressed,
-    icon: icon,
-    tone: ButtonTone.dark,
-    height: 52,
-    fontSize: 17,
-  );
+  Widget build(BuildContext context) =>
+      GameButton(label: label, onPressed: onPressed, icon: icon, tone: ButtonTone.dark, height: 52, fontSize: 17);
 }
 
 /// Small round icon button for nav bars and HUD.
 class RoundIconButton extends StatelessWidget {
-  const RoundIconButton({
-    super.key,
-    required this.icon,
-    required this.onTap,
-    this.size = 40,
-    this.color = MMColors.text,
-    this.badge,
-  });
+  const RoundIconButton({super.key, required this.icon, required this.onTap, this.size = 40, this.color = MMColors.text, this.badge});
   final IconData icon;
   final VoidCallback onTap;
   final double size;
@@ -547,15 +437,7 @@ class GroupedList extends StatelessWidget {
 }
 
 class ListRow extends StatelessWidget {
-  const ListRow({
-    super.key,
-    required this.leading,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-    this.onTap,
-    this.highlight = false,
-  });
+  const ListRow({super.key, required this.leading, required this.title, this.subtitle, this.trailing, this.onTap, this.highlight = false});
   final Widget leading;
   final String title;
   final String? subtitle;
@@ -578,33 +460,19 @@ class ListRow extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: MMText.headline.copyWith(
-                    color: highlight ? MMColors.gold : null,
-                  ),
+                  style: MMText.headline.copyWith(color: highlight ? MMColors.gold : null),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    style: MMText.footnote,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(subtitle!, style: MMText.footnote, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               ],
             ),
           ),
           ?trailing,
-          if (onTap != null) ...[
-            const SizedBox(width: 6),
-            const Icon(
-              CupertinoIcons.chevron_forward,
-              size: 16,
-              color: MMColors.faint,
-            ),
-          ],
+          if (onTap != null) ...[const SizedBox(width: 6), const Icon(CupertinoIcons.chevron_forward, size: 16, color: MMColors.faint)],
         ],
       ),
     );
@@ -614,12 +482,7 @@ class ListRow extends StatelessWidget {
 
 /// Rounded-square icon with a tinted fill.
 class IconTile extends StatelessWidget {
-  const IconTile(
-    this.icon, {
-    super.key,
-    this.color = MMColors.gold,
-    this.size = 36,
-  });
+  const IconTile(this.icon, {super.key, this.color = MMColors.gold, this.size = 36});
   final IconData icon;
   final Color color;
   final double size;
@@ -643,13 +506,7 @@ class IconTile extends StatelessWidget {
 
 /// Small status chip.
 class Pill extends StatelessWidget {
-  const Pill(
-    this.text, {
-    super.key,
-    this.color = MMColors.muted,
-    this.icon,
-    this.leading,
-  });
+  const Pill(this.text, {super.key, this.color = MMColors.muted, this.icon, this.leading});
   final String text;
   final Color color;
   final IconData? icon;
@@ -667,19 +524,10 @@ class Pill extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (leading != null) ...[leading!, const SizedBox(width: 5)],
-        if (icon != null) ...[
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
-        ],
+        if (icon != null) ...[Icon(icon, size: 12, color: color), const SizedBox(width: 4)],
         Text(
           text,
-          style: TextStyle(
-            fontFamily: MMFonts.body,
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: color,
-            letterSpacing: 0.3,
-          ),
+          style: TextStyle(fontFamily: MMFonts.body, fontSize: 12, fontWeight: FontWeight.w800, color: color, letterSpacing: 0.3),
         ),
       ],
     ),
@@ -702,9 +550,7 @@ class Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = color ?? colorFor(name);
     final letters = name.replaceAll(RegExp('[^A-Za-z]'), '');
-    final initials = letters.isEmpty
-        ? '?'
-        : letters.substring(0, min(2, letters.length)).toUpperCase();
+    final initials = letters.isEmpty ? '?' : letters.substring(0, min(2, letters.length)).toUpperCase();
     return Container(
       width: size,
       height: size,
@@ -719,11 +565,7 @@ class Avatar extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         initials,
-        style: TextStyle(
-          fontFamily: MMFonts.display,
-          fontSize: size * 0.4,
-          color: CupertinoColors.white,
-        ),
+        style: TextStyle(fontFamily: MMFonts.display, fontSize: size * 0.4, color: CupertinoColors.white),
       ),
     );
   }
@@ -747,30 +589,17 @@ class AppLogo extends StatelessWidget {
       borderRadius: BorderRadius.circular(size * 0.28),
       border: Border.all(color: const Color(0x66FFFFFF), width: 2),
       boxShadow: [
-        BoxShadow(
-          color: MMColors.gold.withValues(alpha: 0.45),
-          blurRadius: 36,
-          offset: const Offset(0, 12),
-        ),
+        BoxShadow(color: MMColors.gold.withValues(alpha: 0.45), blurRadius: 36, offset: const Offset(0, 12)),
         const BoxShadow(color: MMColors.goldDeep, offset: Offset(0, 6)),
       ],
     ),
-    child: Icon(
-      Icons.hardware_rounded,
-      size: size * 0.56,
-      color: MMColors.onGold,
-    ),
+    child: Icon(Icons.hardware_rounded, size: size * 0.56, color: MMColors.onGold),
   );
 }
 
 /// Segmented control styled for the app.
 class AppSegmented<T extends Object> extends StatelessWidget {
-  const AppSegmented({
-    super.key,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
+  const AppSegmented({super.key, required this.value, required this.items, required this.onChanged});
   final T value;
   final Map<T, String> items;
   final ValueChanged<T> onChanged;
@@ -806,53 +635,40 @@ class AppSegmented<T extends Object> extends StatelessWidget {
 // Overlays
 // ---------------------------------------------------------------------------
 
-Future<T?> showAppSheet<T>(BuildContext context, WidgetBuilder builder) =>
-    showCupertinoModalPopup<T>(
-      context: context,
-      builder: (ctx) => Material(
-        type: MaterialType.transparency,
-        child: Container(
-          width: double.infinity,
-          // Landscape: a centred sheet, not a strip across the whole screen.
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(ctx).height * 0.92,
-            maxWidth: 620,
-          ),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF2A2145), MMColors.surface],
-            ),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-            border: Border(top: BorderSide(color: MMColors.hairline)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.viewInsetsOf(ctx).bottom,
+Future<T?> showAppSheet<T>(BuildContext context, WidgetBuilder builder) => showCupertinoModalPopup<T>(
+  context: context,
+  builder: (ctx) => Material(
+    type: MaterialType.transparency,
+    child: Container(
+      width: double.infinity,
+      // Landscape: a centred sheet, not a strip across the whole screen.
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.92, maxWidth: 620),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF2A2145), MMColors.surface]),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: MMColors.hairline)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(color: MMColors.faint, borderRadius: BorderRadius.circular(3)),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 10),
-                  Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: MMColors.faint,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  Flexible(child: builder(ctx)),
-                ],
-              ),
-            ),
+              Flexible(child: builder(ctx)),
+            ],
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
 
 Future<bool> showConfirm(
   BuildContext context, {
@@ -865,29 +681,16 @@ Future<bool> showConfirm(
     context: context,
     barrierDismissible: true,
     builder: (ctx) => CupertinoAlertDialog(
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontFamily: MMFonts.display,
-          fontSize: 20,
-          letterSpacing: 0.3,
-        ),
-      ),
+      title: Text(title, style: const TextStyle(fontFamily: MMFonts.display, fontSize: 20, letterSpacing: 0.3)),
       content: Padding(
         padding: const EdgeInsets.only(top: 6),
         child: Text(
           message,
-          style: const TextStyle(
-            fontFamily: MMFonts.body,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(fontFamily: MMFonts.body, fontWeight: FontWeight.w600),
         ),
       ),
       actions: [
-        CupertinoDialogAction(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Cancel'),
-        ),
+        CupertinoDialogAction(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
         CupertinoDialogAction(
           isDestructiveAction: destructive,
           isDefaultAction: !destructive,
@@ -906,12 +709,10 @@ void showToast(BuildContext context, String message, {bool error = false}) {
   if (overlay == null) return;
   late OverlayEntry entry;
   entry = OverlayEntry(
-    builder: (_) =>
-        _Toast(message: message, error: error, onDone: () => entry.remove()),
+    builder: (_) => _Toast(message: message, error: error, onDone: () => entry.remove()),
   );
   final phase = SchedulerBinding.instance.schedulerPhase;
-  if (phase == SchedulerPhase.idle ||
-      phase == SchedulerPhase.postFrameCallbacks) {
+  if (phase == SchedulerPhase.idle || phase == SchedulerPhase.postFrameCallbacks) {
     overlay.insert(entry);
   } else {
     SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -921,11 +722,7 @@ void showToast(BuildContext context, String message, {bool error = false}) {
 }
 
 class _Toast extends StatefulWidget {
-  const _Toast({
-    required this.message,
-    required this.error,
-    required this.onDone,
-  });
+  const _Toast({required this.message, required this.error, required this.onDone});
   final String message;
   final bool error;
   final VoidCallback onDone;
@@ -935,10 +732,7 @@ class _Toast extends StatefulWidget {
 }
 
 class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
-  late final _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 280),
-  );
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
 
   @override
   void initState() {
@@ -965,10 +759,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
       left: 16,
       right: 16,
       child: SlideTransition(
-        position: Tween(
-          begin: const Offset(0, -1.4),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutBack)),
+        position: Tween(begin: const Offset(0, -1.4), end: Offset.zero).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutBack)),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
@@ -977,43 +768,20 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: MMColors.surfaceHi,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: accent.withValues(alpha: 0.5),
-                  width: 1.2,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x80000000),
-                    blurRadius: 20,
-                    offset: Offset(0, 8),
-                  ),
-                ],
+                border: Border.all(color: accent.withValues(alpha: 0.5), width: 1.2),
+                boxShadow: const [BoxShadow(color: Color(0x80000000), blurRadius: 20, offset: Offset(0, 8))],
               ),
               child: Row(
                 children: [
                   Container(
                     width: 28,
                     height: 28,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.18),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      widget.error
-                          ? CupertinoIcons.exclamationmark
-                          : CupertinoIcons.checkmark_alt,
-                      color: accent,
-                      size: 16,
-                    ),
+                    decoration: BoxDecoration(color: accent.withValues(alpha: 0.18), shape: BoxShape.circle),
+                    child: Icon(widget.error ? CupertinoIcons.exclamationmark : CupertinoIcons.checkmark_alt, color: accent, size: 16),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      widget.message,
-                      style: MMText.body.copyWith(
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
+                    child: Text(widget.message, style: MMText.body.copyWith(decoration: TextDecoration.none)),
                   ),
                 ],
               ),

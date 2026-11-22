@@ -15,11 +15,8 @@ abstract final class RoomMapper {
     timeLeft: (j['timeLeft'] as num?)?.toInt() ?? 0,
   );
 
-  static RoomTicket ticket(Map<String, dynamic> j) => RoomTicket(
-    roomId: j['roomId'] as String,
-    roomCode: j['roomCode'] as String,
-    wsPath: j['wsPath'] as String,
-  );
+  static RoomTicket ticket(Map<String, dynamic> j) =>
+      RoomTicket(roomId: j['roomId'] as String, roomCode: j['roomCode'] as String, wsPath: j['wsPath'] as String);
 
   static Map<String, dynamic> createBody(CreateRoomParams p) => {
     'mapId': p.mapId.name,

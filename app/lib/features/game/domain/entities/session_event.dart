@@ -7,13 +7,7 @@ sealed class SessionEvent {
 }
 
 class SessionJoined extends SessionEvent {
-  const SessionJoined({
-    required this.youId,
-    required this.roomCode,
-    required this.settings,
-    required this.map,
-    required this.reconnected,
-  });
+  const SessionJoined({required this.youId, required this.roomCode, required this.settings, required this.map, required this.reconnected});
   final String youId;
   final String roomCode;
   final MatchSettings settings;

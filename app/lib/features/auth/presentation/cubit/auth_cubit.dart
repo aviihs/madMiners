@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/error/failures.dart';
 import '../../../../core/error/result.dart';
 import '../../domain/entities/player_profile.dart';
 import '../../domain/entities/session.dart';
@@ -57,30 +58,27 @@ class AuthCubit extends Cubit<AuthState> {
   final AuthRepository _repo;
 
   Future<void> start() async {
-    final result = await _restore();
+    var result = await _restore();
+    // A sleeping server can take a while to answer the first request. Try
+    // again before giving up, so a saved player isn't sent to the login
+    // screen (where a new guest account would lose their progress).
+    for (var i = 0; i < 2 && result is Err<Session> && result.failure is NetworkFailure; i++) {
+      result = await _restore();
+    }
     if (result == null) return emit(AuthSignedOut(serverUrl: _repo.lastServerUrl));
-    result.fold(
-      (f) => emit(AuthSignedOut(serverUrl: _repo.lastServerUrl, error: f.message)),
-      (s) => emit(AuthSignedIn(s)),
-    );
+    result.fold((f) => emit(AuthSignedOut(serverUrl: _repo.lastServerUrl, error: f.message)), (s) => emit(AuthSignedIn(s)));
   }
 
   Future<void> signInAsGuest(String username, String serverUrl) async {
     emit(AuthSignedOut(serverUrl: serverUrl, busy: true));
     final result = await _signIn(username: username, serverUrl: serverUrl);
-    result.fold(
-      (f) => emit(AuthSignedOut(serverUrl: serverUrl, error: f.message)),
-      (s) => emit(AuthSignedIn(s)),
-    );
+    result.fold((f) => emit(AuthSignedOut(serverUrl: serverUrl, error: f.message)), (s) => emit(AuthSignedIn(s)));
   }
 
   Future<void> signInWithGoogle(String serverUrl) async {
     emit(AuthSignedOut(serverUrl: serverUrl, busy: true));
     final r = await _google(serverUrl: serverUrl);
-    r.fold(
-      (f) => emit(AuthSignedOut(serverUrl: serverUrl, error: f.code == 'CANCELLED' ? null : f.message)),
-      (s) => emit(AuthSignedIn(s)),
-    );
+    r.fold((f) => emit(AuthSignedOut(serverUrl: serverUrl, error: f.code == 'CANCELLED' ? null : f.message)), (s) => emit(AuthSignedIn(s)));
   }
 
   /// Attaches Google to the current guest account. Returns an error message.

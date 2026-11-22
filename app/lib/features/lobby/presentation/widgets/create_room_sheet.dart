@@ -49,14 +49,13 @@ class _CreateRoomSheetState extends State<CreateRoomSheet> {
             items: {for (final m in GameMode.values) m: m.label},
             onChanged: (v) => setState(() => _mode = v),
           ),
-          Padding(padding: const EdgeInsets.fromLTRB(4, 8, 4, 0), child: Text(_mode.description, style: MMText.caption)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+            child: Text(_mode.description, style: MMText.caption),
+          ),
           if (!widget.offline) ...[
             const SectionHeader('Players'),
-            AppSegmented<int>(
-              value: _max,
-              items: {for (var n = 8; n <= 12; n++) n: '$n'},
-              onChanged: (v) => setState(() => _max = v),
-            ),
+            AppSegmented<int>(value: _max, items: {for (var n = 8; n <= 12; n++) n: '$n'}, onChanged: (v) => setState(() => _max = v)),
             const SizedBox(height: 16),
             GroupedList(
               children: [
@@ -64,7 +63,11 @@ class _CreateRoomSheetState extends State<CreateRoomSheet> {
                   leading: const IconTile(CupertinoIcons.lock_fill, color: MMColors.blue, size: 30),
                   title: 'Private room',
                   subtitle: 'Only people with the code can join',
-                  trailing: CupertinoSwitch(value: _private, activeTrackColor: MMColors.gold, onChanged: (v) => setState(() => _private = v)),
+                  trailing: CupertinoSwitch(
+                    value: _private,
+                    activeTrackColor: MMColors.gold,
+                    onChanged: (v) => setState(() => _private = v),
+                  ),
                 ),
               ],
             ),

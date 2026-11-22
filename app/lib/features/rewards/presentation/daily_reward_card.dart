@@ -83,10 +83,7 @@ class _DailyRewardCardState extends State<DailyRewardCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text('Daily reward', style: MMText.headline),
-                      Text(
-                        s.available ? 'Day $today is ready to claim' : 'Claimed today. Come back tomorrow!',
-                        style: MMText.caption,
-                      ),
+                      Text(s.available ? 'Day $today is ready to claim' : 'Claimed today. Come back tomorrow!', style: MMText.caption),
                     ],
                   ),
                 ),
@@ -101,11 +98,7 @@ class _DailyRewardCardState extends State<DailyRewardCard> {
               children: [
                 for (var d = 1; d <= 7; d++)
                   Expanded(
-                    child: _DayPip(
-                      day: d,
-                      done: d < today || (d == today && !s.available),
-                      current: d == today && s.available,
-                    ),
+                    child: _DayPip(day: d, done: d < today || (d == today && !s.available), current: d == today && s.available),
                   ),
               ],
             ),

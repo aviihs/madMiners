@@ -27,8 +27,7 @@ class GameSettings {
   static const _kLeft = 'settings.leftHanded';
   static const _kGfx = 'settings.highGraphics';
 
-  static bool get _isMobile =>
-      !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
+  static bool get _isMobile => !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
 
   static const double minScale = 0.75;
   static const double maxScale = 1.35;

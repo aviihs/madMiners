@@ -12,8 +12,7 @@ class LobbyRepositoryImpl implements LobbyRepository {
   Future<Result<List<RoomSummary>>> listRooms(String token) => guard(() => _remote.rooms(token));
 
   @override
-  Future<Result<RoomTicket>> createRoom(String token, CreateRoomParams params) =>
-      guard(() => _remote.create(token, params));
+  Future<Result<RoomTicket>> createRoom(String token, CreateRoomParams params) => guard(() => _remote.create(token, params));
 
   @override
   Future<Result<RoomTicket>> joinRoom(String token, String roomId) => guard(() => _remote.join(token, roomId));

@@ -15,14 +15,20 @@ class StoreState {
   final String? error;
   final String? message;
 
-  StoreState copyWith({CosmeticSlot? slot, CosmeticDef? preview, bool clearPreview = false, String? busyItem, String? error, String? message}) =>
-      StoreState(
-        slot: slot ?? this.slot,
-        preview: clearPreview ? null : (preview ?? this.preview),
-        busyItem: busyItem,
-        error: error,
-        message: message,
-      );
+  StoreState copyWith({
+    CosmeticSlot? slot,
+    CosmeticDef? preview,
+    bool clearPreview = false,
+    String? busyItem,
+    String? error,
+    String? message,
+  }) => StoreState(
+    slot: slot ?? this.slot,
+    preview: clearPreview ? null : (preview ?? this.preview),
+    busyItem: busyItem,
+    error: error,
+    message: message,
+  );
 }
 
 class StoreCubit extends Cubit<StoreState> {
@@ -43,24 +49,30 @@ class StoreCubit extends Cubit<StoreState> {
     }
     // Wear it right away.
     final r = await _equip(token, c.id);
-    return r.fold((f) {
-      emit(state.copyWith(error: f.message));
-      return (bought as Ok<PlayerProfile>).value;
-    }, (p) {
-      emit(state.copyWith(message: '${c.name} unlocked!', clearPreview: true));
-      return p;
-    });
+    return r.fold(
+      (f) {
+        emit(state.copyWith(error: f.message));
+        return (bought as Ok<PlayerProfile>).value;
+      },
+      (p) {
+        emit(state.copyWith(message: '${c.name} unlocked!', clearPreview: true));
+        return p;
+      },
+    );
   }
 
   Future<PlayerProfile?> equip(String token, CosmeticDef c) async {
     emit(state.copyWith(busyItem: c.id));
     final r = await _equip(token, c.id);
-    return r.fold((f) {
-      emit(state.copyWith(error: f.message));
-      return null;
-    }, (p) {
-      emit(state.copyWith(clearPreview: true));
-      return p;
-    });
+    return r.fold(
+      (f) {
+        emit(state.copyWith(error: f.message));
+        return null;
+      },
+      (p) {
+        emit(state.copyWith(clearPreview: true));
+        return p;
+      },
+    );
   }
 }
