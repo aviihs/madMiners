@@ -18,12 +18,12 @@ export default function PrivacyPolicyPage() {
   return (
     <>
       <ReadingProgress />
-      <PageHero {...hero} note={`Effective ${formatDate(site.policyLastUpdated)}`} />
+      <PageHero {...hero} note={`Effective ${formatDate(site.policyLastUpdated)}`} overlap />
+      <PolicyHighlights items={highlights} />
       <Section className="grid gap-12 lg:grid-cols-[220px_1fr] lg:gap-16">
         <PolicyToc sections={sections.map(({ id, title }) => ({ id, title }))} />
         <div className="max-w-[44rem]">
-          <PolicyHighlights items={highlights} />
-          <article className="mt-12 space-y-8 text-[1rem] leading-[1.75]">
+          <article className="space-y-8 text-[1rem] leading-[1.75]">
             {sections.map((section, index) => (
               <PolicySection key={section.id} section={section} number={index + 1} />
             ))}

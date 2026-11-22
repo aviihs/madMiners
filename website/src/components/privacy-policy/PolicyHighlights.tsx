@@ -1,22 +1,30 @@
-import { Check } from "lucide-react";
-
+import { ICONS } from "@/lib/icons";
 import type { IconCard } from "@/types/Content";
 
-/** "At a glance" summary box above the full policy. */
+/**
+ * "At a glance": four promise cards that sit across the bottom edge of the
+ * page header. A swipe row on phones, 2 columns on tablets, 4 on desktop.
+ */
 export function PolicyHighlights({ items }: { items: IconCard[] }) {
   return (
-    <aside aria-label="Summary" className="border-line bg-card shadow-card rounded-2xl border p-6 sm:p-7">
-      <h2 className="text-ink-muted font-sans text-[0.8125rem] font-semibold tracking-wide">At a glance</h2>
-      <ul className="mt-4 grid gap-x-8 gap-y-4 sm:grid-cols-2">
-        {items.map((item) => (
-          <li key={item.title} className="flex gap-3">
-            <Check aria-hidden className="text-ok mt-1 size-4 shrink-0" strokeWidth={2.5} />
-            <p className="text-ink-soft text-[0.9375rem]">
-              <strong className="text-ink font-semibold">{item.title}.</strong> {item.text}
-            </p>
-          </li>
-        ))}
+    <section aria-label="At a glance" className="relative mx-auto -mt-14 max-w-6xl px-5 sm:-mt-16 sm:px-8">
+      <ul className="swipe-row grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {items.map((item) => {
+          const Icon = ICONS[item.icon];
+          return (
+            <li
+              key={item.title}
+              className="interactive-card border-line bg-card shadow-raised rounded-3xl border p-6"
+            >
+              <span className="from-accent to-accent-ink mb-5 flex size-11 items-center justify-center rounded-2xl bg-linear-to-br text-white shadow-[0_8px_18px_-8px_rgb(143_90_7/0.7)]">
+                <Icon aria-hidden className="size-5" strokeWidth={2} />
+              </span>
+              <h2 className="text-ink font-sans text-[1rem] font-semibold tracking-tight">{item.title}</h2>
+              <p className="text-ink-soft mt-1.5 text-[0.875rem] leading-relaxed">{item.text}</p>
+            </li>
+          );
+        })}
       </ul>
-    </aside>
+    </section>
   );
 }

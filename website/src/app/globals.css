@@ -82,3 +82,53 @@
     scroll-behavior: auto;
   }
 }
+
+/* Card that lifts slightly on hover (pointer devices only). */
+@utility interactive-card {
+  transition-property: translate, border-color, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+
+  @media (hover: hover) {
+    &:hover {
+      translate: 0 -4px;
+      border-color: color-mix(in oklab, var(--color-accent) 45%, transparent);
+      box-shadow: 0 2px 4px rgb(28 26 22 / 0.06), 0 26px 50px -24px rgb(28 26 22 / 0.4);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &:hover {
+      translate: none;
+    }
+  }
+}
+
+/* Phones: a grid becomes a sideways swipe row that snaps card by card. */
+@utility swipe-row {
+  @media (width < 40rem) {
+    /* !important: the list also carries grid classes for larger screens. */
+    display: flex !important;
+    gap: 0.75rem !important;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    /* Edge to edge, while the first and last cards line up with the gutter. */
+    margin-inline: -1.25rem;
+    padding-inline: 1.25rem;
+    scroll-padding-inline: 1.25rem;
+    /* Room for card shadows, which a scroll container would clip. */
+    padding-block: 0.25rem 1.5rem;
+    margin-bottom: -1.25rem;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    & > * {
+      flex: 0 0 82%;
+      scroll-snap-align: start;
+    }
+  }
+}
