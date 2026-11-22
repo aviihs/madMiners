@@ -14,7 +14,10 @@ type PolicyTocProps = {
 export function PolicyToc({ sections }: PolicyTocProps) {
   const activeId = useActiveSection(sections.map((section) => section.id));
   return (
-    <nav aria-label="On this page" className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto overscroll-contain lg:block">
+    <nav
+      aria-label="On this page"
+      className="sticky top-24 hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto overscroll-contain lg:block"
+    >
       <p className="text-ink-muted text-[0.8125rem] font-semibold tracking-wide">On this page</p>
       <ol className="mt-3 space-y-0.5">
         {sections.map((section, index) => (

@@ -1,6 +1,8 @@
 {
   "name": "Mad Miners",
   "storeTitle": "Mad Miners: Dig & Treasure",
+  "seoTitle": "Mad Miners: Multiplayer Mining & Treasure Hunt Game",
+  "seoDescription": "Dig, mine gold and diamonds, dodge TNT and lava, and race up to 12 players to the hidden treasure. Free multiplayer mining game for Android, with offline mode.",
   "tagline": "Dig deeper. Risk more. Find the treasure.",
   "description": "A real-time multiplayer mining game. Dig through rock, dodge TNT, lava and monsters, crack open Mystery Bombs and race other miners to a treasure sealed deep underground.",
   "developer": "Yantrakshetra Labs",
@@ -10,17 +12,32 @@
   "playStoreUrl": "https://play.google.com/store/apps/details?id=com.madminers.game",
   "policyLastUpdated": "2026-11-22",
   "keywords": [
+    "Mad Miners",
+    "Mad Miners game",
     "mining game",
-    "multiplayer mining",
+    "multiplayer mining game",
     "treasure hunt game",
     "dig game",
-    "arcade game",
-    "Mad Miners"
+    "gold miner game",
+    "digging game android",
+    "free mining game",
+    "offline mining game",
+    "mining games for android",
+    "2D mining game",
+    "arcade mining game",
+    "game made in Nepal"
   ],
   "social": {
     "github": "https://github.com/aviihs",
     "instagram": "https://www.instagram.com/av_ihs__/",
     "facebook": "https://www.facebook.com/shiva01000",
     "website": "https://bhusalshiva.com.np"
-  }
+  },
+  "genres": [
+    "Mining",
+    "Arcade",
+    "Action",
+    "Multiplayer",
+    "Adventure"
+  ]
 }

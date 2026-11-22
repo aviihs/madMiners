@@ -5,18 +5,22 @@ import { ReadingProgress } from "@/components/privacy-policy/ReadingProgress";
 import { PageHero } from "@/components/reusable/PageHero";
 import { Section } from "@/components/reusable/Section";
 import { formatDate, privacyPolicyContent, site } from "@/lib/content";
+import { JsonLd } from "@/components/reusable/JsonLd";
 import { pageMetadata } from "@/lib/seo";
+import { breadcrumbStructuredData } from "@/lib/structured-data";
 
 export const metadata = pageMetadata({
   title: "Privacy Policy",
   description: `How ${site.name} collects, uses and protects your information, and how to delete your account.`,
   path: "/privacy-policy",
+  keywords: ["Mad Miners privacy policy"],
 });
 
 export default function PrivacyPolicyPage() {
   const { hero, highlights, sections } = privacyPolicyContent;
   return (
     <>
+      <JsonLd data={breadcrumbStructuredData("Privacy Policy", "/privacy-policy")} />
       <ReadingProgress />
       <PageHero {...hero} note={`Effective ${formatDate(site.policyLastUpdated)}`} overlap />
       <PolicyHighlights items={highlights} />

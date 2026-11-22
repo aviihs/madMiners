@@ -4,13 +4,16 @@ import { PageHero } from "@/components/reusable/PageHero";
 import { Section } from "@/components/reusable/Section";
 import { deleteAccountContent, fillPlaceholders, site } from "@/lib/content";
 import { buildMailto } from "@/lib/mailto";
+import { JsonLd } from "@/components/reusable/JsonLd";
 import { pageMetadata } from "@/lib/seo";
+import { breadcrumbStructuredData } from "@/lib/structured-data";
 import { cn } from "@/lib/utils";
 
 export const metadata = pageMetadata({
   title: "Delete your account",
   description: `How to delete your ${site.name} account and all of its game data.`,
   path: "/delete-account",
+  keywords: ["Mad Miners delete account", "delete Mad Miners data"],
 });
 
 const DELETION_MAILTO = buildMailto({
@@ -23,6 +26,7 @@ export default function DeleteAccountPage() {
   const { hero, steps, deleted, kept, deviceNote } = deleteAccountContent;
   return (
     <>
+      <JsonLd data={breadcrumbStructuredData("Delete account", "/delete-account")} />
       <PageHero {...hero} />
       <Section className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
         <div>

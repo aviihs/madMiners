@@ -1,6 +1,11 @@
 export type Site = {
   name: string;
   storeTitle: string;
+  /** Search result title (~60 chars) and description (~155 chars). */
+  seoTitle: string;
+  seoDescription: string;
+  /** schema.org genres. */
+  genres: string[];
   tagline: string;
   description: string;
   developer: string;

@@ -37,6 +37,32 @@ bun start          # serve the build
    are handled by hand. Deleting the `users` row removes everything else (all tables use
    `ON DELETE CASCADE`; finished matches keep only the winner's name as text).
 
+## SEO
+
+What's built in (all generated from `src/data`, nothing to keep in sync by hand):
+
+| URL | What it does |
+|---|---|
+| `/sitemap.xml` | Every page + an image sitemap of the screenshots |
+| `/robots.txt` | Everything allowed, including AI crawlers (GPTBot, ClaudeBot, PerplexityBot…) |
+| `/llms.txt`, `/llms-full.txt` | Plain-text summary of the game for AI assistants ([llmstxt.org](https://llmstxt.org)) |
+| `/opengraph-image` | Social preview card |
+| JSON-LD | VideoGame + MobileApplication, Organization, WebSite, FAQ, breadcrumbs |
+
+Titles and descriptions: `seoTitle`, `seoDescription` and `keywords` in `src/data/site.json`.
+
+After the first deploy:
+
+1. Set `NEXT_PUBLIC_SITE_URL` to the real domain and redeploy.
+2. [Google Search Console](https://search.google.com/search-console): add the site, verify with
+   `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION`, submit `/sitemap.xml`, then "Request indexing" for `/`.
+3. [Bing Webmaster Tools](https://www.bing.com/webmasters): import from Search Console (Bing also
+   feeds ChatGPT search and DuckDuckGo).
+4. Play Console → Store settings → Website: put this site's URL there, and the privacy policy URL
+   under App content. Google links the app and the site through these.
+5. Link to the site from the GitHub README, Instagram and Facebook bios. Links from other sites
+   matter more for ranking than anything on the page itself.
+
 ## Deploy
 
 Vercel: import the repo, set **Root Directory** to `website`, add `NEXT_PUBLIC_SITE_URL`, deploy.
