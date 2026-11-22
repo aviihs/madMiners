@@ -1,29 +1,24 @@
 "use client";
 
-import { Menu, X } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { BrandLogo } from "@/components/reusable/BrandLogo";
-import { NAV_LINKS } from "@/constants/navigation";
+import { isNavLinkActive, NAV_LINKS } from "@/constants/navigation";
 import { site } from "@/lib/content";
 import { cn } from "@/lib/utils";
 
 import { MobileMenu } from "./MobileMenu";
 
-/** Top bar: logo, links and the store link; a menu on small screens. */
+/**
+ * Fixed header: menu button + logo on the left, pill links in the middle
+ * (desktop), "Get the game" on the right. Turns frosted once you scroll.
+ */
 export function Navbar() {
   const pathname = usePathname();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
-  const [menuPath, setMenuPath] = useState(pathname);
-
-  // Close the mobile menu after navigating (state reset during render, no effect needed).
-  if (menuPath !== pathname) {
-    setMenuPath(pathname);
-    setIsMenuOpen(false);
-  }
 
   useEffect(() => {
     const handleScroll = () => setHasScrolled(window.scrollY > 8);
@@ -35,56 +30,59 @@ export function Navbar() {
   return (
     <header
       className={cn(
-        "bg-paper fixed inset-x-0 top-0 z-50 border-b transition-[border-color]",
-        hasScrolled || isMenuOpen ? "border-line" : "border-transparent",
+        "fixed inset-x-0 top-0 z-50 border-b transition-[background-color,border-color,box-shadow] duration-300",
+        hasScrolled
+          ? "bg-paper/80 border-line/70 shadow-[0_8px_30px_-12px_rgb(28_26_22/0.18)] backdrop-blur-xl backdrop-saturate-150"
+          : "bg-paper/90 border-transparent backdrop-blur-md",
       )}
     >
       <nav
-        className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8"
+        className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6"
         aria-label="Main"
       >
-        <BrandLogo />
-        <div className="hidden items-center gap-8 md:flex">
-          <ul className="flex items-center gap-7">
-            {NAV_LINKS.map((link) => {
-              const isActive = pathname === link.href;
-              return (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    aria-current={isActive ? "page" : undefined}
-                    className={cn(
-                      "text-[0.9375rem] font-medium transition-colors",
-                      isActive ? "text-ink" : "text-ink-muted hover:text-ink",
-                    )}
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-          <a
-            href={site.playStoreUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-ink hover:bg-ink/85 rounded-lg px-3.5 py-2 text-[0.875rem] font-semibold text-white transition-colors"
-          >
-            Get the game
-          </a>
+        <div className="flex items-center gap-1.5">
+          <MobileMenu pathname={pathname} />
+          <BrandLogo />
         </div>
-        <button
-          type="button"
-          className="text-ink -mr-2 rounded-lg p-2 md:hidden"
-          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-          aria-expanded={isMenuOpen}
-          aria-controls="mobile-menu"
-          onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
+
+        <ul className="hidden items-center md:flex">
+          {NAV_LINKS.map((link) => {
+            const isActive = isNavLinkActive(link.href, pathname);
+            return (
+              <li key={link.href} className="relative">
+                <Link
+                  href={link.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
+                    "hover:bg-paper-deep block rounded-full px-3.5 py-2 text-[0.875rem] font-medium transition-colors",
+                    isActive ? "text-ink" : "text-ink-soft hover:text-ink",
+                  )}
+                >
+                  {link.label}
+                </Link>
+                {isActive && (
+                  <span
+                    aria-hidden
+                    className="bg-accent absolute -bottom-[13px] left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full"
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ul>
+
+        <a
+          href={site.playStoreUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group bg-ink hover:bg-accent-ink inline-flex items-center gap-1.5 rounded-full py-2 pr-3 pl-4 text-[0.875rem] font-semibold text-white shadow-sm transition-colors"
         >
-          {isMenuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
-        </button>
+          <span>
+            Get<span className="hidden sm:inline"> the game</span>
+          </span>
+          <ArrowRight aria-hidden className="size-4 transition-transform group-hover:translate-x-0.5" />
+        </a>
       </nav>
-      {isMenuOpen && <MobileMenu pathname={pathname} />}
     </header>
   );
 }
