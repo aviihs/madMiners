@@ -5,3 +5,5 @@ build/
 *.iml
 server/data/
 .DS_Store
+
+docs
